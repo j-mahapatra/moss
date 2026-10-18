@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { mkdir, rename, unlink, writeFile } from 'fs/promises'
+import { mkdir, readFile, rename, unlink, writeFile } from 'fs/promises'
 import { dirname } from 'path'
 
 export type AtomicFs = {
@@ -7,9 +7,10 @@ export type AtomicFs = {
   writeFile: (path: string, data: string, encoding: 'utf8') => Promise<void>
   rename: (from: string, to: string) => Promise<void>
   unlink: (path: string) => Promise<void>
+  readFile: (path: string, encoding: 'utf8') => Promise<string>
 }
 
-export const defaultFs: AtomicFs = { mkdir, writeFile, rename, unlink }
+export const defaultFs: AtomicFs = { mkdir, writeFile, rename, unlink, readFile }
 
 /** Writes JSON to a temp file beside `path`, then renames it into place. */
 export async function atomicWriteJson(

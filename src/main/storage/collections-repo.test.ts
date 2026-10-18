@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir, rm, unlink, writeFile, mkdir } from 'fs/promises'
+import { mkdtemp, mkdir, readFile, readdir, rm, rename, unlink, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -127,6 +127,7 @@ describe('CollectionsRepo', () => {
     const repo0 = new CollectionsRepo(dir)
     await repo0.save(mk(ID1, 'Old'))
     const repo = new CollectionsRepo(dir, undefined, {
+      readFile,
       mkdir,
       writeFile,
       unlink,
@@ -137,5 +138,108 @@ describe('CollectionsRepo', () => {
     await expect(repo.save(mk(ID1, 'New'))).rejects.toThrow('crash')
     expect((await new CollectionsRepo(dir).get(ID1))?.name).toBe('Old')
     expect(await readdir(join(dir, 'collections'))).toEqual([`${ID1}.json`])
+  })
+
+  describe('fix round 1', () => {
+    const real = { mkdir, writeFile, unlink, rename, readFile }
+    const deferred = (): { promise: Promise<void>; release: () => void } => {
+      let release!: () => void
+      const promise = new Promise<void>((r) => (release = r))
+      return { promise, release }
+    }
+
+    it('still lists valid collections when a quarantine rename fails', async () => {
+      const cdir = join(dir, 'collections')
+      await mkdir(cdir)
+      await writeFile(join(cdir, `${ID1}.json`), '{bad')
+      await new CollectionsRepo(dir).save(mk(ID2, 'Good'))
+      const fs = {
+        ...real,
+        rename: async (from: string, to: string): Promise<void> => {
+          if (to.includes('.corrupt-')) throw Object.assign(new Error('busy'), { code: 'EBUSY' })
+          return rename(from, to)
+        }
+      }
+      const { collections, warnings } = await new CollectionsRepo(dir, undefined, fs).list()
+      expect(collections.map((c) => c.id)).toEqual([ID2])
+      expect(warnings).toEqual([`Couldn't read "${ID1}.json". It was left in place.`])
+      expect(await readdir(cdir)).toContain(`${ID1}.json`)
+    })
+
+    it('does not let a concurrent list() overwrite a newer save in the cache', async () => {
+      await new CollectionsRepo(dir).save(mk(ID1, 'v1'))
+      await new CollectionsRepo(dir).save(mk(ID2, 'other'))
+      const gate = deferred()
+      const fs = {
+        ...real,
+        readFile: async (p: string, enc: 'utf8'): Promise<string> => {
+          if (p.includes(ID2)) await gate.promise
+          return readFile(p, enc)
+        }
+      }
+      const repo = new CollectionsRepo(dir, undefined, fs)
+      const listing = repo.list()
+      await new Promise((r) => setTimeout(r, 20)) // list has read ID1 (v1), is parked on ID2
+      await repo.save(mk(ID1, 'v2'))
+      gate.release()
+      const { collections } = await listing
+      expect(collections.find((c) => c.id === ID1)?.name).toBe('v2')
+      expect((await repo.get(ID1))?.name).toBe('v2')
+    })
+
+    it('does not resurrect a collection deleted during list()', async () => {
+      await new CollectionsRepo(dir).save(mk(ID1, 'gone'))
+      await new CollectionsRepo(dir).save(mk(ID2, 'other'))
+      const gate = deferred()
+      const fs = {
+        ...real,
+        readFile: async (p: string, enc: 'utf8'): Promise<string> => {
+          if (p.includes(ID2)) await gate.promise
+          return readFile(p, enc)
+        }
+      }
+      const repo = new CollectionsRepo(dir, undefined, fs)
+      const listing = repo.list()
+      await new Promise((r) => setTimeout(r, 20))
+      await repo.delete(ID1)
+      gate.release()
+      const { collections } = await listing
+      expect(collections.map((c) => c.id)).toEqual([ID2])
+      expect(await repo.get(ID1)).toBeNull()
+    })
+
+    it('never moves a just-saved valid file aside while quarantining', async () => {
+      const cdir = join(dir, 'collections')
+      await mkdir(cdir)
+      await writeFile(join(cdir, `${ID1}.json`), '{bad')
+      const gate = deferred()
+      const fs = {
+        ...real,
+        rename: async (from: string, to: string): Promise<void> => {
+          if (to.includes('.corrupt-')) await gate.promise
+          return rename(from, to)
+        }
+      }
+      const repo = new CollectionsRepo(dir, undefined, fs, () => 5)
+      const listing = repo.list()
+      await new Promise((r) => setTimeout(r, 20))
+      const saving = repo.save(mk(ID1, 'fresh'))
+      await new Promise((r) => setTimeout(r, 20))
+      gate.release()
+      await Promise.all([listing, saving])
+      expect((await readdir(cdir)).sort()).toEqual([`${ID1}.corrupt-5.json`, `${ID1}.json`])
+      expect(JSON.parse(await readFile(join(cdir, `${ID1}.json`), 'utf8')).name).toBe('fresh')
+    })
+
+    it('rejects path-traversal ids', async () => {
+      await writeFile(join(dir, 'settings.json'), 'keep')
+      const repo = new CollectionsRepo(dir)
+      await expect(repo.delete('../settings')).rejects.toThrow('Invalid collection id')
+      expect(await readFile(join(dir, 'settings.json'), 'utf8')).toBe('keep')
+      await expect(repo.save(mk('../../x', 'Evil'))).rejects.toThrow('Invalid collection id')
+      expect(await repo.get('../settings')).toBeNull()
+      expect((await readdir(dir)).sort()).toEqual(['settings.json'])
+      expect((await readdir(tmpdir())).includes('x.json')).toBe(false)
+    })
   })
 })

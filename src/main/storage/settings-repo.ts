@@ -1,4 +1,3 @@
-import { readFile } from 'fs/promises'
 import { join } from 'path'
 import { SettingsSchema } from '../../shared/schemas'
 import { DEFAULT_SETTINGS, type Settings } from '../../shared/types'
@@ -18,22 +17,25 @@ export class SettingsRepo {
   }
 
   async get(): Promise<{ settings: Settings; warnings: string[] }> {
-    let raw: string
-    try {
-      raw = await readFile(this.path, 'utf8')
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT')
-        return { settings: DEFAULT_SETTINGS, warnings: [] }
-      throw err
-    }
-    try {
-      const r = SettingsSchema.safeParse(JSON.parse(raw))
-      if (r.success) return { settings: r.data, warnings: [] }
-    } catch {
-      // fall through to quarantine
-    }
-    const warning = await quarantine(this.dataDir, 'settings.json', this.now())
-    return { settings: DEFAULT_SETTINGS, warnings: [warning] }
+    // Read + quarantine under the file's queue key so a concurrent set() can't interleave.
+    return this.queue.run(this.path, async () => {
+      let raw: string
+      try {
+        raw = await this.fsImpl.readFile(this.path, 'utf8')
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT')
+          return { settings: DEFAULT_SETTINGS, warnings: [] }
+        throw err
+      }
+      try {
+        const r = SettingsSchema.safeParse(JSON.parse(raw))
+        if (r.success) return { settings: r.data, warnings: [] }
+      } catch {
+        // fall through to quarantine
+      }
+      const warning = await quarantine(this.dataDir, 'settings.json', this.now(), this.fsImpl)
+      return { settings: DEFAULT_SETTINGS, warnings: [warning] }
+    })
   }
 
   async set(s: Settings): Promise<void> {

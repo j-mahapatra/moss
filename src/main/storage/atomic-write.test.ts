@@ -28,6 +28,7 @@ describe('atomicWriteJson', () => {
     const p = join(dir, 'x.json')
     await atomicWriteJson(p, { v: 1 })
     const failing = {
+      readFile,
       mkdir,
       writeFile,
       unlink,
@@ -42,6 +43,7 @@ describe('atomicWriteJson', () => {
 
   it('ignores ENOENT from unlink during cleanup and rethrows the original error', async () => {
     const fs = {
+      readFile,
       mkdir,
       writeFile: async (): Promise<void> => {},
       unlink: async (): Promise<void> => {

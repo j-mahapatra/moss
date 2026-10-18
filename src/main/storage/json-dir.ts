@@ -1,6 +1,7 @@
-import { readdir, readFile, rename } from 'fs/promises'
+import { readdir } from 'fs/promises'
 import { join } from 'path'
 import type { z } from 'zod'
+import { defaultFs, WriteQueue, type AtomicFs } from './atomic-write'
 
 export type DirReadResult<T> = { values: T[]; warnings: string[] }
 
@@ -10,17 +11,28 @@ export function quarantineName(file: string, ts: number): string {
   return `${file.replace(/\.json$/i, '')}.corrupt-${ts}.json`
 }
 
-/** Moves a bad file aside and returns the user-facing warning. */
-export async function quarantine(dir: string, file: string, ts: number): Promise<string> {
+/** Moves a bad file aside and returns the user-facing warning. Never throws. */
+export async function quarantine(
+  dir: string,
+  file: string,
+  ts: number,
+  fsImpl: AtomicFs = defaultFs
+): Promise<string> {
   const newName = quarantineName(file, ts)
-  await rename(join(dir, file), join(dir, newName))
-  return `Couldn't read "${file}". It was moved aside as "${newName}".`
+  try {
+    await fsImpl.rename(join(dir, file), join(dir, newName))
+    return `Couldn't read "${file}". It was moved aside as "${newName}".`
+  } catch {
+    return `Couldn't read "${file}". It was left in place.`
+  }
 }
 
 export async function readJsonDir<T extends { id: string }>(
   dir: string,
   schema: z.ZodType<T>,
-  now: () => number = Date.now
+  now: () => number = Date.now,
+  queue: WriteQueue = new WriteQueue(),
+  fsImpl: AtomicFs = defaultFs
 ): Promise<DirReadResult<T>> {
   let names: string[]
   try {
@@ -32,15 +44,19 @@ export async function readJsonDir<T extends { id: string }>(
   const values: T[] = []
   const warnings: string[] = []
   for (const file of names.filter((n) => NAME_RE.test(n)).sort()) {
-    let parsed: T | null = null
-    try {
-      const r = schema.safeParse(JSON.parse(await readFile(join(dir, file), 'utf8')))
-      if (r.success && `${r.data.id}.json`.toLowerCase() === file.toLowerCase()) parsed = r.data
-    } catch {
-      parsed = null
-    }
-    if (parsed) values.push(parsed)
-    else warnings.push(await quarantine(dir, file, now()))
+    // Read + quarantine happen under the file's queue key so a concurrent save/delete can't interleave.
+    await queue.run(join(dir, file), async () => {
+      let parsed: T | null = null
+      try {
+        const raw = await fsImpl.readFile(join(dir, file), 'utf8')
+        const r = schema.safeParse(JSON.parse(raw))
+        if (r.success && `${r.data.id}.json`.toLowerCase() === file.toLowerCase()) parsed = r.data
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') return
+      }
+      if (parsed) values.push(parsed)
+      else warnings.push(await quarantine(dir, file, now(), fsImpl))
+    })
   }
   return { values, warnings }
 }
