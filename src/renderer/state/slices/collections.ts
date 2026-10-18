@@ -15,15 +15,24 @@ export const byName = (a: Collection, b: Collection): number =>
  * confirmed + pending[0..this op]. If it fails, that op is dropped and the visible
  * collection is recomputed as confirmed + the remaining pending ops, so only the
  * failed change rolls back.
+ *
+ * `fn` runs exactly once per update (against the optimistic state, when enqueued) and that
+ * result is what gets saved, so ids it generates match between state and disk. Only after
+ * an earlier op has failed are the later ops re-folded over the confirmed state, so `fn`
+ * may then run again.
  */
-type Entry = {
-  confirmed: Collection
-  pending: ((c: Collection) => Collection)[]
-  tail: Promise<unknown>
-}
+type Op = { fn: (c: Collection) => Collection; result: Collection }
+type Entry = { confirmed: Collection; pending: Op[]; tail: Promise<unknown> }
 
-const fold = (base: Collection, fns: ((c: Collection) => Collection)[]): Collection =>
-  fns.reduce((c, f) => f(c), base)
+/** Recomputes each pending op's result over `base`, in order (only used after a failure). */
+function refold(base: Collection, pending: Op[]): Collection {
+  let cur = base
+  for (const op of pending) {
+    op.result = op.fn(cur)
+    cur = op.result
+  }
+  return cur
+}
 
 export function createCollections(
   { set, get, api }: SliceCtx,
@@ -43,8 +52,8 @@ export function createCollections(
       collections: [...s.collections.filter((x) => x.id !== c.id), c].sort(byName)
     }))
 
-  const locate = (requestId: string): RequestSpec | null => {
-    for (const c of get().collections) {
+  const locate = (cols: Collection[], requestId: string): RequestSpec | null => {
+    for (const c of cols) {
       const hit = findItem(c, requestId)
       if (hit && hit.item.kind === 'request') return hit.item
     }
@@ -53,11 +62,13 @@ export function createCollections(
 
   const reconcile = (): void => {
     const s = get()
+    // Reconcile against what is confirmed on disk, not the optimistic view.
+    const cols = s.collections.map((c) => entries.get(c.id)?.confirmed ?? c)
     const patch: Partial<WorkspaceState> = {}
     const stash = { ...s.stash }
     let stashChanged = false
     for (const [id, spec] of Object.entries(s.stash)) {
-      const item = locate(id)
+      const item = locate(cols, id)
       if (!item) {
         delete stash[id]
         stashChanged = true
@@ -68,7 +79,7 @@ export function createCollections(
     }
     if (stashChanged) patch.stash = stash
     if (s.active) {
-      const c = s.collections.find((x) => x.id === s.active!.collectionId)
+      const c = cols.find((x) => x.id === s.active!.collectionId)
       const hit = c ? findItem(c, s.active.requestId) : null
       if (!hit || hit.item.kind !== 'request') {
         patch.active = null
@@ -95,17 +106,19 @@ export function createCollections(
       entry.confirmed = current
     }
     const e = entry
-    e.pending.push(fn)
+    const op: Op = { fn, result: next }
+    e.pending.push(op)
     putCollection(next)
 
     const run = async (): Promise<boolean> => {
-      const toSave = fold(e.confirmed, e.pending.slice(0, 1))
       // pending[0] is always this op: ops run FIFO.
+      const toSave = op.result
       try {
         await api['collections:save'](toSave)
       } catch (err) {
         e.pending.shift()
-        putCollection(fold(e.confirmed, e.pending))
+        putCollection(refold(e.confirmed, e.pending))
+        reconcile()
         addNotice('danger', `Couldn't save "${current.name}": ${errorMessage(err)}`)
         return false
       }

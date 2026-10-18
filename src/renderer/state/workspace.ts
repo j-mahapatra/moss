@@ -47,8 +47,8 @@ export type WorkspaceState = {
   init(): Promise<void>
   openRequest(ref: RequestRef, opts?: { discard?: boolean }): 'opened' | 'confirm-discard'
   newRequest(opts?: { discard?: boolean }): 'opened' | 'confirm-discard'
-  saveActive(): Promise<'saved' | 'needs-target'>
-  saveAs(target: { collectionId: string; folderId: string | null; name: string }): Promise<void>
+  saveActive(): Promise<'saved' | 'failed' | 'needs-target'>
+  saveAs(target: { collectionId: string; folderId: string | null; name: string }): Promise<boolean>
   createCollection(name: string): Promise<Collection | null>
   updateCollection(collectionId: string, fn: (c: Collection) => Collection): Promise<boolean>
   deleteCollection(collectionId: string): Promise<void>

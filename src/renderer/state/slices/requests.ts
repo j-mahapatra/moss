@@ -92,7 +92,11 @@ export function createRequests({ set, get, api }: SliceCtx): RequestsSlice {
       if (!hit || hit.item.kind !== 'request') return 'opened'
       if (!leaveDraft(opts?.discard)) return 'confirm-discard'
       const spec = toSpec(hit.item)
-      set((s) => ({ draft: s.stash[ref.requestId] ?? spec, saved: spec, active: ref }))
+      set((s) => {
+        const { [ref.requestId]: stashed, ...rest } = s.stash
+        // Invariant: the stash never contains the active request.
+        return { draft: stashed ?? spec, saved: spec, active: ref, stash: rest }
+      })
       return 'opened'
     },
 
@@ -108,32 +112,38 @@ export function createRequests({ set, get, api }: SliceCtx): RequestsSlice {
       const ok = await get().updateCollection(active.collectionId, (c) =>
         updateItem(c, active.requestId, () => toItem(draft))
       )
-      if (ok) {
-        const cur = get()
-        const stash = { ...cur.stash }
-        if (cur.active?.requestId === active.requestId) set({ saved: draft })
-        if (deepEqual(stash[active.requestId], draft)) delete stash[active.requestId]
-        set({ stash })
+      if (!ok) return 'failed'
+      const cur = get()
+      if (cur.active?.requestId === active.requestId) {
+        set({ saved: draft })
+      } else if (deepEqual(cur.stash[active.requestId], draft)) {
+        const rest = { ...cur.stash }
+        delete rest[active.requestId]
+        set({ stash: rest })
       }
       return 'saved'
     },
 
     saveAs: async (target) => {
-      const { active, draft } = get()
+      const { draft } = get()
+      const idTaken = get().collections.some((c) => findItem(c, draft.id) !== null)
       const spec: RequestSpec = {
         ...draft,
-        id: active ? crypto.randomUUID() : draft.id,
+        id: idTaken ? crypto.randomUUID() : draft.id,
         name: target.name.trim() || 'Untitled request'
       }
       const ok = await get().updateCollection(target.collectionId, (c) =>
         insertItem(c, target.folderId, toItem(spec))
       )
-      if (!ok) return
+      const tc = get().collections.find((c) => c.id === target.collectionId)
+      if (!ok || !tc || !findItem(tc, spec.id)) return false
       set({
-        draft: spec,
+        // keep edits typed while the save was pending
+        draft: { ...get().draft, id: spec.id, name: spec.name },
         saved: spec,
         active: { collectionId: target.collectionId, requestId: spec.id }
       })
+      return true
     }
   }
 }

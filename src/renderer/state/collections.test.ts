@@ -1,6 +1,12 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type -- test helpers with inferred fake-api types */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { newCollection, newFolder, renameItem, toItem } from '../../shared/collection-tree'
+import {
+  insertItem,
+  newCollection,
+  newFolder,
+  renameItem,
+  toItem
+} from '../../shared/collection-tree'
 import {
   newRequestSpec,
   type Collection,
@@ -457,5 +463,113 @@ describe('settings', () => {
       tone: 'warning',
       message: "Couldn't save settings."
     })
+  })
+})
+
+describe('fix round 1', () => {
+  it('keeps the stash free of the active id, so a save clears the dot', async () => {
+    const { a, b, col } = fixture()
+    const { store } = setup([col])
+    await store.getState().init()
+    const refA = { collectionId: col.id, requestId: a.id }
+    store.getState().openRequest(refA)
+    store.getState().updateDraft({ url: 'x' })
+    store.getState().openRequest({ collectionId: col.id, requestId: b.id })
+    store.getState().openRequest(refA)
+    expect(store.getState().stash[a.id]).toBeUndefined()
+    store.getState().updateDraft({ url: 'xy' })
+    expect(await store.getState().saveActive()).toBe('saved')
+    expect(selectDirtyIds(store.getState()).size).toBe(0)
+    expect(store.getState().stash).toEqual({})
+  })
+
+  it('an edit reverted to the saved value is not dirty after reopening', async () => {
+    const { a, b, col } = fixture()
+    const { store } = setup([col])
+    await store.getState().init()
+    const refA = { collectionId: col.id, requestId: a.id }
+    store.getState().openRequest(refA)
+    store.getState().updateDraft({ url: 'x' })
+    store.getState().openRequest({ collectionId: col.id, requestId: b.id })
+    store.getState().openRequest(refA)
+    store.getState().updateDraft({ url: '' })
+    expect(selectDirtyIds(store.getState()).size).toBe(0)
+  })
+
+  it('runs fn once: generated ids match between state and disk', async () => {
+    const { col } = fixture()
+    const { store, disk } = setup([col])
+    await store.getState().init()
+    await store.getState().updateCollection(col.id, (c) => insertItem(c, null, newFolder('F')))
+    const inState = store.getState().collections[0]!.items.at(-1)!.id
+    expect(disk.get(col.id)!.items.at(-1)!.id).toBe(inState)
+  })
+
+  it('reconciles against confirmed state: a failed delete leaves active in place', async () => {
+    const { a, col } = fixture()
+    const { store, saves } = setup([col], { hold: true })
+    await store.getState().init()
+    store.getState().openRequest({ collectionId: col.id, requestId: a.id })
+    const p1 = store.getState().updateCollection(col.id, (c) => ({ ...c, name: 'Renamed' }))
+    const p2 = store.getState().updateCollection(col.id, (c) => ({
+      ...c,
+      items: c.items.filter((i) => i.id !== a.id)
+    }))
+    await vi.waitFor(() => expect(saves).toHaveLength(1))
+    saves[0]!.resolve()
+    await vi.waitFor(() => expect(saves).toHaveLength(2))
+    expect(store.getState().active?.requestId).toBe(a.id)
+    saves[1]!.reject(new Error('nope'))
+    expect(await Promise.all([p1, p2])).toEqual([true, false])
+    expect(store.getState().active?.requestId).toBe(a.id)
+    expect(store.getState().saved).not.toBeNull()
+  })
+
+  it('saveAs gives a colliding id a fresh one', async () => {
+    const { a, col } = fixture()
+    const { store } = setup([col])
+    await store.getState().init()
+    store.getState().openRequest({ collectionId: col.id, requestId: a.id })
+    store.getState().newRequest()
+    store.getState().updateDraft({ id: a.id })
+    expect(
+      await store.getState().saveAs({ collectionId: col.id, folderId: null, name: 'Dup' })
+    ).toBe(true)
+    const ids = store.getState().collections[0]!.items.map((i) => i.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(store.getState().active?.requestId).not.toBe(a.id)
+  })
+
+  it('reports failed saves to callers and shows a danger notice', async () => {
+    const { a, col } = fixture()
+    const { store, api } = setup([col])
+    await store.getState().init()
+    store.getState().openRequest({ collectionId: col.id, requestId: a.id })
+    api['collections:save'].mockRejectedValueOnce(new Error('e1'))
+    expect(await store.getState().saveActive()).toBe('failed')
+    expect(store.getState().notices.at(-1)).toMatchObject({ tone: 'danger' })
+    expect(selectDirtyIds(store.getState()).size).toBe(0)
+    store.getState().newRequest()
+    api['collections:save'].mockRejectedValueOnce(new Error('e2'))
+    expect(await store.getState().saveAs({ collectionId: col.id, folderId: null, name: 'n' })).toBe(
+      false
+    )
+    expect(store.getState().notices.at(-1)?.message).toContain('e2')
+    expect(store.getState().active).toBeNull()
+  })
+
+  it('saveAs keeps edits typed while the save was pending', async () => {
+    const { col } = fixture()
+    const { store, saves } = setup([col], { hold: true })
+    await store.getState().init()
+    const p = store.getState().saveAs({ collectionId: col.id, folderId: null, name: 'N' })
+    await vi.waitFor(() => expect(saves).toHaveLength(1))
+    store.getState().updateDraft({ url: 'typed-late' })
+    saves[0]!.resolve()
+    expect(await p).toBe(true)
+    const s = store.getState()
+    expect(s.draft.url).toBe('typed-late')
+    expect(s.draft.name).toBe('N')
+    expect(selectDirtyIds(s).has(s.draft.id)).toBe(true)
   })
 })
