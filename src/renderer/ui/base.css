@@ -1,0 +1,57 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--moss-bg);
+  color: var(--moss-text);
+  font-family: var(--moss-font-sans);
+  font-size: var(--moss-text-md);
+  font-weight: var(--moss-weight-regular);
+  line-height: var(--moss-leading-normal);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--moss-font-mono);
+}
+
+::selection {
+  background: var(--moss-accent-soft);
+  color: var(--moss-text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--moss-focus);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

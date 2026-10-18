@@ -1,0 +1,43 @@
+.moss-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--moss-space-1);
+  height: 20px;
+  padding: 0 var(--moss-space-2);
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: var(--moss-radius-sm);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  font-family: var(--moss-font-mono);
+  font-size: var(--moss-text-xs);
+  font-weight: var(--moss-weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.moss-badge--neutral {
+  color: var(--moss-text-muted);
+}
+
+.moss-badge--accent {
+  color: var(--moss-accent);
+}
+
+.moss-badge--2xx {
+  color: var(--moss-status-2xx);
+}
+
+.moss-badge--3xx {
+  color: var(--moss-status-3xx);
+}
+
+.moss-badge--4xx {
+  color: var(--moss-status-4xx);
+}
+
+.moss-badge--5xx {
+  color: var(--moss-status-5xx);
+}
+
+.moss-badge--danger {
+  color: var(--moss-danger);
+}

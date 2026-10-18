@@ -1,0 +1,72 @@
+/* Temporary kitchen-sink layout; Task 9 replaces App. */
+.sink {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+}
+
+.sink__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--moss-space-3);
+  padding: var(--moss-space-2) var(--moss-space-4);
+  border-bottom: 1px solid var(--moss-border);
+  background: var(--moss-surface);
+}
+
+.sink__grow {
+  flex: 1;
+}
+
+.sink__pane {
+  display: grid;
+  align-content: start;
+  gap: var(--moss-space-4);
+  height: 100%;
+  padding: var(--moss-space-4);
+  background: var(--moss-surface);
+}
+
+.sink__url {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--moss-space-2);
+}
+
+.sink__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--moss-space-2);
+}
+
+.sink__vars {
+  display: flex;
+  gap: var(--moss-space-3);
+  margin: 0;
+  font-family: var(--moss-font-mono);
+  font-size: var(--moss-text-sm);
+}
+
+.sink__var--ok {
+  color: var(--moss-var-resolved);
+}
+
+.sink__var--missing {
+  color: var(--moss-var-unresolved);
+  text-decoration: underline wavy;
+}
+
+.sink__muted {
+  margin: 0;
+  color: var(--moss-text-muted);
+}
+
+.sink__code {
+  margin: 0;
+  padding: var(--moss-space-3);
+  border: 1px solid var(--moss-border);
+  border-radius: var(--moss-radius-md);
+  background: var(--moss-bg);
+  font-size: var(--moss-text-sm);
+}

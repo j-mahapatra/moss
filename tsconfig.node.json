@@ -6,7 +6,8 @@
     "src/main/**/*",
     "src/preload/**/*",
     "src/runner/**/*",
-    "src/shared/**/*"
+    "src/shared/**/*",
+    "scripts/**/*"
   ],
   "compilerOptions": {
     "composite": true,

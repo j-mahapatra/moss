@@ -1,0 +1,53 @@
+.moss-tabs {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.moss-tabs__list {
+  display: flex;
+  gap: var(--moss-space-1);
+  border-bottom: 1px solid var(--moss-border);
+}
+
+.moss-tabs__trigger {
+  position: relative;
+  height: var(--moss-control-md);
+  padding: 0 var(--moss-space-3);
+  border: 0;
+  background: transparent;
+  color: var(--moss-text-muted);
+  font-size: var(--moss-text-md);
+  font-weight: var(--moss-weight-medium);
+  cursor: pointer;
+}
+
+.moss-tabs__trigger:hover {
+  color: var(--moss-text);
+}
+
+.moss-tabs__trigger[data-state='active'] {
+  color: var(--moss-text);
+}
+
+/* The active tab grows a short emerald shoot rather than a full-width underline. */
+.moss-tabs__trigger[data-state='active']::after {
+  content: '';
+  position: absolute;
+  left: var(--moss-space-3);
+  bottom: -1px;
+  width: var(--moss-space-4);
+  height: 2px;
+  border-radius: var(--moss-radius-pill);
+  background: var(--moss-accent);
+}
+
+.moss-tabs__panel {
+  flex: 1;
+  min-height: 0;
+  padding-top: var(--moss-space-2);
+}
+
+.moss-tabs__panel:focus-visible {
+  outline-offset: -2px;
+}

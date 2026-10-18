@@ -1,0 +1,35 @@
+.moss-input {
+  width: 100%;
+  min-width: 0;
+  height: var(--moss-control-md);
+  padding: 0 var(--moss-space-3);
+  border: 1px solid var(--moss-border);
+  border-radius: var(--moss-radius-md);
+  background: var(--moss-surface-raised);
+  color: var(--moss-text);
+  font-size: var(--moss-text-md);
+  transition: border-color var(--moss-duration-fast);
+}
+
+.moss-input::placeholder {
+  color: var(--moss-text-muted);
+}
+
+.moss-input:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--moss-border) 50%, var(--moss-text-muted));
+}
+
+.moss-input:focus-visible {
+  border-color: var(--moss-focus);
+  outline: 1px solid var(--moss-focus);
+  outline-offset: 0;
+}
+
+.moss-input:disabled {
+  opacity: 0.5;
+}
+
+.moss-input--mono {
+  font-family: var(--moss-font-mono);
+  font-size: var(--moss-text-sm);
+}

@@ -1,0 +1,70 @@
+.moss-select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--moss-space-2);
+  height: var(--moss-control-md);
+  padding: 0 var(--moss-space-2) 0 var(--moss-space-3);
+  border: 1px solid var(--moss-border);
+  border-radius: var(--moss-radius-md);
+  background: var(--moss-surface-raised);
+  color: var(--moss-text);
+  font-size: var(--moss-text-md);
+  font-weight: var(--moss-weight-medium);
+  cursor: pointer;
+}
+
+.moss-select:hover {
+  border-color: var(--moss-accent);
+}
+
+.moss-select[data-placeholder] {
+  color: var(--moss-text-muted);
+}
+
+.moss-select__icon {
+  display: inline-grid;
+  color: var(--moss-text-muted);
+}
+
+.moss-select__icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.moss-select__content {
+  min-width: var(--radix-select-trigger-width);
+  max-height: var(--radix-select-content-available-height);
+  overflow: hidden;
+  border: 1px solid var(--moss-border);
+  border-radius: var(--moss-radius-md);
+  background: var(--moss-surface-raised);
+  color: var(--moss-text);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--moss-text) 14%, transparent);
+  z-index: 50;
+}
+
+.moss-select__viewport {
+  padding: var(--moss-space-1);
+}
+
+.moss-select__item {
+  display: flex;
+  align-items: center;
+  height: var(--moss-control-sm);
+  padding: 0 var(--moss-space-2);
+  border-radius: var(--moss-radius-sm);
+  font-size: var(--moss-text-md);
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+}
+
+.moss-select__item[data-highlighted] {
+  background: var(--moss-accent-soft);
+}
+
+.moss-select__item[data-state='checked'] {
+  font-weight: var(--moss-weight-bold);
+  box-shadow: inset 2px 0 0 var(--moss-accent);
+}
