@@ -147,4 +147,27 @@ describe('RunnerSupervisor', () => {
     })
     expect(fork).toHaveBeenCalledTimes(1)
   })
+
+  it('resolves runner-crashed (not reject) when postMessage throws, and recovers', async () => {
+    const { sup, children, fork } = setup()
+    void sup.send('warm', req)
+    const first = children[0]!
+    first.postMessage = (): void => {
+      throw new Error('clone failed')
+    }
+    const r = await sup.send('a', req)
+    expect(r).toEqual({
+      ok: false,
+      error: {
+        kind: 'runner-crashed',
+        message: 'The request runner stopped unexpectedly and was restarted. Try again.',
+        detail: 'Error: clone failed'
+      }
+    })
+    expect(first.killed).toBe(true)
+    const retry = sup.send('a', req)
+    expect(fork).toHaveBeenCalledTimes(2)
+    children[1]!.emit({ type: 'result', requestId: 'a', result: okResult })
+    await expect(retry).resolves.toEqual(okResult)
+  })
 })

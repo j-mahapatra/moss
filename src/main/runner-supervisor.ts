@@ -10,9 +10,15 @@ export interface RunnerChild {
   kill(): void
 }
 
-const fail = (kind: 'runner-crashed' | 'invalid-request', message: string): SendResult => ({
+const CRASH_MESSAGE = 'The request runner stopped unexpectedly and was restarted. Try again.'
+
+const fail = (
+  kind: 'runner-crashed' | 'invalid-request',
+  message: string,
+  detail?: string
+): SendResult => ({
   ok: false,
-  error: { kind, message }
+  error: detail === undefined ? { kind, message } : { kind, message, detail }
 })
 
 export class RunnerSupervisor {
@@ -35,7 +41,21 @@ export class RunnerSupervisor {
     const child = this.ensureChild()
     return new Promise<SendResult>((resolve) => {
       this.pending.set(requestId, resolve)
-      child.postMessage({ type: 'execute', requestId, request, options: this.options })
+      try {
+        child.postMessage({ type: 'execute', requestId, request, options: this.options })
+      } catch (err) {
+        // Drop the broken child so the next send forks a fresh one; fail everything on it.
+        this.child = null
+        try {
+          child.kill()
+        } catch {
+          // already gone
+        }
+        const others = [...this.pending.entries()].filter(([id]) => id !== requestId)
+        this.pending.clear()
+        resolve(fail('runner-crashed', CRASH_MESSAGE, String(err)))
+        for (const [, other] of others) other(fail('runner-crashed', CRASH_MESSAGE))
+      }
     })
   }
 
@@ -65,8 +85,7 @@ export class RunnerSupervisor {
       this.child = null
       const resolvers = [...this.pending.values()]
       this.pending.clear()
-      const message = 'The request runner stopped unexpectedly and was restarted. Try again.'
-      for (const resolve of resolvers) resolve(fail('runner-crashed', message))
+      for (const resolve of resolvers) resolve(fail('runner-crashed', CRASH_MESSAGE))
     })
     return child
   }
