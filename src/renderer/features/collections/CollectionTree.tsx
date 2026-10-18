@@ -134,8 +134,9 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
     },
     newFolder: () => {
       const folder = newFolder('New folder')
-      void addItem(row, folder)
-      onRenamingChange(folder.id)
+      void addItem(row, folder).then((saved) => {
+        if (saved) onRenamingChange(folder.id)
+      })
     },
     variables: () => openVariables(row.collectionId),
     rename: () => onRenamingChange(row.key),

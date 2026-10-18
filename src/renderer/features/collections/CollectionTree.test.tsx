@@ -286,4 +286,34 @@ describe('CollectionTree', () => {
     expect(api['collections:delete']).toHaveBeenCalledWith({ id: col.id })
     expect(store.getState().collections).toHaveLength(0)
   })
+
+  it('re-clicking the active request keeps its response', async () => {
+    const { col } = seed()
+    const { user, store } = await setup([col])
+    await user.click(row('Top'))
+    let done: Promise<void> = Promise.resolve()
+    act(() => {
+      done = store.getState().send()
+    })
+    const r = { ok: false, error: { kind: 'network', message: 'x' } } as never
+    await act(async () => {
+      store.setState({ inFlight: null, result: r })
+      await done.catch(() => undefined)
+    })
+    await user.click(row('Top'))
+    row('Top').focus()
+    await user.keyboard('{Enter}')
+    expect(store.getState().result).toBe(r)
+  })
+
+  it('a failed New folder save does not enter rename and keeps a tab stop', async () => {
+    const { col } = seed()
+    const { user, api } = await setup([col])
+    vi.mocked(api['collections:save']).mockRejectedValueOnce(new Error('disk full'))
+    await openMenu(user, 'Alpha')
+    await user.click(screen.getByRole('menuitem', { name: 'New folder' }))
+    expect(screen.queryByRole('textbox')).toBeNull()
+    expect(names()).toEqual(['Alpha', 'Docs', 'Top'])
+    expect(screen.getAllByRole('treeitem').filter((r) => r.tabIndex === 0)).toHaveLength(1)
+  })
 })

@@ -87,6 +87,11 @@ export function createRequests({ set, get, api }: SliceCtx): RequestsSlice {
     },
 
     openRequest: (ref, opts) => {
+      const cur = get().active
+      // Already open: leave the draft, the in-flight send and the response alone.
+      if (cur && cur.collectionId === ref.collectionId && cur.requestId === ref.requestId) {
+        return 'opened'
+      }
       const c = get().collections.find((x) => x.id === ref.collectionId)
       const hit = c ? findItem(c, ref.requestId) : null
       if (!hit || hit.item.kind !== 'request') return 'opened'

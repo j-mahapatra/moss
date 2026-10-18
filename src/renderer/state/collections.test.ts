@@ -117,6 +117,26 @@ describe('init', () => {
 })
 
 describe('drafts', () => {
+  it('re-opening the active request keeps the in-flight send and result', async () => {
+    const { a, col } = fixture()
+    const { store, api, sendPending } = setup([col])
+    await store.getState().init()
+    const ref = { collectionId: col.id, requestId: a.id }
+    store.getState().openRequest(ref)
+    const done = store.getState().send()
+    const inFlight = store.getState().inFlight
+    expect(inFlight).not.toBeNull()
+    expect(store.getState().openRequest({ ...ref })).toBe('opened')
+    expect(store.getState().inFlight).toBe(inFlight)
+    expect(api['request:cancel']).not.toHaveBeenCalled()
+    const r = { ok: false, error: { kind: 'network', message: 'x' } } as never
+    sendPending[0]!.resolve(r)
+    await done
+    expect(store.getState().result).toBe(r)
+    store.getState().openRequest({ ...ref })
+    expect(store.getState().result).toBe(r)
+  })
+
   it('keeps edits when switching away and back (Review Focus 3)', async () => {
     const { a, b, col } = fixture()
     const { store } = setup([col])
