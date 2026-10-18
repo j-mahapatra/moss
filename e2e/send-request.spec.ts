@@ -1,16 +1,10 @@
-import {
-  _electron as electron,
-  expect,
-  test,
-  type ElectronApplication,
-  type Page
-} from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+import { launchApp, type LaunchedApp } from './fixtures/app'
 import { startServer, type FixtureServer } from './fixtures/server'
 
 let server: FixtureServer
-let app: ElectronApplication
+let launched: LaunchedApp
 let page: Page
-let errors: string[]
 
 test.beforeAll(async () => {
   server = await startServer()
@@ -21,26 +15,13 @@ test.afterAll(async () => {
 })
 
 test.beforeEach(async () => {
-  errors = []
-  const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>
-  delete env['ELECTRON_RENDERER_URL']
-  app = await electron.launch({ args: ['out/main/index.js'], env })
-  app.context().on('console', (m) => {
-    if (m.type() === 'error') errors.push(`console: ${m.text()}`)
-  })
-  app.context().on('weberror', (e) => errors.push(`pageerror: ${e.error().message}`))
-  app.process().stderr?.on('data', (d) => {
-    const text = String(d)
-    if (/Uncaught|UnhandledPromiseRejection|Error invoking remote method/.test(text))
-      errors.push(`main stderr: ${text}`)
-  })
-  page = await app.firstWindow()
-  await page.waitForSelector('[data-url-input]')
+  launched = await launchApp()
+  page = launched.page
 })
 
 test.afterEach(async () => {
-  await app.close()
-  expect(errors).toEqual([])
+  await launched.close()
+  expect(launched.errors).toEqual([])
 })
 
 async function send(url: string): Promise<void> {

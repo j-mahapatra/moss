@@ -3,7 +3,7 @@
 Moss is a local-first desktop API client. Build a request, send it, and read the
 response, with everything staying on your machine.
 
-**Status:** early development. Only the request/response foundation exists so far.
+**Status:** early development. Requests can be built, sent and saved into collections and folders, with collection variables. Environments, history and import/export are still to come.
 
 ## Quick start
 
@@ -23,6 +23,19 @@ npm run dev
 | `npm test`           | Run the Vitest unit and component tests                 |
 | `npm run e2e`        | Build the app and run the Playwright Electron tests     |
 | `npm run gen:tokens` | Regenerate `src/renderer/ui/tokens.css` from its source |
+
+## Collections
+
+Save a request with Cmd/Ctrl+S into a collection, optionally inside a folder.
+Collections are shown in the navigator on the left, where you can create,
+rename, duplicate, delete and reorder collections, folders and requests.
+Each collection can also hold variables; use `{{name}}` in a request to
+substitute a value.
+
+Everything is stored locally in the app's user-data folder, in a `collections`
+directory with one JSON file per collection. If a file can't be read, Moss
+moves it aside (renamed with a `.corrupt-<timestamp>.json` suffix), tells you,
+and carries on with the rest.
 
 ## Architecture
 
