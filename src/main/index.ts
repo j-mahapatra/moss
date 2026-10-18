@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, session } from 'electron'
 import { writeFile } from 'fs/promises'
-import { join } from 'path'
+import { isAbsolute, join } from 'path'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -8,6 +8,15 @@ import { createWindowOptions } from './window-options'
 import { isAllowedNavigation } from './navigation'
 import { registerIpc } from './ipc'
 import { RunnerSupervisor, forkUtilityRunner } from './runner-supervisor'
+import { WriteQueue } from './storage/atomic-write'
+import { CollectionsRepo } from './storage/collections-repo'
+import { SettingsRepo } from './storage/settings-repo'
+import { buildScope, type VariableScope } from '../shared/variables'
+
+// MOSS_USER_DATA isolates e2e runs from the real user-data folder (absolute paths only).
+if (!app.isPackaged && process.env.MOSS_USER_DATA && isAbsolute(process.env.MOSS_USER_DATA)) {
+  app.setPath('userData', process.env.MOSS_USER_DATA)
+}
 
 const supervisor = new RunnerSupervisor(forkUtilityRunner)
 
@@ -72,7 +81,14 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false))
   session.defaultSession.setPermissionCheckHandler(() => false)
 
-  registerIpc(ipcMain, { supervisor, scope: () => new Map(), pickFile, saveFile })
+  const dataDir = app.getPath('userData')
+  const queue = new WriteQueue()
+  const collections = new CollectionsRepo(dataDir, queue)
+  const settings = new SettingsRepo(dataDir, queue)
+  const scope = async (id: string | undefined): Promise<VariableScope> =>
+    id ? buildScope((await collections.get(id))?.variables ?? []) : new Map()
+
+  registerIpc(ipcMain, { supervisor, scope, pickFile, saveFile, collections, settings })
   createWindow()
 
   app.on('activate', function () {

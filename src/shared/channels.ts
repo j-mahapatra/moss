@@ -3,7 +3,12 @@ export const channels = [
   'request:send',
   'request:cancel',
   'dialog:pick-file',
-  'response:save'
+  'response:save',
+  'collections:list',
+  'collections:save',
+  'collections:delete',
+  'settings:get',
+  'settings:set'
 ] as const
 
 export type Channel = (typeof channels)[number]

@@ -45,7 +45,18 @@ describe('schemas', () => {
   })
 
   it('channels equals the contract keys', () => {
-    expect(channels).toEqual(Object.keys(ipcContract))
+    expect([...channels]).toEqual([
+      'request:send',
+      'request:cancel',
+      'dialog:pick-file',
+      'response:save',
+      'collections:list',
+      'collections:save',
+      'collections:delete',
+      'settings:get',
+      'settings:set'
+    ])
+    expect(Object.keys(ipcContract).sort()).toEqual([...channels].sort())
   })
 })
 

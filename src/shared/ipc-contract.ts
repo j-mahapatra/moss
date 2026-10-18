@@ -1,10 +1,11 @@
 import { z } from 'zod'
 import { channels, type Channel } from './channels'
-import { RequestSpecSchema, SendResultSchema } from './schemas'
+import { CollectionSchema, RequestSpecSchema, SendResultSchema, SettingsSchema } from './schemas'
 
 export const SendInputSchema = z.object({
   requestId: z.uuid(),
-  request: RequestSpecSchema
+  request: RequestSpecSchema,
+  collectionId: z.uuid().optional()
 })
 
 export const ipcContract = {
@@ -14,7 +15,18 @@ export const ipcContract = {
   'response:save': {
     input: z.object({ bodyBase64: z.string(), suggestedName: z.string() }),
     output: z.boolean()
-  }
+  },
+  'collections:list': {
+    input: z.void(),
+    output: z.object({ collections: z.array(CollectionSchema), warnings: z.array(z.string()) })
+  },
+  'collections:save': { input: CollectionSchema, output: z.void() },
+  'collections:delete': { input: z.object({ id: z.uuid() }), output: z.void() },
+  'settings:get': {
+    input: z.void(),
+    output: z.object({ settings: SettingsSchema, warnings: z.array(z.string()) })
+  },
+  'settings:set': { input: SettingsSchema, output: z.void() }
 } as const
 
 export { channels, type Channel }
