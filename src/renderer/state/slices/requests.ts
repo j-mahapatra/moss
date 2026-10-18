@@ -137,6 +137,8 @@ export function createRequests({ set, get, api }: SliceCtx): RequestsSlice {
       )
       const tc = get().collections.find((c) => c.id === target.collectionId)
       if (!ok || !tc || !findItem(tc, spec.id)) return false
+      // Only retarget the view if the user is still on the draft that was saved.
+      if (get().draft.id !== draft.id) return true
       set({
         // keep edits typed while the save was pending
         draft: { ...get().draft, id: spec.id, name: spec.name },
