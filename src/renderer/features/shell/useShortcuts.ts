@@ -17,6 +17,19 @@ export function useShortcuts(): void {
       } else if (mod && e.key.toLowerCase() === 'l') {
         e.preventDefault()
         document.querySelector<HTMLElement>('[data-url-input]')?.focus()
+      } else if (mod && ['s', 'n', 'b'].includes(e.key.toLowerCase())) {
+        e.preventDefault()
+        if (e.repeat || document.querySelector('[role="dialog"]')) return
+        const st = store.getState()
+        const key = e.key.toLowerCase()
+        if (key === 'b') st.toggleNavigator()
+        else if (key === 'n') {
+          if (st.newRequest() === 'confirm-discard') st.setConfirmDiscard({ then: 'new' })
+        } else {
+          void st.saveActive().then((r) => {
+            if (r === 'needs-target') store.getState().openSaveDialog(true)
+          })
+        }
       }
     }
     window.addEventListener('keydown', onKeyDown)

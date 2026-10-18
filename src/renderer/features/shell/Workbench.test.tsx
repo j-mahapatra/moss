@@ -1,6 +1,8 @@
 import userEvent from '@testing-library/user-event'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { newCollection, toItem } from '../../../shared/collection-tree'
+import { newRequestSpec, type Collection } from '../../../shared/types'
 import { noopExtras } from '../../state/test-api'
 import { createWorkspaceStore, type WorkspaceState } from '../../state/workspace'
 import { WorkspaceProvider } from '../../state/workspace-context'
@@ -191,5 +193,133 @@ describe('useWorkspace', () => {
     expect(() => render(<Probe />)).toThrow(/WorkspaceProvider/)
     window.removeEventListener('error', swallow)
     spy.mockRestore()
+  })
+})
+
+/* eslint-disable @typescript-eslint/explicit-function-return-type -- test helper */
+describe('shell', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+  afterEach(() => vi.unstubAllGlobals())
+
+  function shell(cols: Collection[] = []) {
+    stubMatchMedia(true)
+    const api = {
+      'request:send': vi.fn(() => new Promise<never>(() => {})),
+      'request:cancel': vi.fn(async () => undefined),
+      ...noopExtras(),
+      'collections:list': vi.fn(async () => ({ collections: cols, warnings: [] })),
+      'collections:save': vi.fn(async () => undefined)
+    }
+    const store = createWorkspaceStore(api as never)
+    render(
+      <WorkspaceProvider store={store}>
+        <Workbench />
+      </WorkspaceProvider>
+    )
+    return { api, store }
+  }
+
+  it('toggles the navigator from the rail button and Cmd+B', async () => {
+    const { store } = shell()
+    const rail = screen.getByRole('navigation', { name: 'Sidebar' })
+    const btn = within(rail).getByRole('button', { name: 'Collections' })
+    expect(btn).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('complementary', { name: 'Collections' })).toBeInTheDocument()
+    await userEvent.setup().click(btn)
+    expect(store.getState().navigatorCollapsed).toBe(true)
+    expect(btn).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByRole('complementary', { name: 'Collections' })).toBeNull()
+    const ev = new KeyboardEvent('keydown', { key: 'b', metaKey: true, cancelable: true })
+    act(() => {
+      window.dispatchEvent(ev)
+    })
+    expect(ev.defaultPrevented).toBe(true)
+    expect(store.getState().navigatorCollapsed).toBe(false)
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', metaKey: true, repeat: true }))
+    })
+    expect(store.getState().navigatorCollapsed).toBe(false)
+  })
+
+  it('shows Loading until init finishes, then the empty state', async () => {
+    const { store } = shell()
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    await act(async () => {
+      await store.getState().init()
+    })
+    expect(await screen.findByText('No collections yet')).toBeInTheDocument()
+  })
+
+  it('renders notices and dismisses them', async () => {
+    const { store } = shell()
+    act(() => {
+      store.setState({ notices: [{ id: 'n1', tone: 'danger', message: 'Boom' }] })
+    })
+    expect(screen.getByRole('alert')).toHaveTextContent('Boom')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(store.getState().notices).toEqual([])
+  })
+
+  it('Cmd+S saves the active request; with none it opens the save dialog', async () => {
+    const col = newCollection('C')
+    const spec = { ...newRequestSpec(), name: 'r' }
+    col.items.push(toItem(spec))
+    const { store, api } = shell([col])
+    await act(async () => {
+      await store.getState().init()
+    })
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 's', ctrlKey: true })
+    })
+    expect(store.getState().ui.saveDialogOpen).toBe(true)
+    expect(api['collections:save']).not.toHaveBeenCalled()
+    act(() => store.getState().openSaveDialog(false))
+    act(() => {
+      store.getState().openRequest({ collectionId: col.id, requestId: spec.id })
+      store.getState().updateDraft({ url: 'http://x' })
+    })
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'S', metaKey: true })
+    })
+    expect(api['collections:save']).toHaveBeenCalledTimes(1)
+    expect(store.getState().ui.saveDialogOpen).toBe(false)
+  })
+
+  it('ignores s/n/b while a dialog is open', () => {
+    const { store } = shell()
+    act(() => store.getState().openSaveDialog(true))
+    const dlg = document.createElement('div')
+    dlg.setAttribute('role', 'dialog')
+    document.body.append(dlg)
+    act(() => {
+      fireEvent.keyDown(window, { key: 'b', metaKey: true })
+    })
+    expect(store.getState().navigatorCollapsed).toBe(false)
+    dlg.remove()
+  })
+
+  it('Cmd+N on an edited draft confirms; Discard starts a fresh draft', async () => {
+    const { store } = shell()
+    act(() => store.getState().updateDraft({ url: 'http://edited' }))
+    act(() => {
+      fireEvent.keyDown(window, { key: 'n', metaKey: true })
+    })
+    expect(await screen.findByText('Discard unsaved request?')).toBeInTheDocument()
+    expect(store.getState().draft.url).toBe('http://edited')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Discard' }))
+    expect(store.getState().draft.url).toBe('')
+    expect(store.getState().ui.confirmDiscard).toBeNull()
+    expect(screen.queryByText('Discard unsaved request?')).toBeNull()
+  })
+
+  it('Cancel keeps the draft', async () => {
+    const { store } = shell()
+    act(() => store.getState().updateDraft({ url: 'http://edited' }))
+    act(() => {
+      fireEvent.keyDown(window, { key: 'n', metaKey: true })
+    })
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Cancel' }))
+    expect(store.getState().draft.url).toBe('http://edited')
+    expect(store.getState().ui.confirmDiscard).toBeNull()
   })
 })

@@ -5,9 +5,11 @@ import { errorMessage, type SliceCtx } from './slices/ctx'
 import { createCollections } from './slices/collections'
 import { createNotices } from './slices/notices'
 import { createRequests } from './slices/requests'
+import { createUi, type ConfirmDiscard, type UiState } from './slices/ui'
 import { createSettings, SPLIT_DEFAULT } from './slices/settings'
 
 export { SPLIT_DEFAULT }
+export type { ConfirmDiscard }
 
 export type RequestRef = { collectionId: string; requestId: string }
 export type Notice = { id: string; tone: 'warning' | 'danger'; message: string }
@@ -39,6 +41,7 @@ export type WorkspaceState = {
   /** Edited drafts of non-active saved requests, by request id. */
   stash: Record<string, RequestSpec>
   navigatorCollapsed: boolean
+  ui: UiState
 
   updateDraft(patch: Partial<RequestSpec>): void
   send(): Promise<void>
@@ -54,6 +57,11 @@ export type WorkspaceState = {
   deleteCollection(collectionId: string): Promise<void>
   dismissNotice(id: string): void
   toggleNavigator(): void
+  openSaveDialog(open: boolean): void
+  openVariables(collectionId: string | null): void
+  setConfirmDiscard(v: ConfirmDiscard): void
+  /** Re-runs the pending new/open with discard, then clears the confirmation. */
+  confirmDiscard(): void
 }
 
 export function createWorkspaceStore(api: WorkspaceApi): StoreApi<WorkspaceState> {
@@ -95,6 +103,7 @@ export function createWorkspaceStore(api: WorkspaceApi): StoreApi<WorkspaceState
       ...collections.slice,
       ...settings.slice,
       ...notices.slice,
+      ...createUi(ctx),
       loaded: false,
       init
     }
