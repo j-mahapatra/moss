@@ -1,6 +1,8 @@
 import { SplitPane } from '../../ui'
 import { useWorkspace } from '../../state/workspace-hooks'
 import { Navigator } from '../collections/Navigator'
+import { SaveDialog } from '../collections/SaveDialog'
+import { VariablesDialog } from '../collections/VariablesDialog'
 import { RequestPane } from '../requests/RequestPane'
 import { ResponsePane } from '../response/ResponsePane'
 import { DiscardDialog } from './DiscardDialog'
@@ -36,6 +38,8 @@ export function Workbench(): React.JSX.Element {
         </main>
       </div>
       <DiscardDialog />
+      <SaveDialog />
+      <VariablesDialog />
     </div>
   )
 }

@@ -1,0 +1,13 @@
+.moss-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--moss-space-1);
+  font-size: var(--moss-text-sm);
+  color: var(--moss-text-muted);
+}
+
+.moss-field-error {
+  margin: 0;
+  font-size: var(--moss-text-sm);
+  color: var(--moss-danger);
+}

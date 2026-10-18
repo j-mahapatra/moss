@@ -1,6 +1,7 @@
 import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { newCollection } from '../../../shared/collection-tree'
 import { RequestPane } from './RequestPane'
 import { setDoc, setup, viewOf } from './test-utils'
 
@@ -106,5 +107,20 @@ describe('RequestPane', () => {
       fields: [{ kind: 'file', key: 'f', filePath: '/tmp/a.png', enabled: true }]
     })
     expect(screen.getByText('/tmp/a.png')).toBeInTheDocument()
+  })
+
+  it('highlights a variable of the active collection as resolved', async () => {
+    const col = {
+      ...newCollection('C'),
+      variables: [{ key: 'base', value: 'http://h', enabled: true }]
+    }
+    const { container, store } = setup(<RequestPane />)
+    setDoc(viewOf(container, 'Request URL'), '{{base}}/x')
+    expect(container.querySelector('.var-unresolved')?.textContent).toBe('{{base}}')
+    act(() => {
+      store.setState({ collections: [col], active: { collectionId: col.id, requestId: 'r' } })
+    })
+    expect(container.querySelector('.var-resolved')?.textContent).toBe('{{base}}')
+    expect(container.querySelector('.var-unresolved')).toBeNull()
   })
 })
