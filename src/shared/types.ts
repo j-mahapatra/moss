@@ -77,3 +77,20 @@ export function newRequestSpec(): RequestSpec {
     auth: { type: 'none' }
   }
 }
+
+export type RequestItem = RequestSpec & { kind: 'request' }
+export type Folder = { id: string; kind: 'folder'; name: string; items: Item[] }
+export type Item = Folder | RequestItem
+export type Collection = {
+  id: string
+  name: string
+  items: Item[]
+  variables: KeyValue[]
+  schemaVersion: 1
+}
+export type Settings = { schemaVersion: 1; split: number; navigatorCollapsed: boolean }
+export const DEFAULT_SETTINGS: Settings = {
+  schemaVersion: 1,
+  split: 0.5,
+  navigatorCollapsed: false
+}

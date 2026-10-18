@@ -1,15 +1,19 @@
 import { z } from 'zod'
 import type {
+  Collection,
   ErrorKind,
+  Folder,
   FormField,
   HeaderList,
   HttpMethod,
   HttpResponse,
+  Item,
   KeyValue,
   RequestAuth,
   RequestBody,
   RequestError,
   RequestSpec,
+  Settings,
   ResolvedBody,
   ResolvedRequest,
   SendResult
@@ -46,7 +50,7 @@ export const RequestAuthSchema = z.discriminatedUnion('type', [
 ])
 
 export const RequestSpecSchema = z.object({
-  id: z.string(),
+  id: z.uuid(),
   name: z.string(),
   method: HttpMethodSchema,
   url: z.string(),
@@ -54,6 +58,34 @@ export const RequestSpecSchema = z.object({
   headers: z.array(KeyValueSchema),
   body: RequestBodySchema,
   auth: RequestAuthSchema
+})
+
+const RequestItemSchema = RequestSpecSchema.extend({ kind: z.literal('request') })
+
+// Recursive via zod 4 getters; the cycle is typed explicitly so inference stays finite.
+export const FolderSchema: z.ZodType<Folder> = z.object({
+  id: z.uuid(),
+  kind: z.literal('folder'),
+  name: z.string(),
+  get items() {
+    return z.array(ItemSchema)
+  }
+})
+
+export const ItemSchema: z.ZodType<Item> = z.union([FolderSchema, RequestItemSchema])
+
+export const CollectionSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  items: z.array(ItemSchema),
+  variables: z.array(KeyValueSchema),
+  schemaVersion: z.literal(1)
+})
+
+export const SettingsSchema = z.object({
+  schemaVersion: z.literal(1),
+  split: z.number().min(0.2).max(0.8),
+  navigatorCollapsed: z.boolean()
 })
 
 const HeaderListSchema = z.array(z.tuple([z.string(), z.string()]))
@@ -119,6 +151,8 @@ export type _Checks = [
   Assert<Equal<z.infer<typeof RequestBodySchema>, RequestBody>>,
   Assert<Equal<z.infer<typeof RequestAuthSchema>, RequestAuth>>,
   Assert<Equal<z.infer<typeof RequestSpecSchema>, RequestSpec>>,
+  Assert<Equal<z.infer<typeof CollectionSchema>, Collection>>,
+  Assert<Equal<z.infer<typeof SettingsSchema>, Settings>>,
   Assert<Equal<z.infer<typeof HeaderListSchema>, HeaderList>>,
   Assert<Equal<z.infer<typeof ResolvedBodySchema>, ResolvedBody>>,
   Assert<Equal<z.infer<typeof ResolvedRequestSchema>, ResolvedRequest>>,

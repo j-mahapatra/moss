@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { RequestSpecSchema, SendResultSchema } from './schemas'
+import {
+  CollectionSchema,
+  ItemSchema,
+  RequestSpecSchema,
+  SendResultSchema,
+  SettingsSchema
+} from './schemas'
 import { SendInputSchema, channels, ipcContract } from './ipc-contract'
-import { newRequestSpec } from './types'
+import { DEFAULT_SETTINGS, newRequestSpec } from './types'
+import type { Collection } from './types'
 import type { SendResult } from './types'
 
 describe('schemas', () => {
@@ -39,5 +46,53 @@ describe('schemas', () => {
 
   it('channels equals the contract keys', () => {
     expect(channels).toEqual(Object.keys(ipcContract))
+  })
+})
+
+describe('collection schemas', () => {
+  const request = (): ReturnType<typeof newRequestSpec> & { kind: 'request' } => ({
+    ...newRequestSpec(),
+    kind: 'request'
+  })
+  const deep = (): Collection => ({
+    id: crypto.randomUUID(),
+    name: 'C',
+    variables: [{ key: 'a', value: '1', enabled: true }],
+    schemaVersion: 1,
+    items: [
+      {
+        id: crypto.randomUUID(),
+        kind: 'folder',
+        name: 'L1',
+        items: [
+          {
+            id: crypto.randomUUID(),
+            kind: 'folder',
+            name: 'L2',
+            items: [request()]
+          }
+        ]
+      },
+      request()
+    ]
+  })
+
+  it('round-trips a 3-level collection', () => {
+    const c = deep()
+    const parsed = CollectionSchema.parse(JSON.parse(JSON.stringify(c)))
+    expect(parsed).toEqual(c)
+  })
+  it('rejects an item with an unknown kind', () => {
+    expect(ItemSchema.safeParse({ ...request(), kind: 'other' }).success).toBe(false)
+  })
+  it('rejects a non-UUID id', () => {
+    expect(CollectionSchema.safeParse({ ...deep(), id: 'c1' }).success).toBe(false)
+    expect(ItemSchema.safeParse({ ...request(), id: 'r1' }).success).toBe(false)
+    expect(RequestSpecSchema.safeParse({ ...newRequestSpec(), id: 'r1' }).success).toBe(false)
+  })
+  it('validates settings', () => {
+    expect(SettingsSchema.safeParse(DEFAULT_SETTINGS).success).toBe(true)
+    expect(SettingsSchema.safeParse({ ...DEFAULT_SETTINGS, split: 0.9 }).success).toBe(false)
+    expect(SettingsSchema.safeParse({ ...DEFAULT_SETTINGS, split: 0.1 }).success).toBe(false)
   })
 })
