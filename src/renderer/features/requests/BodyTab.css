@@ -1,0 +1,32 @@
+.body-tab {
+  display: grid;
+  gap: var(--moss-space-3);
+}
+
+.body-tab__modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--moss-space-4);
+}
+
+.body-tab__mode {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--moss-space-2);
+  font-size: var(--moss-text-md);
+  color: var(--moss-text);
+}
+
+.body-tab__mode input {
+  accent-color: var(--moss-accent);
+}
+
+.body-tab__type {
+  width: 160px;
+}
+
+.body-tab__note {
+  margin: 0;
+  color: var(--moss-text-muted);
+  font-size: var(--moss-text-md);
+}

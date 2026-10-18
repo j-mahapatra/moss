@@ -1,0 +1,18 @@
+.request-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--moss-space-3);
+  min-width: 0;
+  padding: var(--moss-space-3);
+}
+
+.request-pane__bar {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--moss-space-2);
+}
+
+.request-pane .moss-tabs__panel {
+  padding-top: var(--moss-space-3);
+}

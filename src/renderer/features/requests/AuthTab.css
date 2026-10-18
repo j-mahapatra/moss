@@ -1,0 +1,12 @@
+.auth-tab {
+  display: grid;
+  gap: var(--moss-space-3);
+  max-width: 420px;
+}
+
+.auth-tab__field {
+  display: grid;
+  gap: var(--moss-space-1);
+  color: var(--moss-text-muted);
+  font-size: var(--moss-text-sm);
+}

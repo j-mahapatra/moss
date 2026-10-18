@@ -6,7 +6,7 @@ import { useWorkspace } from '../../state/workspace-hooks'
 import { Workbench } from './Workbench'
 
 function stubMatchMedia(matches: boolean): (m: boolean) => void {
-  const listeners = new Set<() => void>()
+  const listeners = new Set<(e: Event) => void>()
   let current = matches
   vi.stubGlobal(
     'matchMedia',
@@ -15,13 +15,13 @@ function stubMatchMedia(matches: boolean): (m: boolean) => void {
         return current
       },
       media: query,
-      addEventListener: (_: string, l: () => void) => listeners.add(l),
-      removeEventListener: (_: string, l: () => void) => listeners.delete(l)
+      addEventListener: (_: string, l: (e: Event) => void) => listeners.add(l),
+      removeEventListener: (_: string, l: (e: Event) => void) => listeners.delete(l)
     }))
   )
   return (m: boolean) => {
     current = m
-    listeners.forEach((l) => l())
+    listeners.forEach((l) => l(new Event('change')))
   }
 }
 
@@ -91,15 +91,13 @@ describe('Workbench', () => {
 
   it('Cmd/Ctrl+L focuses the URL input and prevents default', () => {
     setup()
-    const input = document.createElement('div')
-    input.tabIndex = 0
-    input.setAttribute('data-url-input', '')
-    document.body.append(input)
+    // The real URL editor: the CodeMirror contenteditable carries data-url-input (R4).
+    const input = document.querySelector<HTMLElement>('[data-url-input]') as HTMLElement
+    expect(input).toHaveClass('cm-content')
     const ev = new KeyboardEvent('keydown', { key: 'l', ctrlKey: true, cancelable: true })
     window.dispatchEvent(ev)
     expect(document.activeElement).toBe(input)
     expect(ev.defaultPrevented).toBe(true)
-    input.remove()
   })
 
   it('removes the keydown listener on unmount', () => {

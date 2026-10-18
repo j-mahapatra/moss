@@ -1,0 +1,33 @@
+.moss-code {
+  min-width: 0;
+}
+
+.moss-code .cm-editor {
+  min-height: var(--moss-control-md);
+}
+
+.moss-code--body .cm-editor {
+  min-height: 160px;
+}
+
+.moss-code--body .cm-scroller {
+  max-height: 360px;
+}
+
+.moss-code .var-resolved {
+  color: var(--moss-var-resolved);
+  background: var(--moss-accent-soft);
+  border-radius: var(--moss-radius-sm);
+}
+
+.moss-code .var-unresolved {
+  color: var(--moss-var-unresolved);
+  border-bottom: 1px dashed var(--moss-var-unresolved);
+  border-radius: var(--moss-radius-sm);
+}
+
+.moss-var-tip {
+  padding: var(--moss-space-1) var(--moss-space-2);
+  font-family: var(--moss-font-mono);
+  font-size: var(--moss-text-sm);
+}
