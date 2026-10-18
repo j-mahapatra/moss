@@ -4,6 +4,7 @@ import { act, render, screen } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { newCollection, newFolder, insertItem } from '../../../shared/collection-tree'
 import type { Collection } from '../../../shared/types'
+import { byName } from '../../state/slices/collections'
 import { noopExtras } from '../../state/test-api'
 import { createWorkspaceStore } from '../../state/workspace'
 import { WorkspaceProvider } from '../../state/workspace-context'
@@ -98,7 +99,7 @@ describe('SaveDialog', () => {
   it('stays open with an inline alert when the target vanished', async () => {
     const user = userEvent.setup()
     const { store } = await setup([newCollection('A')])
-    store.setState({ saveAs: async () => false })
+    store.setState({ saveAs: async () => 'gone' })
     open(store)
     await user.click(await screen.findByRole('button', { name: 'Save' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -115,7 +116,7 @@ describe('SaveDialog', () => {
         store.setState((st) => ({
           notices: [...st.notices, { id: 'n1', tone: 'danger', message: 'disk full' }]
         }))
-        return false
+        return 'failed'
       }
     })
     open(store)
@@ -128,7 +129,7 @@ describe('SaveDialog', () => {
   it('selects the created collection when saveAs fails after createCollection', async () => {
     const user = userEvent.setup()
     const { store } = await setup([])
-    store.setState({ saveAs: async () => false })
+    store.setState({ saveAs: async () => 'failed' })
     open(store)
     await user.click(await screen.findByRole('button', { name: 'Save' }))
     expect(await screen.findByRole('combobox', { name: 'Collection' })).toHaveTextContent(
@@ -140,7 +141,7 @@ describe('SaveDialog', () => {
   it('passes the trimmed name to saveAs', async () => {
     const user = userEvent.setup()
     const { store } = await setup([newCollection('A')])
-    const saveAs = vi.fn(async () => true)
+    const saveAs = vi.fn(async () => 'saved' as const)
     store.setState({ saveAs })
     open(store)
     const name = await screen.findByLabelText('Name')
@@ -148,5 +149,33 @@ describe('SaveDialog', () => {
     await user.type(name, '  Spaced  ')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     expect(saveAs).toHaveBeenCalledWith(expect.objectContaining({ name: 'Spaced' }))
+  })
+
+  it('shows no alert for two consecutive identical save failures', async () => {
+    const user = userEvent.setup()
+    const { store, api } = await setup([newCollection('A')])
+    ;(api as Record<string, unknown>)['collections:save'] = vi.fn(async () => {
+      throw new Error('disk full')
+    })
+    open(store)
+    const save = await screen.findByRole('button', { name: 'Save' })
+    await user.click(save)
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled())
+    expect(screen.queryByRole('alert')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled())
+    expect(api['collections:save']).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(store.getState().ui.saveDialogOpen).toBe(true)
+  })
+
+  it('orders collections like the navigator (case/accent-insensitive)', async () => {
+    const user = userEvent.setup()
+    const cols = ['b', 'Á', 'a', 'B'].map((n) => newCollection(n))
+    const { store } = await setup(cols)
+    open(store)
+    await user.click(await screen.findByRole('combobox', { name: 'Collection' }))
+    const shown = (await screen.findAllByRole('option')).map((o) => o.textContent)
+    expect(shown).toEqual([...cols].sort(byName).map((c) => c.name))
   })
 })

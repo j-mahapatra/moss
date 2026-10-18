@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type -- test helpers with inferred fake-api types */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  findItem,
   insertItem,
   newCollection,
   newFolder,
@@ -554,7 +555,7 @@ describe('fix round 1', () => {
     store.getState().updateDraft({ id: a.id })
     expect(
       await store.getState().saveAs({ collectionId: col.id, folderId: null, name: 'Dup' })
-    ).toBe(true)
+    ).toBe('saved')
     const ids = store.getState().collections[0]!.items.map((i) => i.id)
     expect(new Set(ids).size).toBe(ids.length)
     expect(store.getState().active?.requestId).not.toBe(a.id)
@@ -572,7 +573,7 @@ describe('fix round 1', () => {
     store.getState().newRequest()
     api['collections:save'].mockRejectedValueOnce(new Error('e2'))
     expect(await store.getState().saveAs({ collectionId: col.id, folderId: null, name: 'n' })).toBe(
-      false
+      'failed'
     )
     expect(store.getState().notices.at(-1)?.message).toContain('e2')
     expect(store.getState().active).toBeNull()
@@ -586,11 +587,47 @@ describe('fix round 1', () => {
     await vi.waitFor(() => expect(saves).toHaveLength(1))
     store.getState().updateDraft({ url: 'typed-late' })
     saves[0]!.resolve()
-    expect(await p).toBe(true)
+    expect(await p).toBe('saved')
     const s = store.getState()
     expect(s.draft.url).toBe('typed-late')
     expect(s.draft.name).toBe('N')
     expect(selectDirtyIds(s).has(s.draft.id)).toBe(true)
+  })
+})
+
+describe('final review fixes', () => {
+  it("saveAs reports 'gone' (no notice) when the collection or folder vanished", async () => {
+    const { col } = fixture()
+    const { store } = setup([col])
+    await store.getState().init()
+    const noticesBefore = store.getState().notices.length
+    expect(
+      await store.getState().saveAs({ collectionId: 'missing', folderId: null, name: 'n' })
+    ).toBe('gone')
+    expect(
+      await store.getState().saveAs({ collectionId: col.id, folderId: 'no-folder', name: 'n' })
+    ).toBe('gone')
+    expect(store.getState().notices).toHaveLength(noticesBefore)
+  })
+
+  it('saveActive keeps a pending optimistic rename', async () => {
+    const { a, col } = fixture()
+    const { store, disk, saves } = setup([col], { hold: true })
+    await store.getState().init()
+    store.getState().openRequest({ collectionId: col.id, requestId: a.id })
+    const rename = store.getState().updateCollection(col.id, (c) => renameItem(c, a.id, 'Renamed'))
+    await vi.waitFor(() => expect(saves).toHaveLength(1))
+    store.getState().updateDraft({ url: 'http://x' })
+    const p = store.getState().saveActive()
+    saves[0]!.resolve()
+    await rename
+    await vi.waitFor(() => expect(saves).toHaveLength(2))
+    saves[1]!.resolve()
+    expect(await p).toBe('saved')
+    const onDisk = findItem(disk.get(col.id)!, a.id)?.item
+    const inState = findItem(store.getState().collections[0]!, a.id)?.item
+    expect(onDisk?.name).toBe('Renamed')
+    expect(inState?.name).toBe('Renamed')
   })
 })
 
@@ -605,7 +642,7 @@ describe('fix round 2', () => {
     store.getState().openRequest({ collectionId: col.id, requestId: b.id })
     store.getState().updateDraft({ url: 'b-edit' })
     saves[0]!.resolve()
-    expect(await p).toBe(true)
+    expect(await p).toBe('saved')
     const s = store.getState()
     expect(s.active?.requestId).toBe(b.id)
     expect(s.draft.id).toBe(b.id)

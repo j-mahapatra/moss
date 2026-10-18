@@ -3,6 +3,7 @@ import { listFolders } from '../../../shared/collection-tree'
 import type { HttpMethod } from '../../../shared/types'
 import { requestNameFromUrl } from '../../../shared/request-name'
 import { Button, Dialog, Input, Select } from '../../ui'
+import { byName } from '../../state/slices/collections'
 import { selectActiveCollection } from '../../state/selectors'
 import { useWorkspace, useWorkspaceStore } from '../../state/workspace-hooks'
 import './dialogs.css'
@@ -38,7 +39,7 @@ function SaveForm(): React.JSX.Element {
   const [name, setName] = useState(() => initialName(store.getState().draft))
   const [collectionId, setCollectionId] = useState(() => {
     const s = store.getState()
-    const sorted = [...s.collections].sort((a, b) => a.name.localeCompare(b.name))
+    const sorted = [...s.collections].sort(byName)
     return selectActiveCollection(s)?.id ?? sorted[0]?.id ?? ''
   })
   const [folder, setFolder] = useState(TOP)
@@ -46,7 +47,7 @@ function SaveForm(): React.JSX.Element {
   const [saving, setSaving] = useState(false)
   const [gone, setGone] = useState(false)
 
-  const sorted = [...collections].sort((a, b) => a.name.localeCompare(b.name))
+  const sorted = [...collections].sort(byName)
   const collection = collections.find((c) => c.id === collectionId) ?? null
   const hasCollections = collections.length > 0
   const folders = collection ? listFolders(collection) : []
@@ -58,7 +59,7 @@ function SaveForm(): React.JSX.Element {
     if (!canSave) return
     setSaving(true)
     setGone(false)
-    let ok: boolean
+    let result: 'saved' | 'failed' | 'gone'
     try {
       let targetId = collectionId
       if (!hasCollections) {
@@ -67,18 +68,16 @@ function SaveForm(): React.JSX.Element {
         targetId = created.id
         setCollectionId(created.id)
       }
-      // Compare lengths: identical notices are de-duplicated, so content is unreliable.
-      const noticesBefore = store.getState().notices.length
-      ok = await store.getState().saveAs({
+      result = await store.getState().saveAs({
         collectionId: targetId,
         folderId: folder === TOP ? null : folder,
         name: name.trim()
       })
-      if (!ok && store.getState().notices.length <= noticesBefore) setGone(true)
+      if (result === 'gone') setGone(true)
     } finally {
       setSaving(false)
     }
-    if (ok) close()
+    if (result === 'saved') close()
   }
 
   return (

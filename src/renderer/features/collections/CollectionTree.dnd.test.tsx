@@ -76,6 +76,17 @@ function drag(kind: 'dragOver' | 'drop', el: HTMLElement, dt: unknown, pos: { ra
 const MIME = 'application/x-moss-item'
 
 describe('CollectionTree drag and drop', () => {
+  it('ignores a drag that starts inside the rename input', async () => {
+    const { col } = seed()
+    await setup([col])
+    row('Top').focus()
+    await userEvent.setup().keyboard('{F2}')
+    const input = await screen.findByRole('textbox', { name: 'Rename' })
+    const dt = makeDt()
+    fireEvent.dragStart(input, { dataTransfer: dt })
+    expect(dt.getData(MIME)).toBe('')
+  })
+
   it('moves a request into a folder and saves the new structure', async () => {
     const { col, folder, top } = seed()
     const { save, store } = await setup([col])

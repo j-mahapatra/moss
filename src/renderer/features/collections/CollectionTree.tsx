@@ -11,7 +11,7 @@ import {
 } from '../../../shared/collection-tree'
 import { newRequestSpec, type Collection, type Item } from '../../../shared/types'
 import { selectDirtyIds } from '../../state/selectors'
-import { useWorkspace } from '../../state/workspace-hooks'
+import { useWorkspace, useWorkspaceStore } from '../../state/workspace-hooks'
 import { ConfirmDeleteDialog, type DeleteTarget } from './ConfirmDeleteDialog'
 import {
   DRAG_TYPE,
@@ -86,6 +86,7 @@ function findSiblings(items: Item[], parentId: string): Item[] | null {
 }
 
 export function CollectionTree({ renamingId, onRenamingChange }: Props): React.JSX.Element {
+  const store = useWorkspaceStore()
   const collections = useWorkspace((s) => s.collections)
   const active = useWorkspace((s) => s.active)
   const dirty = useWorkspace(selectDirtyIds)
@@ -186,10 +187,29 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
     }
   }
 
+  /** Where focus goes when `key` disappears: next sibling, else previous, else parent. */
+  const fallbackKey = (key: string): string | null => {
+    const row = rows.find((r) => r.key === key)
+    if (!row) return null
+    const sibs = rows.filter((r) => r.parentKey === row.parentKey)
+    const at = sibs.findIndex((r) => r.key === key)
+    return sibs[at + 1]?.key ?? sibs[at - 1]?.key ?? row.parentKey
+  }
+
   const confirmDelete = (t: DeleteTarget): void => {
     setDeleteTarget(null)
-    if (t.kind === 'collection') void deleteCollection(t.id)
-    else void updateCollection(t.collectionId, (c) => removeItem(c, t.id))
+    const fallback = fallbackKey(t.id)
+    const restore = (deleted: boolean): void => {
+      const key = deleted ? fallback : t.id
+      if (key) focusRow(key)
+    }
+    if (t.kind === 'collection') {
+      void deleteCollection(t.id).then(() =>
+        restore(!store.getState().collections.some((c) => c.id === t.id))
+      )
+    } else {
+      void updateCollection(t.collectionId, (c) => removeItem(c, t.id)).then(restore)
+    }
   }
 
   /** Resolves a drag event over `row` to a destination, or null when it is not a valid target. */
@@ -219,6 +239,7 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
   }
 
   const onRowDragStart = (e: React.DragEvent, row: RowModel): void => {
+    if (e.target !== e.currentTarget) return
     if (row.kind === 'collection') return
     const payload: DragPayload = { collectionId: row.collectionId, itemId: row.id }
     dragRef.current = payload
@@ -268,6 +289,8 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
     const el = e.target as HTMLElement
     if (el.getAttribute('role') !== 'treeitem') return // ignore inputs, menu buttons, portals
+    // Leave app-level shortcuts (send, save, ...) alone: they skip handled events.
+    if (e.metaKey || e.ctrlKey) return
     const idx = rows.findIndex((r) => r.key === el.getAttribute('data-row-key'))
     const row = rows[idx]
     if (!row) return

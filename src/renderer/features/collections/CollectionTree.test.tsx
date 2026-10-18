@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type -- test helpers */
 import userEvent from '@testing-library/user-event'
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, createEvent, fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { newCollection, newFolder, toItem } from '../../../shared/collection-tree'
 import { newRequestSpec, type Collection } from '../../../shared/types'
@@ -315,5 +315,64 @@ describe('CollectionTree', () => {
     expect(screen.queryByRole('textbox')).toBeNull()
     expect(names()).toEqual(['Alpha', 'Docs', 'Top'])
     expect(screen.getAllByRole('treeitem').filter((r) => r.tabIndex === 0)).toHaveLength(1)
+  })
+
+  describe('focus after delete', () => {
+    const del = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
+      row(name).focus()
+      await user.keyboard('{Delete}')
+      await user.click(screen.getByRole('button', { name: 'Delete' }))
+    }
+    const flat = () => {
+      const a = req('A')
+      const b = req('B')
+      const c = req('C')
+      return { col: { ...newCollection('Alpha'), items: [a, b, c] } as Collection }
+    }
+
+    it('moves focus to the next sibling, then arrow keys keep working', async () => {
+      const { user } = await setup([flat().col])
+      await del(user, 'B')
+      await vi.waitFor(() => expect(row('C')).toHaveFocus())
+      await user.keyboard('{ArrowUp}')
+      expect(row('A')).toHaveFocus()
+    })
+
+    it('falls back to the previous sibling when the last child is deleted', async () => {
+      const { user } = await setup([flat().col])
+      await del(user, 'C')
+      await vi.waitFor(() => expect(row('B')).toHaveFocus())
+    })
+
+    it('falls back to the parent when the only child is deleted', async () => {
+      const col = { ...newCollection('Alpha'), items: [req('Solo')] } as Collection
+      const { user } = await setup([col])
+      await del(user, 'Solo')
+      await vi.waitFor(() => expect(row('Alpha')).toHaveFocus())
+    })
+
+    it('focuses the neighbouring collection after deleting a collection', async () => {
+      const { user } = await setup([newCollection('Alpha'), newCollection('Beta')])
+      await openMenu(user, 'Alpha')
+      await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+      await user.click(screen.getByRole('button', { name: 'Delete' }))
+      await vi.waitFor(() => expect(row('Beta')).toHaveFocus())
+    })
+
+    it('keeps focus on the original row when the delete fails', async () => {
+      const { user, api } = await setup([flat().col])
+      vi.mocked(api['collections:save']).mockRejectedValueOnce(new Error('disk full'))
+      await del(user, 'B')
+      await vi.waitFor(() => expect(row('B')).toHaveFocus())
+    })
+  })
+
+  it('does not swallow Cmd/Ctrl+Enter on a focused row (app-level send shortcut)', async () => {
+    const { col } = seed()
+    await setup([col])
+    row('Top').focus()
+    const ev = createEvent.keyDown(row('Top'), { key: 'Enter', metaKey: true })
+    fireEvent(row('Top'), ev)
+    expect(ev.defaultPrevented).toBe(false)
   })
 })

@@ -115,7 +115,7 @@ export function createRequests({ set, get, api }: SliceCtx): RequestsSlice {
       const { active, draft } = get()
       if (!active) return 'needs-target'
       const ok = await get().updateCollection(active.collectionId, (c) =>
-        updateItem(c, active.requestId, () => toItem(draft))
+        updateItem(c, active.requestId, (it) => ({ ...toItem(draft), name: it.name }))
       )
       if (!ok) return 'failed'
       const cur = get()
@@ -137,20 +137,23 @@ export function createRequests({ set, get, api }: SliceCtx): RequestsSlice {
         id: idTaken ? crypto.randomUUID() : draft.id,
         name: target.name.trim() || 'Untitled request'
       }
+      if (!get().collections.some((c) => c.id === target.collectionId)) return 'gone'
       const ok = await get().updateCollection(target.collectionId, (c) =>
         insertItem(c, target.folderId, toItem(spec))
       )
+      // A failed save raised a notice; a missing collection/folder raised none.
+      if (!ok) return 'failed'
       const tc = get().collections.find((c) => c.id === target.collectionId)
-      if (!ok || !tc || !findItem(tc, spec.id)) return false
+      if (!tc || !findItem(tc, spec.id)) return 'gone'
       // Only retarget the view if the user is still on the draft that was saved.
-      if (get().draft.id !== draft.id) return true
+      if (get().draft.id !== draft.id) return 'saved'
       set({
         // keep edits typed while the save was pending
         draft: { ...get().draft, id: spec.id, name: spec.name },
         saved: spec,
         active: { collectionId: target.collectionId, requestId: spec.id }
       })
-      return true
+      return 'saved'
     }
   }
 }

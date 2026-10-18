@@ -95,6 +95,31 @@ describe('Workbench', () => {
     expect(api['request:cancel']).toHaveBeenCalledTimes(1)
   })
 
+  it('Escape and Cmd+Enter do nothing while a dialog is open', () => {
+    const { api } = setup()
+    fireEvent.keyDown(window, { key: 'Enter', metaKey: true })
+    expect(api['request:send']).toHaveBeenCalledTimes(1)
+    const dlg = document.createElement('div')
+    dlg.setAttribute('role', 'dialog')
+    document.body.append(dlg)
+    fireEvent.keyDown(window, { key: 'Escape' })
+    fireEvent.keyDown(window, { key: 'Enter', metaKey: true })
+    dlg.remove()
+    expect(api['request:cancel']).not.toHaveBeenCalled()
+    expect(api['request:send']).toHaveBeenCalledTimes(1)
+  })
+
+  it('Cmd+N does nothing while a menu is open', () => {
+    const { store } = setup()
+    act(() => store.getState().updateDraft({ url: 'http://edited' }))
+    const menu = document.createElement('div')
+    menu.setAttribute('role', 'menu')
+    document.body.append(menu)
+    fireEvent.keyDown(window, { key: 'n', metaKey: true })
+    menu.remove()
+    expect(store.getState().ui.confirmDiscard).toBeNull()
+  })
+
   it('Cmd/Ctrl+L focuses the URL input and prevents default', () => {
     setup()
     // The real URL editor: the CodeMirror contenteditable carries data-url-input (R4).
