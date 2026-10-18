@@ -27,3 +27,21 @@ export function PlusIcon(): React.JSX.Element {
     </svg>
   )
 }
+
+export function MoreIcon(): React.JSX.Element {
+  return (
+    <svg {...base}>
+      <circle cx="3.5" cy="8" r="0.6" />
+      <circle cx="8" cy="8" r="0.6" />
+      <circle cx="12.5" cy="8" r="0.6" />
+    </svg>
+  )
+}
+
+export function ChevronIcon(): React.JSX.Element {
+  return (
+    <svg {...base}>
+      <path d="M6 3.5L10.5 8 6 12.5" />
+    </svg>
+  )
+}

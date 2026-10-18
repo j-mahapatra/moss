@@ -56,11 +56,11 @@ describe('Navigator', () => {
     await act(async () => {
       await store.getState().init()
     })
-    const list = await screen.findByRole('list')
+    const tree = await screen.findByRole('tree', { name: 'Collections' })
     expect(
-      within(list)
-        .getAllByRole('listitem')
-        .map((li) => li.textContent)
+      within(tree)
+        .getAllByRole('treeitem')
+        .map((r) => r.getAttribute('aria-label'))
     ).toEqual(['Alpha', 'Beta'])
   })
 })

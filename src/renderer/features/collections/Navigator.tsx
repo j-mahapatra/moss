@@ -1,13 +1,20 @@
+import { useState } from 'react'
 import { Button, IconButton } from '../../ui'
 import { useWorkspace } from '../../state/workspace-hooks'
 import { PlusIcon } from '../shell/icons'
+import { CollectionTree } from './CollectionTree'
 import './Navigator.css'
 
 export function Navigator(): React.JSX.Element {
   const loaded = useWorkspace((s) => s.loaded)
   const collections = useWorkspace((s) => s.collections)
   const create = useWorkspace((s) => s.createCollection)
-  const add = (): void => void create('New collection')
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const add = (): void => {
+    void create('New collection').then((c) => {
+      if (c) setRenamingId(c.id)
+    })
+  }
   return (
     <aside className="navigator" aria-label="Collections">
       <div className="navigator__header">
@@ -27,12 +34,7 @@ export function Navigator(): React.JSX.Element {
             </Button>
           </div>
         ) : (
-          // Placeholder until the tree lands.
-          <ul role="list" className="navigator__list">
-            {collections.map((c) => (
-              <li key={c.id}>{c.name}</li>
-            ))}
-          </ul>
+          <CollectionTree renamingId={renamingId} onRenamingChange={setRenamingId} />
         )}
       </div>
     </aside>

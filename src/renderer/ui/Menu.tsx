@@ -11,6 +11,8 @@ export type MenuProps = {
   items: MenuItem[]
   open?: boolean
   onOpenChange?(open: boolean): void
+  /** Call `event.preventDefault()` to keep focus where an action just put it. */
+  onCloseAutoFocus?(event: Event): void
   'aria-label': string
 }
 
@@ -19,6 +21,7 @@ export function Menu({
   items,
   open,
   onOpenChange,
+  onCloseAutoFocus,
   'aria-label': ariaLabel
 }: MenuProps): React.JSX.Element {
   return (
@@ -31,6 +34,7 @@ export function Menu({
           aria-labelledby={undefined}
           align="start"
           sideOffset={4}
+          onCloseAutoFocus={onCloseAutoFocus}
         >
           {items.map((item, i) =>
             'separator' in item ? (

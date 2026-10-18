@@ -39,10 +39,3 @@
   color: var(--moss-text-muted);
   font-size: var(--moss-text-md);
 }
-
-.navigator__list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--moss-text-md);
-}
