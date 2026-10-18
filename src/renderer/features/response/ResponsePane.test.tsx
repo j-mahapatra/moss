@@ -103,6 +103,31 @@ describe('ResponsePane', () => {
     expect(bodyDoc(container)).toBe(text)
   })
 
+  it('does not parse a large body in Raw until Pretty is clicked', async () => {
+    const user = userEvent.setup()
+    const text = JSON.stringify({ a: 'x'.repeat(3_000_000) })
+    const spy = vi.spyOn(JSON, 'parse')
+    try {
+      mount({ ok: true, response: response({ bodyBase64: b64(text), size: text.length }) })
+      expect(spy.mock.calls.filter(([arg]) => arg === text)).toHaveLength(0)
+      await user.click(screen.getByRole('button', { name: 'Pretty' }))
+      expect(spy.mock.calls.filter(([arg]) => arg === text)).toHaveLength(1)
+      expect(screen.getByRole('button', { name: 'Pretty' })).toHaveAttribute('aria-pressed', 'true')
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('returns to Raw with a note when Pretty fails on a large invalid body', async () => {
+    const user = userEvent.setup()
+    const text = '{' + 'x'.repeat(3_000_000)
+    mount({ ok: true, response: response({ bodyBase64: b64(text), size: text.length }) })
+    expect(screen.queryByText('Not valid JSON — showing raw')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Pretty' }))
+    expect(screen.getByText('Not valid JSON — showing raw')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Raw' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('falls back to raw with a note for invalid JSON', () => {
     const { container } = mount({ ok: true, response: response({ bodyBase64: b64('{oops') }) })
     expect(screen.getByText('Not valid JSON — showing raw')).toBeInTheDocument()

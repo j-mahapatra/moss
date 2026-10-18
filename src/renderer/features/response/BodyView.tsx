@@ -49,20 +49,24 @@ export function BodyView({ response }: { response: HttpResponse }): React.JSX.El
   const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   useEffect(() => () => clearTimeout(copyTimer.current), [])
 
+  const requested: ViewMode =
+    choice?.for === response ? choice.mode : defaultViewMode(response.size)
+
+  // Only parse and pretty-print while Pretty is requested, so large bodies that open in Raw
+  // are never parsed until the user asks.
+  const wantPretty = kind === 'json' && requested === 'pretty'
   const parsed = useMemo(() => {
-    if (kind !== 'json') return null
+    if (!wantPretty) return null
     try {
       return JSON.stringify(JSON.parse(text), null, 2)
     } catch {
       return null
     }
-  }, [kind, text])
+  }, [wantPretty, text])
 
-  const requested: ViewMode =
-    choice?.for === response ? choice.mode : defaultViewMode(response.size)
-  const invalidJson = kind === 'json' && parsed === null
-  const mode: ViewMode = kind === 'json' && !invalidJson ? requested : 'raw'
-  const shown = kind === 'json' && mode === 'pretty' && parsed !== null ? parsed : text
+  const invalidJson = wantPretty && parsed === null
+  const mode: ViewMode = wantPretty && parsed !== null ? 'pretty' : 'raw'
+  const shown = mode === 'pretty' && parsed !== null ? parsed : text
 
   const extensions = useMemo<Extension[]>(() => {
     const ext: Extension[] = [READ_ONLY]
