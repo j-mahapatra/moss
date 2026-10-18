@@ -108,7 +108,10 @@ export const staticTokens: Record<string, string> = {
   'radius-pill': '999px',
   'control-sm': '24px',
   'control-md': '32px',
-  'duration-fast': '120ms'
+  'duration-fast': '120ms',
+  // Layering: popovers (menus, selects) must stack above dialogs.
+  'z-dialog': '60',
+  'z-popover': '70'
 }
 
 function block(selector: string, vars: Record<string, string>): string {

@@ -6,7 +6,7 @@
   background: var(--moss-surface-raised);
   color: var(--moss-text);
   box-shadow: 0 8px 24px color-mix(in srgb, var(--moss-text) 14%, transparent);
-  z-index: 50;
+  z-index: var(--moss-z-popover);
 }
 
 .moss-menu__item {

@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   background: var(--moss-overlay);
-  z-index: 60;
+  z-index: var(--moss-z-dialog);
 }
 
 .moss-dialog {
@@ -22,7 +22,7 @@
   background: var(--moss-surface-raised);
   color: var(--moss-text);
   box-shadow: 0 16px 48px color-mix(in srgb, var(--moss-text) 24%, transparent);
-  z-index: 61;
+  z-index: calc(var(--moss-z-dialog) + 1);
 }
 
 .moss-dialog:focus {

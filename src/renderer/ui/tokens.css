@@ -27,6 +27,8 @@
   --moss-control-sm: 24px;
   --moss-control-md: 32px;
   --moss-duration-fast: 120ms;
+  --moss-z-dialog: 60;
+  --moss-z-popover: 70;
 }
 
 :root[data-theme="light"] {
