@@ -3,11 +3,14 @@ import type { Socket } from 'node:net'
 
 export interface FixtureServer {
   port: number
+  /** Resolves when a /slow request arrives (the next one after this call). */
+  slowReceived(): Promise<void>
   close(): Promise<void>
 }
 
 export async function startServer(): Promise<FixtureServer> {
   const sockets = new Set<Socket>()
+  const slowWaiters: Array<() => void> = []
   const server: Server = createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/hello') {
       res.writeHead(200, { 'content-type': 'application/json' })
@@ -16,6 +19,7 @@ export async function startServer(): Promise<FixtureServer> {
     }
     if (req.url === '/slow') {
       // Never responds; the socket is destroyed in close().
+      for (const wake of slowWaiters.splice(0)) wake()
       return
     }
     res.writeHead(404, { 'content-type': 'text/plain' })
@@ -30,6 +34,7 @@ export async function startServer(): Promise<FixtureServer> {
   if (address === null || typeof address === 'string') throw new Error('no server address')
   return {
     port: address.port,
+    slowReceived: () => new Promise<void>((resolve) => slowWaiters.push(resolve)),
     close: () =>
       new Promise<void>((resolve) => {
         server.close(() => resolve())

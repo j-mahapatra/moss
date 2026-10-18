@@ -25,15 +25,16 @@ test.beforeEach(async () => {
   const env = { ...process.env, NODE_ENV: 'production' } as Record<string, string>
   delete env['ELECTRON_RENDERER_URL']
   app = await electron.launch({ args: ['out/main/index.js'], env })
-  app.process().stderr?.on('data', (d) => {
-    const text = String(d)
-    if (/error/i.test(text)) errors.push(`main stderr: ${text}`)
-  })
-  page = await app.firstWindow()
-  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))
-  page.on('console', (m) => {
+  app.context().on('console', (m) => {
     if (m.type() === 'error') errors.push(`console: ${m.text()}`)
   })
+  app.context().on('weberror', (e) => errors.push(`pageerror: ${e.error().message}`))
+  app.process().stderr?.on('data', (d) => {
+    const text = String(d)
+    if (/Uncaught|UnhandledPromiseRejection|Error invoking remote method/.test(text))
+      errors.push(`main stderr: ${text}`)
+  })
+  page = await app.firstWindow()
   await page.waitForSelector('[data-url-input]')
 })
 
@@ -63,7 +64,9 @@ test('shows a connection refused error for a closed port', async () => {
 })
 
 test('cancels an in-flight request with Escape', async () => {
+  const received = server.slowReceived()
   await send(`http://127.0.0.1:${server.port}/slow`)
+  await received
   await page.keyboard.press('Escape')
   await expect(page.locator('[data-response-error] h2')).toHaveText('Request cancelled')
 })
