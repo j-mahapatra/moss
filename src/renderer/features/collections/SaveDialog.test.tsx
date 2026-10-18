@@ -106,4 +106,47 @@ describe('SaveDialog', () => {
     )
     expect(store.getState().ui.saveDialogOpen).toBe(true)
   })
+
+  it('does not show the alert when the failed save raised its own notice', async () => {
+    const user = userEvent.setup()
+    const { store } = await setup([newCollection('A')])
+    store.setState({
+      saveAs: async () => {
+        store.setState((st) => ({
+          notices: [...st.notices, { id: 'n1', tone: 'danger', message: 'disk full' }]
+        }))
+        return false
+      }
+    })
+    open(store)
+    await user.click(await screen.findByRole('button', { name: 'Save' }))
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled())
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(store.getState().ui.saveDialogOpen).toBe(true)
+  })
+
+  it('selects the created collection when saveAs fails after createCollection', async () => {
+    const user = userEvent.setup()
+    const { store } = await setup([])
+    store.setState({ saveAs: async () => false })
+    open(store)
+    await user.click(await screen.findByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('combobox', { name: 'Collection' })).toHaveTextContent(
+      'My collection'
+    )
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+  })
+
+  it('passes the trimmed name to saveAs', async () => {
+    const user = userEvent.setup()
+    const { store } = await setup([newCollection('A')])
+    const saveAs = vi.fn(async () => true)
+    store.setState({ saveAs })
+    open(store)
+    const name = await screen.findByLabelText('Name')
+    await user.clear(name)
+    await user.type(name, '  Spaced  ')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(saveAs).toHaveBeenCalledWith(expect.objectContaining({ name: 'Spaced' }))
+  })
 })

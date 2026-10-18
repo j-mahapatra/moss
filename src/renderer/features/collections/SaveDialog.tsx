@@ -65,11 +65,16 @@ function SaveForm(): React.JSX.Element {
         const created = await store.getState().createCollection(newName)
         if (!created) return
         targetId = created.id
+        setCollectionId(created.id)
       }
-      ok = await store
-        .getState()
-        .saveAs({ collectionId: targetId, folderId: folder === TOP ? null : folder, name })
-      if (!ok && hasCollections) setGone(true)
+      // Compare lengths: identical notices are de-duplicated, so content is unreliable.
+      const noticesBefore = store.getState().notices.length
+      ok = await store.getState().saveAs({
+        collectionId: targetId,
+        folderId: folder === TOP ? null : folder,
+        name: name.trim()
+      })
+      if (!ok && store.getState().notices.length <= noticesBefore) setGone(true)
     } finally {
       setSaving(false)
     }
