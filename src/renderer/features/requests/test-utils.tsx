@@ -1,13 +1,18 @@
 import { EditorView } from '@codemirror/view'
 import { act, render } from '@testing-library/react'
 import { vi } from 'vitest'
+import { noopExtras } from '../../state/test-api'
 import { createWorkspaceStore, WorkspaceProvider } from '../../state/workspace'
 
 export function setup(ui: React.ReactElement): {
   store: ReturnType<typeof createWorkspaceStore>
   api: { 'request:send': ReturnType<typeof vi.fn>; 'request:cancel': ReturnType<typeof vi.fn> }
 } & ReturnType<typeof render> {
-  const api = { 'request:send': vi.fn(), 'request:cancel': vi.fn(async () => undefined) }
+  const api = {
+    'request:send': vi.fn(),
+    'request:cancel': vi.fn(async () => undefined),
+    ...noopExtras()
+  }
   const store = createWorkspaceStore(api as never)
   const utils = render(<WorkspaceProvider store={store}>{ui}</WorkspaceProvider>)
   return { store, api, ...utils }

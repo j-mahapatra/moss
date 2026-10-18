@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { SendResult } from '../../shared/types'
+import { noopExtras } from './test-api'
 import { createWorkspaceStore } from './workspace'
 
 const okResult = (status: number): SendResult => ({
@@ -34,7 +35,12 @@ function fakeApi(): {
       })
   )
   const cancel = vi.fn(async () => undefined)
-  return { api: { 'request:send': send, 'request:cancel': cancel } as never, send, cancel, pending }
+  return {
+    api: { 'request:send': send, 'request:cancel': cancel, ...noopExtras() } as never,
+    send,
+    cancel,
+    pending
+  }
 }
 
 describe('workspace store', () => {

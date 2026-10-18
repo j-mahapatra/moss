@@ -3,6 +3,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { HttpResponse, SendResult } from '../../../shared/types'
+import { noopExtras } from '../../state/test-api'
 import { createWorkspaceStore, WorkspaceProvider } from '../../state/workspace'
 import { ResponsePane } from './ResponsePane'
 
@@ -34,7 +35,8 @@ function mount(
 ): ReturnType<typeof render> & { store: ReturnType<typeof createWorkspaceStore> } {
   const store = createWorkspaceStore({
     'request:send': vi.fn(),
-    'request:cancel': cancelApi
+    'request:cancel': cancelApi,
+    ...noopExtras()
   } as never)
   store.setState({ result, inFlight })
   const utils = render(

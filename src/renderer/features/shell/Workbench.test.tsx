@@ -1,6 +1,7 @@
 import userEvent from '@testing-library/user-event'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { noopExtras } from '../../state/test-api'
 import { createWorkspaceStore, type WorkspaceState } from '../../state/workspace'
 import { WorkspaceProvider } from '../../state/workspace-context'
 import { useWorkspace } from '../../state/workspace-hooks'
@@ -35,7 +36,8 @@ function setup(matches = true): {
   const setMatch = stubMatchMedia(matches)
   const api = {
     'request:send': vi.fn(() => new Promise<never>(() => {})),
-    'request:cancel': vi.fn(async () => undefined)
+    'request:cancel': vi.fn(async () => undefined),
+    ...noopExtras()
   }
   const store = createWorkspaceStore(api as never)
   render(
@@ -134,7 +136,8 @@ describe('send shortcut', () => {
     stubMatchMedia(true)
     const api = {
       'request:send': vi.fn(() => new Promise<never>(() => {})),
-      'request:cancel': vi.fn(async () => undefined)
+      'request:cancel': vi.fn(async () => undefined),
+      ...noopExtras()
     }
     const store = createWorkspaceStore(api as never)
     store.getState().updateDraft({ body: { mode: 'raw', contentType: 'text/plain', text: 'abc' } })
