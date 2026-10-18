@@ -1,10 +1,31 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { writeFile } from 'fs/promises'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { createWindowOptions } from './window-options'
 import { isAllowedNavigation } from './navigation'
+import { registerIpc } from './ipc'
+import { RunnerSupervisor, forkUtilityRunner } from './runner-supervisor'
+
+const supervisor = new RunnerSupervisor(forkUtilityRunner)
+
+async function pickFile(): Promise<string | null> {
+  const parent = BrowserWindow.getFocusedWindow()
+  const opts = { properties: ['openFile' as const] }
+  const r = parent ? await dialog.showOpenDialog(parent, opts) : await dialog.showOpenDialog(opts)
+  return r.canceled || !r.filePaths[0] ? null : r.filePaths[0]
+}
+
+async function saveFile(base64: string, name: string): Promise<boolean> {
+  const parent = BrowserWindow.getFocusedWindow()
+  const opts = { defaultPath: name }
+  const r = parent ? await dialog.showSaveDialog(parent, opts) : await dialog.showSaveDialog(opts)
+  if (r.canceled || !r.filePath) return false
+  await writeFile(r.filePath, Buffer.from(base64, 'base64'))
+  return true
+}
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -47,6 +68,7 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  registerIpc(ipcMain, { supervisor, scope: () => new Map(), pickFile, saveFile })
   createWindow()
 
   app.on('activate', function () {
@@ -55,6 +77,8 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
+
+app.on('before-quit', () => supervisor.dispose())
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits

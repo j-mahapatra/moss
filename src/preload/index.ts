@@ -1,6 +1,10 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
+import { channels } from '../shared/channels'
+import type { MossApi } from '../shared/ipc-contract'
 
-// Filled from the IPC contract in a later task. Nothing else is exposed.
-const api = Object.freeze({})
+// Only these invoke wrappers are exposed; ipcRenderer itself never reaches the renderer.
+const api = Object.freeze(
+  Object.fromEntries(channels.map((c) => [c, (input?: unknown) => ipcRenderer.invoke(c, input)]))
+) as MossApi
 
 contextBridge.exposeInMainWorld('api', api)
