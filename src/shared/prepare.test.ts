@@ -41,6 +41,21 @@ describe('prepareRequest', () => {
   it('rejects unparsable urls', () => {
     expect(fail(make({ url: 'ht tp://bad' })).kind).toBe('invalid-url')
   })
+  it('rejects an empty url with a clear message', () => {
+    for (const url of ['', '   ']) {
+      const e = fail(make({ url }))
+      expect(e.kind).toBe('invalid-url')
+      expect(e.message).toBe('Enter a URL to send')
+    }
+  })
+  it('skips enabled header rows that are entirely blank', () => {
+    const req = ok(make({ headers: [kv('  ', '  '), kv('X-A', '1')] }))
+    expect(req.headers).toEqual([['X-A', '1']])
+  })
+  it('still rejects a blank header name with a value', () => {
+    const e = fail(make({ headers: [kv(' ', 'v')] }))
+    expect(e.message).toBe("Header name can't be empty")
+  })
   it('rejects non-http schemes', () => {
     const e = fail(make({ url: 'file:///etc/passwd' }))
     expect(e.kind).toBe('invalid-url')

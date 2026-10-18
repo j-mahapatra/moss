@@ -48,7 +48,9 @@ export function CodeEditor({
         doc: init.value,
         extensions: [
           history(),
-          keymap.of([...defaultKeymap, ...historyKeymap]),
+          // Mod-Enter is the window-level send shortcut; the default binding would insert a
+          // blank line (mutating the draft) before the event bubbles up.
+          keymap.of([...defaultKeymap.filter((b) => b.key !== 'Mod-Enter'), ...historyKeymap]),
           mossTheme,
           EditorView.contentAttributes.of({ 'aria-label': init.label }),
           EditorView.updateListener.of((u) => {

@@ -31,6 +31,12 @@ beforeAll(async () => {
     } else if (u === '/gzip') {
       res.setHeader('content-encoding', 'gzip')
       res.end(zlib.gzipSync('hello'))
+    } else if (u === '/deflate') {
+      res.setHeader('content-encoding', 'deflate')
+      res.end(zlib.deflateSync('hello'))
+    } else if (u === '/deflate-raw') {
+      res.setHeader('content-encoding', 'deflate')
+      res.end(zlib.deflateRawSync('hello'))
     } else if (u === '/br') {
       res.setHeader('content-encoding', 'br')
       res.end(zlib.brotliCompressSync('hello'))
@@ -103,6 +109,13 @@ describe('executeRequest', () => {
       const r = await executeRequest(get(`${base}${p}`), opts, new AbortController().signal)
       expect(text(r)).toBe('hello')
       if (r.ok) expect(r.response.size).toBe(5)
+    }
+  })
+
+  it('decodes zlib-wrapped and raw deflate', async () => {
+    for (const p of ['/deflate', '/deflate-raw']) {
+      const r = await executeRequest(get(`${base}${p}`), opts, new AbortController().signal)
+      expect(text(r)).toBe('hello')
     }
   })
 

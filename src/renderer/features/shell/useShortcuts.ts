@@ -8,6 +8,7 @@ export function useShortcuts(): void {
       const mod = e.metaKey || e.ctrlKey
       if (mod && e.key === 'Enter') {
         e.preventDefault()
+        if (e.repeat) return
         void store.getState().send()
       } else if (e.key === 'Escape') {
         if (!store.getState().inFlight) return

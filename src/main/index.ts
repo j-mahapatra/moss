@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, session } from 'electron'
 import { writeFile } from 'fs/promises'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
@@ -67,6 +67,10 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
+
+  // The app needs no device or web permissions; deny every request and check.
+  session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false))
+  session.defaultSession.setPermissionCheckHandler(() => false)
 
   registerIpc(ipcMain, { supervisor, scope: () => new Map(), pickFile, saveFile })
   createWindow()

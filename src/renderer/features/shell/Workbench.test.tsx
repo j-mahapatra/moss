@@ -1,9 +1,11 @@
+import userEvent from '@testing-library/user-event'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createWorkspaceStore, type WorkspaceState } from '../../state/workspace'
 import { WorkspaceProvider } from '../../state/workspace-context'
 import { useWorkspace } from '../../state/workspace-hooks'
 import { Workbench } from './Workbench'
+import { setDoc, viewOf } from '../requests/test-utils'
 
 function stubMatchMedia(matches: boolean): (m: boolean) => void {
   const listeners = new Set<(e: Event) => void>()
@@ -123,6 +125,56 @@ function cleanupAndFire(api: { 'request:send': ReturnType<typeof vi.fn> }): void
   expect(removed).toHaveLength(1)
   expect(removed[0]?.[1]).toBe(added[0]?.[1])
 }
+
+describe('send shortcut', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('Mod-Enter inside the body editor sends the body unchanged', async () => {
+    stubMatchMedia(true)
+    const api = {
+      'request:send': vi.fn(() => new Promise<never>(() => {})),
+      'request:cancel': vi.fn(async () => undefined)
+    }
+    const store = createWorkspaceStore(api as never)
+    store.getState().updateDraft({ body: { mode: 'raw', contentType: 'text/plain', text: 'abc' } })
+    const { container } = render(
+      <WorkspaceProvider store={store}>
+        <Workbench />
+      </WorkspaceProvider>
+    )
+    await userEvent.setup().click(screen.getByRole('tab', { name: 'Body' }))
+    const view = viewOf(container, 'Body')
+    expect(view.state.doc.toString()).toBe('abc')
+    setDoc(view, 'abc')
+    view.focus()
+    act(() => {
+      view.contentDOM.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true
+        })
+      )
+    })
+    expect(api['request:send']).toHaveBeenCalledTimes(1)
+    const sent = api['request:send'].mock.calls[0] as unknown as [
+      { request: { body: { text: string } } }
+    ]
+    expect(sent[0].request.body.text).toBe('abc')
+    expect(store.getState().draft.body).toMatchObject({ mode: 'raw', text: 'abc' })
+    expect(view.state.doc.toString()).toBe('abc')
+  })
+
+  it('ignores auto-repeated keydowns', () => {
+    const { api } = setup()
+    fireEvent.keyDown(window, { key: 'Enter', ctrlKey: true, repeat: true })
+    expect(api['request:send']).not.toHaveBeenCalled()
+    fireEvent.keyDown(window, { key: 'Enter', ctrlKey: true })
+    expect(api['request:send']).toHaveBeenCalledTimes(1)
+  })
+})
 
 describe('useWorkspace', () => {
   it('throws a clear error outside a provider', () => {

@@ -23,6 +23,7 @@ export function prepareRequest(spec: RequestSpec, scope: VariableScope): Prepare
 
   // URL
   let raw = r(spec.url).trim()
+  if (raw === '') return fail('invalid-url', 'Enter a URL to send')
   if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) raw = `http://${raw}`
   let url: URL
   try {
@@ -40,6 +41,7 @@ export function prepareRequest(spec: RequestSpec, scope: VariableScope): Prepare
     if (!h.enabled) continue
     const name = r(h.key).trim()
     const value = r(h.value)
+    if (name === '' && value.trim() === '') continue
     if (name === '') return fail('invalid-request', "Header name can't be empty")
     if (BAD_CHARS.test(name) || BAD_CHARS.test(value)) {
       return fail('invalid-request', `Invalid header "${name}"`)

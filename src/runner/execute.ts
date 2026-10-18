@@ -2,7 +2,7 @@ import { Agent, FormData, interceptors, request, type Dispatcher } from 'undici'
 import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
-import { pipeline, type Readable } from 'node:stream'
+import { pipeline, Transform, type Readable } from 'node:stream'
 import zlib from 'node:zlib'
 import type { HeaderList, ResolvedRequest, RunOptions, SendResult } from '../shared/types'
 import { classifyError } from './classify-error'
@@ -30,13 +30,42 @@ function toHeaderList(raw: Record<string, string | string[] | undefined>): Heade
   return out
 }
 
-function decoderFor(encoding: string): zlib.Gunzip | zlib.Inflate | zlib.BrotliDecompress | null {
+/**
+ * `Content-Encoding: deflate` is zlib-wrapped per the RFC, but some servers send raw
+ * DEFLATE. Peek the first byte: a zlib header has CM = 8 in its low nibble (usually 0x78).
+ */
+function createDeflateDecoder(): Transform {
+  let inner: zlib.Inflate | zlib.InflateRaw | null = null
+  const out = new Transform({
+    transform(chunk: Buffer, _enc, cb) {
+      if (!inner) {
+        const first = chunk[0] ?? 0
+        inner = (first & 0x0f) === 8 ? zlib.createInflate() : zlib.createInflateRaw()
+        inner.on('data', (d: Buffer) => out.push(d))
+        inner.on('error', (e) => out.destroy(e))
+      }
+      inner.write(chunk, () => cb())
+    },
+    flush(cb) {
+      if (!inner) return cb()
+      inner.once('end', () => cb())
+      inner.end()
+    },
+    destroy(err, cb) {
+      inner?.destroy()
+      cb(err)
+    }
+  })
+  return out
+}
+
+function decoderFor(encoding: string): zlib.Gunzip | Transform | zlib.BrotliDecompress | null {
   switch (encoding.trim().toLowerCase()) {
     case 'gzip':
     case 'x-gzip':
       return zlib.createGunzip()
     case 'deflate':
-      return zlib.createInflate()
+      return createDeflateDecoder()
     case 'br':
       return zlib.createBrotliDecompress()
     default:
