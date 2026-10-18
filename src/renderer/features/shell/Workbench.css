@@ -10,6 +10,7 @@
 }
 
 .workbench__body {
+  grid-row: 3;
   display: grid;
   grid-template-columns: auto 260px minmax(0, 1fr);
   min-height: 0;

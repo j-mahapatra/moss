@@ -49,6 +49,11 @@ async function send(url: string): Promise<void> {
   await page.keyboard.press('ControlOrMeta+Enter')
 }
 
+test('workbench body fills the window below the top bar', async () => {
+  const box = await page.locator('.workbench__body').boundingBox()
+  expect(box?.height).toBeGreaterThan(400)
+})
+
 test('sends a request and shows status and JSON body', async () => {
   await send(`http://127.0.0.1:${server.port}/hello`)
   await expect(page.locator('[data-response-status]')).toContainText('200 OK')

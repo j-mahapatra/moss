@@ -323,3 +323,12 @@ describe('shell', () => {
     expect(store.getState().ui.confirmDiscard).toBeNull()
   })
 })
+
+describe('Workbench layout guard', () => {
+  it('keeps the body in the 1fr row even when Notices renders nothing', async () => {
+    const { readFileSync } = await import('node:fs')
+    const css = readFileSync(`${__dirname}/Workbench.css`, 'utf8')
+    expect(css).toMatch(/grid-template-rows:\s*auto auto minmax\(0, 1fr\);/)
+    expect(css).toMatch(/\.workbench__body\s*\{[^}]*grid-row:\s*3;/)
+  })
+})
