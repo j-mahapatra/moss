@@ -4,6 +4,7 @@ import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { createWindowOptions } from './window-options'
+import { isAllowedNavigation } from './navigation'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -20,8 +21,7 @@ function createWindow(): void {
   const devUrl = is.dev ? process.env['ELECTRON_RENDERER_URL'] : undefined
   const appFileUrl = pathToFileURL(join(__dirname, '../renderer/index.html')).href
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const allowed = (devUrl !== undefined && url.startsWith(devUrl)) || url === appFileUrl
-    if (!allowed) event.preventDefault()
+    if (!isAllowedNavigation(url, { devUrl, appFileUrl })) event.preventDefault()
   })
 
   // HMR for renderer base on electron-vite cli.
