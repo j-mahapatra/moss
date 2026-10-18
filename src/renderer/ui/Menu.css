@@ -1,0 +1,42 @@
+.moss-menu {
+  min-width: 160px;
+  padding: var(--moss-space-1);
+  border: 1px solid var(--moss-border);
+  border-radius: var(--moss-radius-md);
+  background: var(--moss-surface-raised);
+  color: var(--moss-text);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--moss-text) 14%, transparent);
+  z-index: 50;
+}
+
+.moss-menu__item {
+  display: flex;
+  align-items: center;
+  height: var(--moss-control-sm);
+  padding: 0 var(--moss-space-2);
+  border-radius: var(--moss-radius-sm);
+  font-size: var(--moss-text-md);
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+}
+
+.moss-menu__item[data-highlighted] {
+  background: var(--moss-accent-soft);
+}
+
+.moss-menu__item[data-disabled] {
+  color: var(--moss-text-muted);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.moss-menu__item--danger {
+  color: var(--moss-danger);
+}
+
+.moss-menu__separator {
+  height: 1px;
+  margin: var(--moss-space-1) 0;
+  background: var(--moss-border);
+}

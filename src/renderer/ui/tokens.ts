@@ -20,7 +20,10 @@ export const tokenNames = [
   'status-5xx',
   'var-resolved',
   'var-unresolved',
-  'danger'
+  'danger',
+  'overlay',
+  'notice-warning-bg',
+  'notice-danger-bg'
 ] as const
 
 export type TokenName = (typeof tokenNames)[number]
@@ -46,7 +49,10 @@ export const palette: Palette = {
     'status-5xx': '#b3261e',
     'var-resolved': '#0f6b4b',
     'var-unresolved': '#8a5300',
-    danger: '#b3261e'
+    danger: '#b3261e',
+    overlay: '#0e161299',
+    'notice-warning-bg': '#fbf0dc',
+    'notice-danger-bg': '#fbe6e3'
   },
   // Dark: forest floor at night; mint carries the accent and focus.
   dark: {
@@ -66,7 +72,10 @@ export const palette: Palette = {
     'status-5xx': '#ff8f84',
     'var-resolved': '#5fd6a5',
     'var-unresolved': '#efb35a',
-    danger: '#ff8f84'
+    danger: '#ff8f84',
+    overlay: '#050a08b3',
+    'notice-warning-bg': '#2e2415',
+    'notice-danger-bg': '#341a18'
   }
 }
 

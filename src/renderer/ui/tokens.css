@@ -48,6 +48,9 @@
   --moss-var-resolved: #0f6b4b;
   --moss-var-unresolved: #8a5300;
   --moss-danger: #b3261e;
+  --moss-overlay: #0e161299;
+  --moss-notice-warning-bg: #fbf0dc;
+  --moss-notice-danger-bg: #fbe6e3;
 }
 
 :root[data-theme="dark"] {
@@ -69,4 +72,7 @@
   --moss-var-resolved: #5fd6a5;
   --moss-var-unresolved: #efb35a;
   --moss-danger: #ff8f84;
+  --moss-overlay: #050a08b3;
+  --moss-notice-warning-bg: #2e2415;
+  --moss-notice-danger-bg: #341a18;
 }

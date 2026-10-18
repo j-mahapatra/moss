@@ -1,0 +1,58 @@
+.moss-dialog__overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--moss-overlay);
+  z-index: 60;
+}
+
+.moss-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--moss-space-3);
+  width: calc(100vw - var(--moss-space-8));
+  max-width: 480px;
+  max-height: calc(100vh - var(--moss-space-8));
+  padding: var(--moss-space-5);
+  border: 1px solid var(--moss-border);
+  border-radius: var(--moss-radius-md);
+  background: var(--moss-surface-raised);
+  color: var(--moss-text);
+  box-shadow: 0 16px 48px color-mix(in srgb, var(--moss-text) 24%, transparent);
+  z-index: 61;
+}
+
+.moss-dialog:focus {
+  outline: none;
+}
+
+.moss-dialog__title {
+  margin: 0;
+  font-size: var(--moss-text-xl);
+  font-weight: var(--moss-weight-bold);
+  line-height: var(--moss-leading-tight);
+}
+
+.moss-dialog__description {
+  margin: 0;
+  color: var(--moss-text-muted);
+  font-size: var(--moss-text-md);
+  line-height: var(--moss-leading-normal);
+}
+
+.moss-dialog__body {
+  min-height: 0;
+  overflow: auto;
+  font-size: var(--moss-text-md);
+  line-height: var(--moss-leading-normal);
+}
+
+.moss-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--moss-space-2);
+  padding-top: var(--moss-space-2);
+}

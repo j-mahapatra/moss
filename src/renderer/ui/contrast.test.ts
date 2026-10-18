@@ -12,7 +12,11 @@ const requiredPairs: [TokenName, TokenName][] = [
   ['status-4xx', 'surface'],
   ['status-5xx', 'surface'],
   ['var-unresolved', 'surface'],
-  ['var-resolved', 'surface']
+  ['var-resolved', 'surface'],
+  ['text', 'notice-warning-bg'],
+  ['text', 'notice-danger-bg'],
+  ['status-4xx', 'notice-warning-bg'],
+  ['danger', 'notice-danger-bg']
 ]
 
 describe('contrastRatio', () => {

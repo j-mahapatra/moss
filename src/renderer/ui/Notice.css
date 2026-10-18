@@ -1,0 +1,27 @@
+.moss-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--moss-space-2);
+  padding: var(--moss-space-2) var(--moss-space-2) var(--moss-space-2) var(--moss-space-3);
+  border-left: 3px solid var(--moss-notice-accent);
+  border-radius: var(--moss-radius-sm);
+  color: var(--moss-text);
+  font-size: var(--moss-text-md);
+  line-height: var(--moss-leading-normal);
+}
+
+.moss-notice--warning {
+  --moss-notice-accent: var(--moss-status-4xx);
+  background: var(--moss-notice-warning-bg);
+}
+
+.moss-notice--danger {
+  --moss-notice-accent: var(--moss-danger);
+  background: var(--moss-notice-danger-bg);
+}
+
+.moss-notice__message {
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
+}
