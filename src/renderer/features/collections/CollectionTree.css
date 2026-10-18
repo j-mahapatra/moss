@@ -90,3 +90,17 @@
 .tree-row__more[data-state='open'] {
   opacity: 1;
 }
+
+.tree-row--drop-before {
+  box-shadow: inset 0 2px 0 var(--moss-focus);
+}
+
+.tree-row--drop-after {
+  box-shadow: inset 0 -2px 0 var(--moss-focus);
+}
+
+.tree-row--drop-inside {
+  background: var(--moss-accent-soft);
+  outline: 1px solid var(--moss-focus);
+  outline-offset: -1px;
+}

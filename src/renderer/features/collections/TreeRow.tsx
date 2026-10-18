@@ -2,6 +2,7 @@ import type { HttpMethod } from '../../../shared/types'
 import { ChevronIcon } from '../shell/icons'
 import { cx } from '../../ui/cx'
 import { ItemMenu, type ItemActions, type RowKind } from './ItemMenu'
+import type { DropPosition } from './dnd'
 import { RenameInput } from './RenameInput'
 
 export type RowModel = {
@@ -27,6 +28,8 @@ type Props = {
   dirty: boolean
   renaming: boolean
   menuOpen: boolean
+  /** Drop indicator drawn on this row, if it is the current valid target. */
+  dropPosition: DropPosition | null
   actions: ItemActions
   onMenuOpenChange(open: boolean): void
   onActivate(): void
@@ -34,6 +37,11 @@ type Props = {
   onFocus(): void
   onRenameCommit(name: string): void
   onRenameCancel(reason: 'esc' | 'blur'): void
+  onDragStart(e: React.DragEvent): void
+  onDragOver(e: React.DragEvent): void
+  onDragLeave(e: React.DragEvent): void
+  onDrop(e: React.DragEvent): void
+  onDragEnd(e: React.DragEvent): void
 }
 
 export function TreeRow(p: Props): React.JSX.Element {
@@ -49,7 +57,12 @@ export function TreeRow(p: Props): React.JSX.Element {
       aria-selected={row.kind === 'request' ? p.selected : undefined}
       tabIndex={p.tabIndex}
       data-row-key={row.key}
-      className={cx('tree-row', p.selected && 'tree-row--selected')}
+      draggable={row.kind !== 'collection' && !p.renaming}
+      className={cx(
+        'tree-row',
+        p.selected && 'tree-row--selected',
+        p.dropPosition && `tree-row--drop-${p.dropPosition}`
+      )}
       style={{ '--level': row.level - 1 } as React.CSSProperties}
       onClick={(e) => {
         // The menu is portaled, but React still bubbles its events through the row.
@@ -61,6 +74,11 @@ export function TreeRow(p: Props): React.JSX.Element {
       onFocus={(e) => {
         if (e.target === e.currentTarget) p.onFocus()
       }}
+      onDragStart={p.onDragStart}
+      onDragOver={p.onDragOver}
+      onDragLeave={p.onDragLeave}
+      onDrop={p.onDrop}
+      onDragEnd={p.onDragEnd}
     >
       <span className={cx('tree-row__chevron', row.expanded && 'tree-row__chevron--open')}>
         {row.expandable && <ChevronIcon />}

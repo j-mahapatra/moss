@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   duplicateItem,
+  findItem,
   insertItem,
+  moveItem,
   newFolder,
   removeItem,
   renameItem,
@@ -11,6 +13,14 @@ import { newRequestSpec, type Collection, type Item } from '../../../shared/type
 import { selectDirtyIds } from '../../state/selectors'
 import { useWorkspace } from '../../state/workspace-hooks'
 import { ConfirmDeleteDialog, type DeleteTarget } from './ConfirmDeleteDialog'
+import {
+  DRAG_TYPE,
+  dropPositionFor,
+  parsePayload,
+  resolveDrop,
+  type DragPayload,
+  type DropPosition
+} from './dnd'
 import type { ItemActions } from './ItemMenu'
 import { TreeRow, type RowModel } from './TreeRow'
 import './CollectionTree.css'
@@ -65,6 +75,16 @@ function flatten(collections: Collection[], isExpanded: (key: string) => boolean
   return rows
 }
 
+function findSiblings(items: Item[], parentId: string): Item[] | null {
+  for (const it of items) {
+    if (it.kind !== 'folder') continue
+    if (it.id === parentId) return it.items
+    const hit = findSiblings(it.items, parentId)
+    if (hit) return hit
+  }
+  return null
+}
+
 export function CollectionTree({ renamingId, onRenamingChange }: Props): React.JSX.Element {
   const collections = useWorkspace((s) => s.collections)
   const active = useWorkspace((s) => s.active)
@@ -80,6 +100,8 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
   const [focusKey, setFocusKey] = useState<string | null>(null)
   const [menuKey, setMenuKey] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
+  const [drop, setDrop] = useState<{ targetKey: string; position: DropPosition } | null>(null)
+  const dragRef = useRef<DragPayload | null>(null)
   const treeRef = useRef<HTMLDivElement>(null)
   const refocus = useRef<string | null>(null)
 
@@ -170,6 +192,79 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
     else void updateCollection(t.collectionId, (c) => removeItem(c, t.id))
   }
 
+  /** Resolves a drag event over `row` to a destination, or null when it is not a valid target. */
+  const evaluateDrop = (
+    e: React.DragEvent,
+    row: RowModel,
+    payload: DragPayload | null
+  ): { position: DropPosition; dest: NonNullable<ReturnType<typeof resolveDrop>> } | null => {
+    if (!payload || payload.collectionId !== row.collectionId) return null
+    const c = collections.find((x) => x.id === payload.collectionId)
+    if (!c) return null
+    const position: DropPosition =
+      row.kind === 'collection'
+        ? 'inside'
+        : dropPositionFor(
+            e.clientY - e.currentTarget.getBoundingClientRect().top,
+            e.currentTarget.getBoundingClientRect().height,
+            row.kind === 'folder'
+          )
+    const dest = resolveDrop(c, payload.itemId, row.id, position)
+    return dest ? { position, dest } : null
+  }
+
+  const endDrag = (): void => {
+    dragRef.current = null
+    setDrop(null)
+  }
+
+  const onRowDragStart = (e: React.DragEvent, row: RowModel): void => {
+    if (row.kind === 'collection') return
+    const payload: DragPayload = { collectionId: row.collectionId, itemId: row.id }
+    dragRef.current = payload
+    e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(payload))
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const onRowDragOver = (e: React.DragEvent, row: RowModel): void => {
+    const hit = evaluateDrop(e, row, dragRef.current)
+    if (!hit) {
+      setDrop((d) => (d?.targetKey === row.key ? null : d))
+      return
+    }
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDrop((d) =>
+      d?.targetKey === row.key && d.position === hit.position
+        ? d
+        : { targetKey: row.key, position: hit.position }
+    )
+  }
+
+  const onRowDrop = (e: React.DragEvent, row: RowModel): void => {
+    const payload = parsePayload(e.dataTransfer.getData(DRAG_TYPE))
+    const hit = evaluateDrop(e, row, payload)
+    endDrag()
+    if (!payload || !hit) return
+    e.preventDefault()
+    const { parentId, index } = hit.dest
+    if (hit.position === 'inside' && row.kind === 'folder') setOpen(row.key, true)
+    void updateCollection(payload.collectionId, (c) => moveItem(c, payload.itemId, parentId, index))
+  }
+
+  const moveByKeyboard = (row: RowModel, delta: -1 | 1): void => {
+    if (row.kind === 'collection') return
+    const c = collections.find((x) => x.id === row.collectionId)
+    const found = c && findItem(c, row.id)
+    if (!c || !found) return
+    const siblings = found.parentId === null ? c.items : findSiblings(c.items, found.parentId)
+    const to = found.index + delta
+    if (!siblings || to < 0 || to >= siblings.length) return
+    void updateCollection(row.collectionId, (cur) =>
+      moveItem(cur, row.id, found.parentId, to)
+    ).then(() => focusRow(row.key))
+  }
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
     const el = e.target as HTMLElement
     if (el.getAttribute('role') !== 'treeitem') return // ignore inputs, menu buttons, portals
@@ -178,6 +273,11 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
     if (!row) return
     const go = (r: RowModel | undefined): void => {
       if (r) focusRow(r.key)
+    }
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      moveByKeyboard(row, e.key === 'ArrowUp' ? -1 : 1)
+      e.preventDefault()
+      return
     }
     switch (e.key) {
       case 'ArrowDown':
@@ -244,6 +344,7 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
             dirty={row.kind === 'request' && dirty.has(row.id)}
             renaming={renamingId === row.key}
             menuOpen={menuKey === row.key}
+            dropPosition={drop?.targetKey === row.key ? drop.position : null}
             actions={actionsFor(row)}
             onMenuOpenChange={(o) => setMenuKey(o ? row.key : null)}
             onActivate={() => {
@@ -257,6 +358,15 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
               setMenuKey(row.key)
             }}
             onFocus={() => setFocusKey(row.key)}
+            onDragStart={(e) => onRowDragStart(e, row)}
+            onDragOver={(e) => onRowDragOver(e, row)}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                setDrop((d) => (d?.targetKey === row.key ? null : d))
+              }
+            }}
+            onDrop={(e) => onRowDrop(e, row)}
+            onDragEnd={endDrag}
             onRenameCommit={(name) => commitRename(row, name)}
             onRenameCancel={(reason) => {
               if (reason === 'esc') refocus.current = row.key
