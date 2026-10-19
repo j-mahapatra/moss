@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type -- test helpers */
 import userEvent from '@testing-library/user-event'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { newCollection } from '../../../shared/collection-tree'
 import type { Collection } from '../../../shared/types'
@@ -51,5 +51,35 @@ describe('VariablesDialog', () => {
     expect(store.getState().ui.variablesFor).toBeNull()
     expect(store.getState().collections[0]?.variables).toEqual([])
     expect(api['collections:save']).not.toHaveBeenCalled()
+  })
+
+  it('marking a variable secret masks it and persists secret: true through Save', async () => {
+    const user = userEvent.setup()
+    const col = { ...newCollection('Shop'), variables: [{ key: 'k', value: 's3', enabled: true }] }
+    const { store } = await setup(col)
+    const dialog = await screen.findByRole('dialog', { name: 'Variables · Shop' })
+    expect(within(dialog).getByLabelText('Value 1')).not.toHaveAttribute('type', 'password')
+    expect(within(dialog).getAllByRole('button', { name: /^Mark .* secret$/ })).toHaveLength(1)
+    await user.click(within(dialog).getByRole('button', { name: 'Mark k secret' }))
+    expect(within(dialog).getByLabelText('Value 1')).toHaveAttribute('type', 'password')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await vi.waitFor(() => expect(store.getState().ui.variablesFor).toBeNull())
+    expect(store.getState().collections[0]?.variables).toEqual([
+      { key: 'k', value: 's3', enabled: true, secret: true }
+    ])
+  })
+
+  it('opens saved secret variables masked', async () => {
+    const col = {
+      ...newCollection('Shop'),
+      variables: [{ key: 'k', value: 's3', enabled: true, secret: true }]
+    }
+    await setup(col)
+    const dialog = await screen.findByRole('dialog', { name: 'Variables · Shop' })
+    expect(within(dialog).getByLabelText('Value 1')).toHaveAttribute('type', 'password')
+    expect(within(dialog).getByRole('button', { name: 'Mark k secret' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
   })
 })

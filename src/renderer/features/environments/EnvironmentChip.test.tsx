@@ -3,13 +3,13 @@ import userEvent from '@testing-library/user-event'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { newEnvironment } from '../../../shared/environments'
-import type { Environment, KeyValue } from '../../../shared/types'
+import type { Environment, Variable } from '../../../shared/types'
 import { noopExtras } from '../../state/test-api'
 import { createWorkspaceStore } from '../../state/workspace'
 import { WorkspaceProvider } from '../../state/workspace-context'
 import { TopBar } from '../shell/TopBar'
 
-const env = (name: string, variables: KeyValue[] = []): Environment => ({
+const env = (name: string, variables: Variable[] = []): Environment => ({
   ...newEnvironment(name),
   variables
 })
@@ -98,6 +98,37 @@ describe('EnvironmentChip', () => {
       )
     )
     await waitFor(() => expect(save).toBeDisabled())
+  })
+
+  it('masks secret values in the popover; reveal resets when switching environments', async () => {
+    const a = env('a', [{ key: 'k', value: 'secret-a-val', enabled: true, secret: true }])
+    const b = env('b', [{ key: 'k', value: 'secret-b-val', enabled: true, secret: true }])
+    const { user } = await setup([a, b], a.id)
+    const dialog = await openPopover(user, /Environment: a/)
+    expect(within(dialog).getByLabelText('Value 1')).toHaveAttribute('type', 'password')
+    expect(dialog.innerHTML).not.toContain('secret-a-val')
+    await user.click(within(dialog).getByRole('button', { name: 'Show Value 1' }))
+    expect(within(dialog).getByLabelText('Value 1')).toHaveAttribute('type', 'text')
+    await user.click(within(dialog).getByRole('radio', { name: 'b' }))
+    expect(within(dialog).getByLabelText('Value 1')).toHaveValue('secret-b-val')
+    expect(within(dialog).getByLabelText('Value 1')).toHaveAttribute('type', 'password')
+  })
+
+  it('marks a variable secret from the popover and saves the flag', async () => {
+    const prod = env('prod', [{ key: 'host', value: 'a', enabled: true }])
+    const { user, api } = await setup([prod], prod.id)
+    const dialog = await openPopover(user, /Environment: prod/)
+    await user.click(within(dialog).getByRole('button', { name: 'Mark host secret' }))
+    expect(within(dialog).getByLabelText('Value 1')).toHaveAttribute('type', 'password')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(api['environments:save']).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: prod.id,
+          variables: [{ key: 'host', value: 'a', enabled: true, secret: true }]
+        })
+      )
+    )
   })
 
   it('hides Variables when no environment is active', async () => {

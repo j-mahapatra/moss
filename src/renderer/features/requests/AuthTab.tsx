@@ -1,5 +1,5 @@
 import type { RequestAuth } from '../../../shared/types'
-import { Input, Select } from '../../ui'
+import { Input, SecretInput, Select } from '../../ui'
 import { useWorkspace } from '../../state/workspace-hooks'
 import './AuthTab.css'
 
@@ -17,6 +17,8 @@ function fresh(type: string): RequestAuth {
 
 export function AuthTab(): React.JSX.Element {
   const auth = useWorkspace((s) => s.draft.auth)
+  // Keys the credential fields so a revealed value is masked again on another draft.
+  const draftId = useWorkspace((s) => s.draft.id)
   const updateDraft = useWorkspace((s) => s.updateDraft)
   return (
     <div className="auth-tab">
@@ -27,15 +29,15 @@ export function AuthTab(): React.JSX.Element {
         onValueChange={(t) => updateDraft({ auth: fresh(t) })}
       />
       {auth.type === 'bearer' && (
-        <label className="auth-tab__field">
-          <span>Token</span>
-          <Input
-            mono
-            spellCheck={false}
+        <div className="auth-tab__field">
+          <span aria-hidden="true">Token</span>
+          <SecretInput
+            key={draftId}
+            label="Token"
             value={auth.token}
-            onChange={(e) => updateDraft({ auth: { type: 'bearer', token: e.target.value } })}
+            onChange={(token) => updateDraft({ auth: { type: 'bearer', token } })}
           />
-        </label>
+        </div>
       )}
       {auth.type === 'basic' && (
         <>
@@ -47,15 +49,15 @@ export function AuthTab(): React.JSX.Element {
               onChange={(e) => updateDraft({ auth: { ...auth, username: e.target.value } })}
             />
           </label>
-          <label className="auth-tab__field">
-            <span>Password</span>
-            <Input
-              type="password"
-              autoComplete="off"
+          <div className="auth-tab__field">
+            <span aria-hidden="true">Password</span>
+            <SecretInput
+              key={draftId}
+              label="Password"
               value={auth.password}
-              onChange={(e) => updateDraft({ auth: { ...auth, password: e.target.value } })}
+              onChange={(password) => updateDraft({ auth: { ...auth, password } })}
             />
-          </label>
+          </div>
         </>
       )}
     </div>

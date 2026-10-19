@@ -60,7 +60,42 @@ describe('RequestPane', () => {
     await user.click(screen.getByRole('combobox', { name: 'Auth type' }))
     await user.click(await screen.findByRole('option', { name: 'Basic auth' }))
     expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password')
-    expect(screen.getByLabelText('Username')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show Password' })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    )
+    expect(screen.getByLabelText('Username')).not.toHaveAttribute('type', 'password')
+  })
+
+  it('masks the bearer token, with a reveal toggle', async () => {
+    const user = userEvent.setup()
+    const { store } = setup(<RequestPane />)
+    await user.click(screen.getByRole('tab', { name: 'Auth' }))
+    await user.click(screen.getByRole('combobox', { name: 'Auth type' }))
+    await user.click(await screen.findByRole('option', { name: 'Bearer token' }))
+    const token = screen.getByLabelText('Token')
+    expect(token).toHaveAttribute('type', 'password')
+    await user.type(token, 'tok-abc')
+    expect(store.getState().draft.auth).toEqual({ type: 'bearer', token: 'tok-abc' })
+    await user.click(screen.getByRole('button', { name: 'Show Token' }))
+    expect(screen.getByLabelText('Token')).toHaveAttribute('type', 'text')
+    expect(screen.getByLabelText('Token')).toHaveValue('tok-abc')
+  })
+
+  it('masks auth credentials again when the draft switches', async () => {
+    const user = userEvent.setup()
+    const { store } = setup(<RequestPane />)
+    act(() => store.getState().updateDraft({ auth: { type: 'bearer', token: 't1' } }))
+    await user.click(screen.getByRole('tab', { name: 'Auth' }))
+    await user.click(screen.getByRole('button', { name: 'Show Token' }))
+    expect(screen.getByLabelText('Token')).toHaveAttribute('type', 'text')
+    act(() =>
+      store.setState((s) => ({
+        draft: { ...s.draft, id: 'other-draft', auth: { type: 'bearer', token: 't2' } }
+      }))
+    )
+    expect(screen.getByLabelText('Token')).toHaveValue('t2')
+    expect(screen.getByLabelText('Token')).toHaveAttribute('type', 'password')
   })
 
   it('switches Send to Cancel while in flight and wires both buttons', async () => {
@@ -160,6 +195,49 @@ describe('RequestPane', () => {
       })
       expect(container.querySelector('.var-resolved')?.textContent).toBe('{{base}}')
       expect(tooltipTextFor('base', selectScope(store.getState()))).toBe('http://env')
+    })
+
+    it('hovering a secret variable shows a mask, never the value', () => {
+      const secretEnv = {
+        ...env,
+        variables: [{ key: 'base', value: 'http://secret-env', enabled: true, secret: true }]
+      }
+      const { container, store } = setup(<RequestPane />)
+      setDoc(viewOf(container, 'Request URL'), '{{base}}/x')
+      act(() => {
+        store.setState({
+          environments: [secretEnv],
+          activeEnvironmentId: secretEnv.id,
+          collections: [col],
+          active: { collectionId: col.id, requestId: 'r' }
+        })
+      })
+      const text = tooltipTextFor('base', selectScope(store.getState()))
+      expect(text).toBe('•••• (secret)')
+      expect(text).not.toContain('secret-env')
+      expect(text).not.toContain('http://col')
+      expect(container.innerHTML).not.toContain('secret-env')
+    })
+
+    it('a secret in a lower-precedence scope does not mask the value that resolves', () => {
+      const secretCol = {
+        ...col,
+        variables: [{ key: 'base', value: 'http://secret-col', enabled: true, secret: true }]
+      }
+      const { store } = setup(<RequestPane />)
+      act(() => {
+        store.setState({
+          environments: [env],
+          activeEnvironmentId: env.id,
+          collections: [secretCol],
+          active: { collectionId: secretCol.id, requestId: 'r' }
+        })
+      })
+      expect(tooltipTextFor('base', selectScope(store.getState()))).toBe('http://env')
+      act(() => {
+        store.setState({ activeEnvironmentId: null })
+      })
+      expect(tooltipTextFor('base', selectScope(store.getState()))).toBe('•••• (secret)')
     })
 
     it('marks an environment-only variable unresolved after switching to No environment', () => {

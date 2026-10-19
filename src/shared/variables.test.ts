@@ -45,6 +45,37 @@ describe('buildScope', () => {
     ])
     expect(s.get('h')).toBe('2')
   })
+  it('names the resolved variables that come from secret rows', () => {
+    const s = buildScope(
+      [
+        { key: ' token ', value: 't', enabled: true, secret: true },
+        { key: 'off', value: 'x', enabled: false, secret: true }
+      ],
+      [
+        { key: 'token', value: 'col', enabled: true },
+        { key: 'host', value: 'h', enabled: true, secret: true },
+        { key: 'plain', value: 'p', enabled: true }
+      ]
+    )
+    expect([...s.secretNames].sort()).toEqual(['host', 'token'])
+    expect(s.get('token')).toBe('t')
+  })
+  it('secretNames follows the row that resolves, not lower layers or overridden duplicates', () => {
+    const s = buildScope(
+      [
+        { key: 'a', value: 'env', enabled: true },
+        { key: 'b', value: '1', enabled: true, secret: true },
+        { key: 'b', value: '2', enabled: true }
+      ],
+      [
+        { key: 'a', value: 'col', enabled: true, secret: true },
+        { key: 'b', value: 'col', enabled: true, secret: true }
+      ]
+    )
+    expect(s.get('a')).toBe('env')
+    expect(s.get('b')).toBe('2')
+    expect(s.secretNames.size).toBe(0)
+  })
   it('ignores blank keys and trims keys', () => {
     const s = buildScope([
       { key: '', value: 'x', enabled: true },

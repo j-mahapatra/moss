@@ -124,6 +124,22 @@ describe('EnvironmentsPanel', () => {
     expect(store.getState().environments[0]!.variables.map((v) => v.key)).toEqual(['host'])
   })
 
+  it('Edit variables offers the secret toggle; Save persists secret: true', async () => {
+    const a = env('alpha', [kv('host', 'h')])
+    const { store, user } = await setup([a])
+    await pick(user, 'alpha', 'Edit variables…')
+    const dialog = await screen.findByRole('dialog', { name: 'Variables · alpha' })
+    await user.click(within(dialog).getByRole('button', { name: 'Mark host secret' }))
+    expect(within(dialog).getByLabelText('Value 1')).toHaveAttribute('type', 'password')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(store.getState().environments[0]!.variables[0]).toMatchObject({
+      key: 'host',
+      value: 'h',
+      secret: true
+    })
+  })
+
   it('Enter and double-click on a row open Edit variables; Cancel discards', async () => {
     const a = env('alpha')
     const { store, user } = await setup([a])

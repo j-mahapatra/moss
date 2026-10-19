@@ -24,7 +24,10 @@ const requiredPairs: [TokenName, TokenName][] = [
   ['text-muted', 'surface-raised'],
   ['text-muted', 'bg'],
   ['accent', 'surface-raised'],
-  ['accent', 'accent-soft']
+  ['accent', 'accent-soft'],
+  // A pressed secret lock (KeyValueGrid) on dialogs, popovers and panes.
+  ['accent', 'surface'],
+  ['accent', 'bg']
 ]
 
 describe('contrastRatio', () => {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { deepEqual } from '../../../shared/equal'
-import type { Environment, KeyValue } from '../../../shared/types'
+import type { Environment, Variable } from '../../../shared/types'
 import { selectActiveEnvironment } from '../../state/selectors'
 import { byName } from '../../state/slices/collections'
 import { useWorkspace } from '../../state/workspace-hooks'
@@ -20,7 +20,7 @@ function VariablesEditor({
   onDirtyChange(dirty: boolean): void
 }): React.JSX.Element {
   const updateEnvironment = useWorkspace((s) => s.updateEnvironment)
-  const [edits, setEdits] = useState<KeyValue[] | null>(null)
+  const [edits, setEdits] = useState<Variable[] | null>(null)
   const rows = edits ?? env.variables
   const dirty = edits !== null && !deepEqual(edits, env.variables)
 
@@ -42,7 +42,7 @@ function VariablesEditor({
   return (
     <section className="env-popover__section" aria-label="Variables">
       <h3 className="env-popover__heading">Variables</h3>
-      <KeyValueGrid rows={rows} onChange={setEdits} />
+      <KeyValueGrid rows={rows} onChange={setEdits} secretColumn />
       {dirty && (
         <p role="status" className="env-popover__hint">
           Save or discard your changes

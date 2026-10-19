@@ -1,7 +1,7 @@
 import { findItem } from '../../shared/collection-tree'
 import { deepEqual } from '../../shared/equal'
 import type { Collection, Environment, HttpMethod, KeyValue } from '../../shared/types'
-import { buildScope, type VariableScope } from '../../shared/variables'
+import { buildScope, type SecretAwareScope } from '../../shared/variables'
 import type { RequestRef, WorkspaceState } from './workspace'
 
 let memo: {
@@ -49,14 +49,14 @@ export function selectActiveEnvironment(s: WorkspaceState): Environment | null {
 let scopeMemo: {
   env: KeyValue[] | undefined
   col: KeyValue[] | undefined
-  out: VariableScope
+  out: SecretAwareScope
 } | null = null
 
 /**
  * The variables a send resolves against: the active environment over the draft's collection
  * (see selectActiveCollection). Returns the same Map while both variable arrays are the same references.
  */
-export function selectScope(s: WorkspaceState): VariableScope {
+export function selectScope(s: WorkspaceState): SecretAwareScope {
   const env = selectActiveEnvironment(s)?.variables
   const col = selectActiveCollection(s)?.variables
   if (scopeMemo && scopeMemo.env === env && scopeMemo.col === col) return scopeMemo.out

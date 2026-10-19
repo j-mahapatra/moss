@@ -10,6 +10,12 @@
   gap: var(--moss-space-2);
 }
 
+.moss-kv--secret .moss-kv__row {
+  grid-template-columns:
+    var(--moss-control-sm) minmax(0, 2fr) minmax(0, 3fr) var(--moss-control-sm)
+    var(--moss-control-sm);
+}
+
 .moss-kv__check {
   justify-self: center;
   width: 14px;
@@ -50,11 +56,17 @@
   text-decoration-color: color-mix(in srgb, var(--moss-text-muted) 60%, transparent);
 }
 
-.moss-kv__row .moss-icon-button {
+.moss-kv__row .moss-kv__remove,
+.moss-kv__row .moss-kv__lock {
   opacity: 0;
 }
 
 .moss-kv__row:hover .moss-icon-button,
-.moss-kv__row:focus-within .moss-icon-button {
+.moss-kv__row:focus-within .moss-icon-button,
+.moss-kv__row .moss-kv__lock[aria-pressed='true'] {
   opacity: 1;
+}
+
+.moss-kv__lock[aria-pressed='true'] {
+  color: var(--moss-accent);
 }

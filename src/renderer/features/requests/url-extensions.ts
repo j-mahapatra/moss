@@ -17,17 +17,17 @@ import {
   type ViewUpdate
 } from '@codemirror/view'
 import { looksLikeCurl } from '../../../shared/import-export/curl'
-import { findVariables, type VariableScope } from '../../../shared/variables'
+import { emptyScope, findVariables, type SecretAwareScope } from '../../../shared/variables'
 import { externalChange } from './cm-setup'
 
 /** Feed the current variable scope and submit handler into the editor state. */
-export const setScope = StateEffect.define<VariableScope>()
+export const setScope = StateEffect.define<SecretAwareScope>()
 export const setSubmit = StateEffect.define<() => void>()
 /** Takes a pasted `curl …` command; the paste is never inserted while a handler is set. */
 export const setPasteHandler = StateEffect.define<((text: string) => boolean) | null>()
 
-const scopeField = StateField.define<VariableScope>({
-  create: () => new Map(),
+const scopeField = StateField.define<SecretAwareScope>({
+  create: emptyScope,
   update: (value, tr) => {
     for (const e of tr.effects) if (e.is(setScope)) return e.value
     return value
@@ -112,8 +112,15 @@ const variableMarks = ViewPlugin.fromClass(
   { decorations: (p) => p.decorations }
 )
 
-/** Text shown when hovering `{{name}}`: the value that will be sent, or "Not defined". */
-export function tooltipTextFor(name: string, scope: VariableScope): string {
+/** Shown in place of a value that resolves from a secret variable. */
+export const SECRET_MASK = '•••• (secret)'
+
+/**
+ * Text shown when hovering `{{name}}`: the value that will be sent, a mask when that value comes
+ * from a secret variable, or "Not defined".
+ */
+export function tooltipTextFor(name: string, scope: SecretAwareScope): string {
+  if (scope.secretNames.has(name)) return SECRET_MASK
   return scope.get(name) ?? 'Not defined'
 }
 

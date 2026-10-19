@@ -1,9 +1,9 @@
 import { useEffect } from 'react'
-import type { KeyValue } from '../../../shared/types'
+import type { Variable } from '../../../shared/types'
 import { useWorkspace } from '../../state/workspace-hooks'
 import { KeyValueDialog } from '../../ui'
 
-const NO_ROWS: KeyValue[] = []
+const NO_ROWS: Variable[] = []
 
 type Props = {
   /** Id of the environment being edited, or null when closed. */
@@ -28,6 +28,7 @@ export function EnvironmentDialog({ envId, onClose }: Props): React.JSX.Element 
       open={envId !== null && environment !== null}
       rows={environment?.variables ?? NO_ROWS}
       keyPlaceholder="Key"
+      secretColumn
       onOpenChange={(o) => {
         if (!o) onClose()
       }}

@@ -1,6 +1,6 @@
 import type { EditorView } from '@codemirror/view'
 import { useEffect, useState } from 'react'
-import type { VariableScope } from '../../../shared/variables'
+import type { SecretAwareScope } from '../../../shared/variables'
 import { CodeEditor } from './CodeEditor'
 import { setPasteHandler, setScope, setSubmit, urlExtensions } from './url-extensions'
 
@@ -10,7 +10,7 @@ type UrlBarProps = {
   onSubmit(): void
   /** Called with a pasted `curl …` command instead of inserting it; true when it was applied. */
   onPasteCurl?(text: string): boolean
-  scope: VariableScope
+  scope: SecretAwareScope
 }
 
 /** Single-line URL editor with `{{variable}}` highlighting; Enter submits; curl pastes convert. */
