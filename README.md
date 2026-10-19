@@ -3,7 +3,7 @@
 Moss is a local-first desktop API client. Build a request, send it, and read the
 response, with everything staying on your machine.
 
-**Status:** early development. Requests can be built, sent and saved into collections and folders, with collection variables and environments, and every send is kept in a searchable history. Import/export is still to come.
+**Status:** early development. Requests can be built, sent and saved into collections and folders, with collection variables and environments; every send is kept in a searchable history, and Postman v2.1 collections and cURL commands can be imported, with collections exported back to v2.1.
 
 ## Quick start
 
