@@ -7,6 +7,7 @@ import { noopExtras } from '../../state/test-api'
 import { createWorkspaceStore, type WorkspaceState } from '../../state/workspace'
 import { WorkspaceProvider } from '../../state/workspace-context'
 import { useWorkspace } from '../../state/workspace-hooks'
+import { Popover } from '../../ui'
 import { Workbench } from './Workbench'
 import { setDoc, viewOf } from '../requests/test-utils'
 
@@ -307,6 +308,37 @@ describe('shell', () => {
       fireEvent.keyDown(window, { key: 'S', metaKey: true })
     })
     expect(api['collections:save']).toHaveBeenCalledTimes(1)
+    expect(store.getState().ui.saveDialogOpen).toBe(false)
+  })
+
+  it('ignores Cmd+S while a Popover is open', async () => {
+    const col = newCollection('C')
+    const spec = { ...newRequestSpec(), name: 'r' }
+    col.items.push(toItem(spec))
+    const { store, api } = shell([col])
+    await act(async () => {
+      await store.getState().init()
+    })
+    act(() => {
+      store.getState().openRequest({ collectionId: col.id, requestId: spec.id })
+      store.getState().updateDraft({ url: 'http://x' })
+    })
+    const saveActive = vi.spyOn(store.getState(), 'saveActive')
+    const user = userEvent.setup()
+    render(
+      <Popover trigger={<button>Env</button>} aria-label="Environments">
+        <p>Body</p>
+      </Popover>
+    )
+    await user.click(screen.getByRole('button', { name: 'Env' }))
+    expect(screen.getByRole('dialog', { name: 'Environments' })).toBeInTheDocument()
+    const ev = new KeyboardEvent('keydown', { key: 's', metaKey: true, cancelable: true })
+    act(() => {
+      window.dispatchEvent(ev)
+    })
+    expect(ev.defaultPrevented).toBe(false)
+    expect(api['collections:save']).not.toHaveBeenCalled()
+    expect(saveActive).not.toHaveBeenCalled()
     expect(store.getState().ui.saveDialogOpen).toBe(false)
   })
 

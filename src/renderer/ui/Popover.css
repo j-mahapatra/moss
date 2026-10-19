@@ -1,0 +1,18 @@
+.moss-popover {
+  min-width: 200px;
+  max-width: calc(100vw - var(--moss-space-8));
+  max-height: var(--radix-popover-content-available-height);
+  overflow: auto;
+  padding: var(--moss-space-2);
+  border: 1px solid var(--moss-border);
+  border-radius: var(--moss-radius-md);
+  background: var(--moss-surface-raised);
+  color: var(--moss-text);
+  font-size: var(--moss-text-md);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--moss-text) 18%, transparent);
+  z-index: var(--moss-z-popover);
+}
+
+.moss-popover:focus {
+  outline: none;
+}

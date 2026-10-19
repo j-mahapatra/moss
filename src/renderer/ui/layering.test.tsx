@@ -19,9 +19,11 @@ describe('layering', () => {
     expect(css('Dialog.css')).toContain('z-index: calc(var(--moss-z-dialog) + 1)')
     expect(css('Menu.css')).toContain('z-index: var(--moss-z-popover)')
     expect(css('Select.css')).toContain('z-index: var(--moss-z-popover)')
+    expect(css('Popover.css')).toContain('z-index: var(--moss-z-popover)')
     expect(css('Dialog.css')).not.toMatch(/z-index:\s*\d/)
     expect(css('Menu.css')).not.toMatch(/z-index:\s*\d/)
     expect(css('Select.css')).not.toMatch(/z-index:\s*\d/)
+    expect(css('Popover.css')).not.toMatch(/z-index:\s*\d/)
   })
 
   it('renders a Menu opened inside a Dialog as a body-level portal', async () => {
