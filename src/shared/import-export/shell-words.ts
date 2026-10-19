@@ -98,7 +98,9 @@ export function shellWords(text: string): ShellWordsResult {
           word += simple
           i += 2
         } else if (hex) {
-          word += String.fromCodePoint(hex.code)
+          // Lone surrogates from `\u` escapes would make later URI encoding throw.
+          const lone = hex.code >= 0xd800 && hex.code <= 0xdfff
+          word += String.fromCodePoint(lone ? 0xfffd : hex.code)
           i += 2 + hex.used
         } else {
           word += c + e

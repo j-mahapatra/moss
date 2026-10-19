@@ -19,6 +19,7 @@ type State = {
   headers: KeyValue[]
   auth: RequestAuth
   data: string[]
+  json: boolean
   encoded: KeyValue[]
   form: FormField[]
   report: ImportReport
@@ -82,6 +83,11 @@ function apply(s: State, opt: Opt, flag: string, value: string): string | null {
       break
     case 'data-raw':
       s.data.push(value)
+      break
+    case 'json':
+      s.json = true
+      if (value.startsWith('@')) add(`File data (${value}) was not imported`)
+      else s.data.push(value)
       break
     case 'data-urlencode':
       if (eq > 0) s.encoded.push(kv(value.slice(0, eq), value.slice(eq + 1)))
@@ -226,8 +232,26 @@ function dedupe(report: ImportReport): ImportReport {
   })
 }
 
+/** `--json` implies JSON Content-Type and Accept headers unless they were given. */
+function addJsonHeaders(s: State): void {
+  for (const name of ['Content-Type', 'Accept']) {
+    if (!s.headers.some((h) => h.key.toLowerCase() === name.toLowerCase())) {
+      s.headers.push(kv(name, 'application/json'))
+    }
+  }
+}
+
 /** Parses a single `curl …` command line into a request. Never throws. */
 export function parseCurl(text: string): CurlResult {
+  try {
+    return parse(text)
+  } catch {
+    // Backstop, e.g. a lone surrogate in pasted text makes URI encoding throw.
+    return { ok: false, error: 'Could not read curl command' }
+  }
+}
+
+function parse(text: string): CurlResult {
   const split = shellWords(text)
   if (!split.ok) return split
   const [first, ...rest] = split.words
@@ -239,6 +263,7 @@ export function parseCurl(text: string): CurlResult {
     headers: [],
     auth: { type: 'none' },
     data: [],
+    json: false,
     encoded: [],
     form: [],
     report: []
@@ -248,6 +273,7 @@ export function parseCurl(text: string): CurlResult {
   if (s.url === undefined || s.url === '') {
     return { ok: false, error: 'No URL found in curl command' }
   }
+  if (s.json) addJsonHeaders(s)
 
   const hasPayload = s.form.length > 0 || s.data.length > 0 || s.encoded.length > 0
   const method: HttpMethod =

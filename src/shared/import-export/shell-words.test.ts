@@ -15,6 +15,7 @@ describe('shellWords', () => {
     ["$'…' quote escapes", `$'it\\'s \\"q\\" \\t\\\\'`, ['it\'s "q" \t\\']],
     ['backslash continuation across \\r\\n', 'curl \\\r\n  https://x', ['curl', 'https://x']],
     ['backslash continuation across \\n', 'curl -s\\\n-L', ['curl', '-s-L']],
+    ["$'…' lone surrogate → U+FFFD", `$'\\uD800x\\udfff'`, ['\uFFFDx\uFFFD']],
     ['adjacent quoting', `'a'"b"c`, ['abc']],
     ['an empty quoted word', `a '' b ""`, ['a', '', 'b', '']],
     ['bare backslash escape', 'a\\ b \\$x \\|', ['a b', '$x', '|']],

@@ -243,6 +243,59 @@ describe('parseCurl', () => {
       []
     ],
     [
+      '--json adds JSON headers and a raw body',
+      `curl --json '{"a":1}' https://x`,
+      shape({
+        method: 'POST',
+        url: 'https://x',
+        headers: [kv('Content-Type', 'application/json'), kv('Accept', 'application/json')],
+        body: { mode: 'raw', contentType: 'application/json', text: '{"a":1}' }
+      }),
+      []
+    ],
+    [
+      '--json keeps given Content-Type and Accept headers',
+      `curl -H 'accept: */*' -H 'content-type: application/vnd.x+json' --json '[1]' https://x`,
+      shape({
+        method: 'POST',
+        url: 'https://x',
+        headers: [kv('accept', '*/*'), kv('content-type', 'application/vnd.x+json')],
+        body: { mode: 'raw', contentType: 'application/vnd.x+json', text: '[1]' }
+      }),
+      []
+    ],
+    [
+      '--json @file reported',
+      'curl --json @body.json https://x',
+      shape({
+        url: 'https://x',
+        headers: [kv('Content-Type', 'application/json'), kv('Accept', 'application/json')]
+      }),
+      ['File data (@body.json) was not imported']
+    ],
+    [
+      '--max-redirs consumes its argument',
+      'curl --max-redirs 3 https://x -K cfg --form-string a=b',
+      shape({ url: 'https://x' }),
+      [
+        'Unsupported option --max-redirs',
+        'Unsupported option -K',
+        'Unsupported option --form-string'
+      ]
+    ],
+    [
+      'a lone surrogate escape becomes U+FFFD',
+      `curl $'https://x?q=\\uD800'`,
+      shape({ url: 'https://x?q=%EF%BF%BD' }),
+      []
+    ],
+    [
+      'a lone surrogate in --data-urlencode with -G',
+      `curl -G --data-urlencode $'q=\\uD800' https://x`,
+      shape({ url: 'https://x?q=%EF%BF%BD' }),
+      []
+    ],
+    [
       'a missing option value',
       'curl https://x -H',
       shape({ url: 'https://x' }),
@@ -277,7 +330,12 @@ describe('parseCurl', () => {
     ['', 'Not a curl command'],
     ['curl -H x', 'No URL found in curl command'],
     ["curl 'https://x", 'Unterminated quote in command'],
-    ['curl https://x | sh', 'Only a single curl command can be imported']
+    ['curl https://x | sh', 'Only a single curl command can be imported'],
+    ['curl https://x?q=\uD800', 'Could not read curl command'],
+    [
+      'curl -d a -H "Content-Type: text/plain" --data-urlencode q=\uDC00 https://x',
+      'Could not read curl command'
+    ]
   ])('%s → error', (command, error) => {
     expect(parseCurl(command)).toEqual({ ok: false, error })
   })

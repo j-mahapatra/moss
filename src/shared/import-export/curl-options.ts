@@ -9,6 +9,7 @@ export type Opt =
   | 'user'
   | 'data'
   | 'data-raw'
+  | 'json'
   | 'data-urlencode'
   | 'form'
   | 'get'
@@ -46,6 +47,7 @@ export const LONG: Record<string, Opt> = {
   'data-ascii': 'data',
   'data-binary': 'data',
   'data-raw': 'data-raw',
+  json: 'json',
   'data-urlencode': 'data-urlencode',
   form: 'form',
   get: 'get',
@@ -66,7 +68,12 @@ export const NO_VALUE = new Set<Opt>(['get', 'head', 'ignored'])
 
 /** Unsupported flags whose argument is consumed (and not echoed in the report). */
 export const ARG_FLAGS = new Set(
-  '-o --output -w --write-out -m --max-time --connect-timeout -x --proxy -c --cookie-jar --cacert --cert --key -T --upload-file -r --range --retry --resolve'.split(
-    ' '
-  )
+  [
+    '-o --output -w --write-out -m --max-time --connect-timeout -x --proxy -c --cookie-jar',
+    '--cacert --cert --key -T --upload-file -r --range --retry --resolve',
+    '-K --config -E -U --proxy-user --max-redirs --limit-rate -C --continue-at --form-string',
+    '--url-query --oauth2-bearer -z --time-cond --interface --unix-socket -Y -y --aws-sigv4'
+  ]
+    .join(' ')
+    .split(' ')
 )
