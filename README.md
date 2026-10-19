@@ -40,30 +40,32 @@ npm run dev
 
 ## Command palette & shortcuts
 
-On macOS the modifier is ⌘; on Windows and Linux it is Ctrl.
+On macOS the modifier is ⌘; on Windows and Linux it is Ctrl. The app shows the
+right one for your system.
 
-| Shortcut | Action                                 |
-| -------- | -------------------------------------- |
-| ⌘↵       | Send                                   |
-| ⌘S       | Save                                   |
-| ⌘N       | New request                            |
-| ⌘K       | Command palette                        |
-| ⌘B       | Toggle navigator                       |
-| ⌘L       | Focus URL                              |
-| ⌃Tab     | Recent requests (Ctrl on every system) |
-| Esc      | Cancel an in-flight request            |
+| macOS | Windows / Linux | Action                      |
+| ----- | --------------- | --------------------------- |
+| ⌘↵    | Ctrl+↵          | Send                        |
+| ⌘S    | Ctrl+S          | Save                        |
+| ⌘N    | Ctrl+N          | New request                 |
+| ⌘K    | Ctrl+K          | Command palette             |
+| ⌘B    | Ctrl+B          | Toggle navigator            |
+| ⌘L    | Ctrl+L          | Focus URL                   |
+| ⌃Tab  | Ctrl+Tab        | Recent requests             |
+| Esc   | Esc             | Cancel an in-flight request |
 
-**Command palette.** Press ⌘K, or click the search field in the top bar. Type
-to filter, use the arrow keys to move and Enter to run the highlighted item.
-The palette finds saved requests by name and by their collection and folder
-path, switches the active environment (or turns it off), and runs commands:
-New request, Import…, and the three theme commands. Esc closes it and returns
-focus to wherever it was before. ⌘K again also closes it.
+**Command palette.** Press ⌘K (Ctrl+K on Windows and Linux), or click the
+search field in the top bar. Type to filter, use the arrow keys to move and
+Enter to run the highlighted item. The palette finds saved requests by name and
+by their collection and folder path, switches the active environment (or turns
+it off), and runs commands: New request, Import…, and the three theme commands.
+Esc closes it and returns focus to wherever it was before. The same shortcut
+again also closes it.
 
-**Recent requests.** Moss remembers the last 10 saved requests you opened in
-this session, most recent first (unsaved drafts aren't listed, and the list
-isn't kept across restarts). Hold Ctrl and press Tab to open the switcher on
-the previous request; keep holding Ctrl and press Tab or Shift+Tab (or the
+**Recent requests.** Moss remembers the last 10 saved requests you opened or
+saved in this session, most recent first (unsaved drafts aren't listed, and the
+list isn't kept across restarts). Hold Ctrl and press Tab to open the switcher
+on the previous request; keep holding Ctrl and press Tab or Shift+Tab (or the
 arrow keys) to move, then release Ctrl to open the selected one. Enter or a
 click also opens it, and Esc closes the switcher without changing anything. A
 quick Ctrl+Tab therefore flips between the two most recent requests.
