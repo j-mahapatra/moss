@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import {
   IMPORT_MAX_BYTES,
   IMPORT_TOO_LARGE,
@@ -40,6 +40,9 @@ export function ImportPanel(): React.JSX.Element {
   const showPanel = useWorkspace((s) => s.showPanel)
 
   const pasteId = useId()
+  const pasteRef = useRef<HTMLTextAreaElement>(null)
+  const importRef = useRef<HTMLButtonElement>(null)
+  const openRef = useRef<HTMLButtonElement>(null)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [over, setOver] = useState(false)
@@ -56,6 +59,11 @@ export function ImportPanel(): React.JSX.Element {
       return succeeded(outcome)
     } finally {
       setBusy(false)
+      // Disabling a focused button blurs it; don't leave keyboard users on <body>.
+      const at = document.activeElement
+      if (at === document.body || at === importRef.current || at === openRef.current) {
+        pasteRef.current?.focus()
+      }
     }
   }
 
@@ -103,6 +111,7 @@ export function ImportPanel(): React.JSX.Element {
         >
           <p className="navigator__quiet">Drop a collection file here</p>
           <Button
+            ref={openRef}
             variant="secondary"
             size="sm"
             disabled={busy}
@@ -115,6 +124,7 @@ export function ImportPanel(): React.JSX.Element {
           Paste a collection or curl command
         </label>
         <textarea
+          ref={pasteRef}
           id={pasteId}
           className="import-panel__paste"
           spellCheck={false}
@@ -130,6 +140,7 @@ export function ImportPanel(): React.JSX.Element {
         />
         <div className="import-panel__actions">
           <Button
+            ref={importRef}
             variant="primary"
             size="sm"
             disabled={busy || text.trim() === ''}

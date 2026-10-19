@@ -23,7 +23,7 @@ import { externalChange } from './cm-setup'
 /** Feed the current variable scope and submit handler into the editor state. */
 export const setScope = StateEffect.define<VariableScope>()
 export const setSubmit = StateEffect.define<() => void>()
-/** Takes a pasted `curl …` command; returning true means it was handled (nothing is inserted). */
+/** Takes a pasted `curl …` command; the paste is never inserted while a handler is set. */
 export const setPasteHandler = StateEffect.define<((text: string) => boolean) | null>()
 
 const scopeField = StateField.define<VariableScope>({
@@ -55,7 +55,10 @@ const curlPaste = EditorView.domEventHandlers({
   paste(event, view) {
     const handler = view.state.field(pasteField)
     const text = event.clipboardData?.getData('text/plain') ?? ''
-    if (!handler || !looksLikeCurl(text) || !handler(text)) return false
+    if (!handler || !looksLikeCurl(text)) return false
+    // Consumed either way: a command that fails to parse raises its own notice instead of
+    // landing in the URL as raw text.
+    handler(text)
     event.preventDefault()
     return true
   }

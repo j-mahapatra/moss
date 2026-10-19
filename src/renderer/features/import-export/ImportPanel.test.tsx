@@ -191,4 +191,27 @@ describe('ImportPanel', () => {
     expect(await within(status()).findByText('Imported "Basic API"')).toBeInTheDocument()
     expect(store.getState().collections).toHaveLength(1)
   })
+
+  it('returns focus to the textarea after a keyboard-activated Import', async () => {
+    const { user } = await setup()
+    await pasteInto(user, V21)
+    importButton().focus()
+    await user.keyboard('{Enter}')
+    expect(await within(status()).findByText('Imported "Basic API"')).toBeInTheDocument()
+    expect(importButton()).toBeDisabled()
+    expect(textarea()).toHaveFocus()
+  })
+
+  it('returns focus to the textarea after Open file…, cancelled or not', async () => {
+    const { api, user } = await setup()
+    const open = () => screen.getByRole('button', { name: 'Open file…' })
+    open().focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(textarea()).toHaveFocus())
+    expect(api['import:open-file']).toHaveBeenCalledTimes(1)
+    api['import:open-file'].mockResolvedValueOnce({ ok: true, name: 'c.json', text: V21 })
+    await user.click(open())
+    expect(await within(status()).findByText('Imported "Basic API"')).toBeInTheDocument()
+    expect(textarea()).toHaveFocus()
+  })
 })

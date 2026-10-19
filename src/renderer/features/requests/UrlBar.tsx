@@ -8,7 +8,7 @@ type UrlBarProps = {
   value: string
   onChange(url: string): void
   onSubmit(): void
-  /** Called with a pasted `curl …` command; return true when it was applied. */
+  /** Called with a pasted `curl …` command instead of inserting it; true when it was applied. */
   onPasteCurl?(text: string): boolean
   scope: VariableScope
 }

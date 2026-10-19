@@ -128,8 +128,27 @@ describe('UrlBar', () => {
     expect(viewOf(container, 'Request URL').state.doc.toString()).toBe('https://x/curl')
   })
 
-  it('falls back to the default single-line paste when the handler returns false', () => {
+  it('consumes a curl paste even when the handler rejects it, leaving the doc unchanged', () => {
     const onPasteCurl = vi.fn(() => false)
+    const onChange = vi.fn()
+    const { container } = render(
+      <UrlBar
+        value="http://old"
+        onChange={onChange}
+        onSubmit={noop}
+        onPasteCurl={onPasteCurl}
+        scope={new Map()}
+      />
+    )
+    const ev = paste(container, "curl 'https://x")
+    expect(onPasteCurl).toHaveBeenCalledTimes(1)
+    expect(ev.defaultPrevented).toBe(true)
+    expect(viewOf(container, 'Request URL').state.doc.toString()).toBe('http://old')
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('pastes non-curl text as usual, newlines stripped', () => {
+    const onPasteCurl = vi.fn(() => true)
     const onChange = vi.fn()
     const { container } = render(
       <UrlBar
@@ -140,9 +159,9 @@ describe('UrlBar', () => {
         scope={new Map()}
       />
     )
-    paste(container, 'curl https://x\n/y')
-    expect(onPasteCurl).toHaveBeenCalledTimes(1)
-    expect(viewOf(container, 'Request URL').state.doc.toString()).toBe('curl https://x/y')
-    expect(onChange).toHaveBeenLastCalledWith('curl https://x/y')
+    paste(container, 'https://x\n/y')
+    expect(onPasteCurl).not.toHaveBeenCalled()
+    expect(viewOf(container, 'Request URL').state.doc.toString()).toBe('https://x/y')
+    expect(onChange).toHaveBeenLastCalledWith('https://x/y')
   })
 })

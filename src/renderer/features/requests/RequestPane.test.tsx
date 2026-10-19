@@ -177,6 +177,22 @@ describe('RequestPane', () => {
     })
   })
 
+  it('a curl paste that fails to parse leaves the URL alone and raises a danger notice', () => {
+    const { container, store } = setup(<RequestPane />)
+    setDoc(viewOf(container, 'Request URL'), 'http://old')
+    const content = container.querySelector('[data-url-input]') as HTMLElement
+    const ev = new Event('paste', { bubbles: true, cancelable: true })
+    Object.defineProperty(ev, 'clipboardData', {
+      value: { getData: (t: string) => (t === 'text/plain' ? "curl 'https://x" : '') }
+    })
+    act(() => {
+      content.dispatchEvent(ev)
+    })
+    expect(store.getState().draft.url).toBe('http://old')
+    expect(viewOf(container, 'Request URL').state.doc.toString()).toBe('http://old')
+    expect(store.getState().notices.map((n) => n.tone)).toEqual(['danger'])
+  })
+
   it('a curl paste in the URL bar replaces the draft method, url and body', () => {
     const { container, store } = setup(<RequestPane />)
     const content = container.querySelector('[data-url-input]') as HTMLElement
