@@ -14,6 +14,7 @@ function setup(): {
   scope: ReturnType<typeof vi.fn>
   collections: Record<'list' | 'save' | 'delete', ReturnType<typeof vi.fn>>
   settings: Record<'get' | 'set', ReturnType<typeof vi.fn>>
+  environments: Record<'list' | 'save' | 'delete', ReturnType<typeof vi.fn>>
 } {
   const handlers = new Map<string, Handler>()
   const ipcMain = { handle: (c: string, h: Handler): void => void handlers.set(c, h) }
@@ -21,9 +22,14 @@ function setup(): {
   const supervisor = { send: vi.fn(async () => okResult), cancel: vi.fn() }
   const pickFile = vi.fn(async () => '/tmp/a.txt')
   const saveFile = vi.fn(async () => true)
-  const scope = vi.fn(async (id: string | undefined) =>
-    id ? new Map([['base', 'http://h']]) : new Map([['base', 'http://x.io']])
+  const scope = vi.fn(async (ids: { collectionId?: string; environmentId?: string }) =>
+    ids.collectionId ? new Map([['base', 'http://h']]) : new Map([['base', 'http://x.io']])
   )
+  const environments = {
+    list: vi.fn(async () => ({ environments: [], warnings: ['w'] })),
+    save: vi.fn(async () => undefined),
+    delete: vi.fn(async () => undefined)
+  }
   const collections = {
     list: vi.fn(async () => ({ collections: [], warnings: ['w'] })),
     save: vi.fn(async () => undefined),
@@ -39,7 +45,8 @@ function setup(): {
     pickFile,
     saveFile,
     collections: collections as never,
-    settings: settings as never
+    settings: settings as never,
+    environments: environments as never
   })
   return {
     invoke: async (c, i) => {
@@ -52,7 +59,8 @@ function setup(): {
     saveFile,
     scope,
     collections,
-    settings
+    settings,
+    environments
   }
 }
 const ID = '3b241101-e2bb-4255-8caf-4136c566a962'
@@ -115,15 +123,29 @@ describe('registerIpc', () => {
       request: { ...newRequestSpec(), url: '{{base}}/p' },
       collectionId: ID
     })
-    expect(t.scope).toHaveBeenCalledWith(ID)
+    expect(t.scope).toHaveBeenCalledWith({ collectionId: ID, environmentId: undefined })
     const [, req] = t.supervisor.send.mock.calls[0] as unknown as [string, { url: string }]
     expect(req.url).toBe('http://h/p')
   })
 
-  it('uses scope(undefined) without a collectionId', async () => {
+  it('passes both ids to scope', async () => {
     const t = setup()
-    await t.invoke('request:send', { requestId: ID, request: newRequestSpec() })
-    expect(t.scope).toHaveBeenCalledWith(undefined)
+    const ENV = '4b241101-e2bb-4255-8caf-4136c566a963'
+    await t.invoke('request:send', {
+      requestId: ID,
+      request: newRequestSpec(),
+      collectionId: ID,
+      environmentId: ENV
+    })
+    expect(t.scope).toHaveBeenCalledWith({ collectionId: ID, environmentId: ENV })
+  })
+
+  it('rejects a send with a bad environmentId', async () => {
+    const t = setup()
+    await expect(
+      t.invoke('request:send', { requestId: ID, request: newRequestSpec(), environmentId: '../x' })
+    ).rejects.toThrow()
+    expect(t.scope).not.toHaveBeenCalled()
   })
 
   it('returns an unknown error when scope rejects', async () => {
@@ -136,7 +158,7 @@ describe('registerIpc', () => {
     })) as SendResult
     expect(r).toEqual({
       ok: false,
-      error: { kind: 'unknown', message: 'Request failed: could not load collection variables' }
+      error: { kind: 'unknown', message: 'Request failed: could not load variables' }
     })
     expect(t.supervisor.send).not.toHaveBeenCalled()
   })
@@ -184,5 +206,25 @@ describe('registerIpc', () => {
     expect(await t.invoke('settings:get')).toEqual({ settings: DEFAULT_SETTINGS, warnings: [] })
     await t.invoke('settings:set', DEFAULT_SETTINGS)
     expect(t.settings.set).toHaveBeenCalledWith(DEFAULT_SETTINGS)
+  })
+
+  it('lists, saves and deletes environments', async () => {
+    const t = setup()
+    expect(await t.invoke('environments:list')).toEqual({ environments: [], warnings: ['w'] })
+    const env = { id: ID, name: 'Prod', variables: [], schemaVersion: 1 }
+    await t.invoke('environments:save', env)
+    expect(t.environments.save).toHaveBeenCalledWith(env)
+    await t.invoke('environments:delete', { id: ID })
+    expect(t.environments.delete).toHaveBeenCalledWith(ID)
+  })
+
+  it('rejects environment save/delete with unsafe ids', async () => {
+    const t = setup()
+    await expect(
+      t.invoke('environments:save', { id: '../x', name: 'n', variables: [], schemaVersion: 1 })
+    ).rejects.toThrow()
+    await expect(t.invoke('environments:delete', { id: 'x/../y' })).rejects.toThrow()
+    expect(t.environments.save).not.toHaveBeenCalled()
+    expect(t.environments.delete).not.toHaveBeenCalled()
   })
 })

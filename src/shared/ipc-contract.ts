@@ -1,11 +1,18 @@
 import { z } from 'zod'
 import { channels, type Channel } from './channels'
-import { CollectionSchema, RequestSpecSchema, SendResultSchema, SettingsSchema } from './schemas'
+import {
+  CollectionSchema,
+  EnvironmentSchema,
+  RequestSpecSchema,
+  SendResultSchema,
+  SettingsSchema
+} from './schemas'
 
 export const SendInputSchema = z.object({
   requestId: z.uuid(),
   request: RequestSpecSchema,
-  collectionId: z.uuid().optional()
+  collectionId: z.uuid().optional(),
+  environmentId: z.uuid().optional()
 })
 
 export const ipcContract = {
@@ -26,7 +33,13 @@ export const ipcContract = {
     input: z.void(),
     output: z.object({ settings: SettingsSchema, warnings: z.array(z.string()) })
   },
-  'settings:set': { input: SettingsSchema, output: z.void() }
+  'settings:set': { input: SettingsSchema, output: z.void() },
+  'environments:list': {
+    input: z.void(),
+    output: z.object({ environments: z.array(EnvironmentSchema), warnings: z.array(z.string()) })
+  },
+  'environments:save': { input: EnvironmentSchema, output: z.void() },
+  'environments:delete': { input: z.object({ id: z.uuid() }), output: z.void() }
 } as const
 
 export { channels, type Channel }

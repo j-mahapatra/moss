@@ -10,8 +10,9 @@ import { registerIpc } from './ipc'
 import { RunnerSupervisor, forkUtilityRunner } from './runner-supervisor'
 import { WriteQueue } from './storage/atomic-write'
 import { CollectionsRepo } from './storage/collections-repo'
+import { EnvironmentsRepo } from './storage/environments-repo'
 import { SettingsRepo } from './storage/settings-repo'
-import { buildScope, type VariableScope } from '../shared/variables'
+import { createScopeResolver } from './scope'
 
 // MOSS_USER_DATA isolates e2e runs from the real user-data folder (absolute paths only).
 if (!app.isPackaged && process.env.MOSS_USER_DATA && isAbsolute(process.env.MOSS_USER_DATA)) {
@@ -85,10 +86,18 @@ app.whenReady().then(() => {
   const queue = new WriteQueue()
   const collections = new CollectionsRepo(dataDir, queue)
   const settings = new SettingsRepo(dataDir, queue)
-  const scope = async (id: string | undefined): Promise<VariableScope> =>
-    id ? buildScope((await collections.get(id))?.variables ?? []) : new Map()
+  const environments = new EnvironmentsRepo(dataDir, queue)
+  const scope = createScopeResolver(collections, environments)
 
-  registerIpc(ipcMain, { supervisor, scope, pickFile, saveFile, collections, settings })
+  registerIpc(ipcMain, {
+    supervisor,
+    scope,
+    pickFile,
+    saveFile,
+    collections,
+    settings,
+    environments
+  })
   createWindow()
 
   app.on('activate', function () {

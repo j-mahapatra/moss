@@ -6,12 +6,15 @@ export type VariableScope = ReadonlyMap<string, string>
 const VAR_SOURCE = String.raw`\{\{\s*([^{}\s][^{}]*?)\s*\}\}`
 const varRegex = (): RegExp => new RegExp(VAR_SOURCE, 'g')
 
-/** Earlier layers take precedence; disabled entries are ignored; last enabled duplicate in a layer wins. */
+/** Earlier layers take precedence; disabled and blank-key entries are ignored; keys are trimmed; last enabled duplicate in a layer wins. */
 export function buildScope(...layers: KeyValue[][]): VariableScope {
   const scope = new Map<string, string>()
   for (const layer of layers) {
     const own = new Map<string, string>()
-    for (const kv of layer) if (kv.enabled) own.set(kv.key, kv.value)
+    for (const kv of layer) {
+      const key = kv.key.trim()
+      if (kv.enabled && key !== '') own.set(key, kv.value)
+    }
     for (const [k, v] of own) if (!scope.has(k)) scope.set(k, v)
   }
   return scope

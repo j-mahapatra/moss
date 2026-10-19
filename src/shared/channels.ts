@@ -8,7 +8,10 @@ export const channels = [
   'collections:save',
   'collections:delete',
   'settings:get',
-  'settings:set'
+  'settings:set',
+  'environments:list',
+  'environments:save',
+  'environments:delete'
 ] as const
 
 export type Channel = (typeof channels)[number]

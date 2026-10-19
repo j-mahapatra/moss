@@ -45,6 +45,15 @@ describe('buildScope', () => {
     ])
     expect(s.get('h')).toBe('2')
   })
+  it('ignores blank keys and trims keys', () => {
+    const s = buildScope([
+      { key: '', value: 'x', enabled: true },
+      { key: '   ', value: 'y', enabled: true },
+      { key: ' base ', value: 'z', enabled: true }
+    ])
+    expect([...s.keys()]).toEqual(['base'])
+    expect(resolveTemplate('{{base}}', s)).toBe('z')
+  })
 })
 
 describe('findVariables', () => {
