@@ -114,6 +114,23 @@ describe('EnvironmentChip', () => {
     expect(within(dialog).getByLabelText('Value 1')).toHaveAttribute('type', 'password')
   })
 
+  it('Discard masks every secret again, even after rows shifted', async () => {
+    const a = env('a', [
+      { key: 'k1', value: 'secret-one', enabled: true, secret: true },
+      { key: 'k2', value: 'secret-two', enabled: true, secret: true }
+    ])
+    const { user } = await setup([a], a.id)
+    const dialog = await openPopover(user, /Environment: a/)
+    const [first] = within(dialog).getAllByRole('button', { name: 'Remove row' })
+    await user.click(first!)
+    await user.click(within(dialog).getByRole('button', { name: 'Show Value 1' }))
+    expect(within(dialog).getByLabelText('Value 1')).toHaveAttribute('type', 'text')
+    await user.click(within(dialog).getByRole('button', { name: 'Discard changes' }))
+    expect(within(dialog).getByLabelText('Value 1')).toHaveValue('secret-one')
+    expect(within(dialog).getByLabelText('Value 1')).toHaveAttribute('type', 'password')
+    expect(within(dialog).getByLabelText('Value 2')).toHaveAttribute('type', 'password')
+  })
+
   it('marks a variable secret from the popover and saves the flag', async () => {
     const prod = env('prod', [{ key: 'host', value: 'a', enabled: true }])
     const { user, api } = await setup([prod], prod.id)

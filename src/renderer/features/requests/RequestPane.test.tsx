@@ -82,6 +82,18 @@ describe('RequestPane', () => {
     expect(screen.getByLabelText('Token')).toHaveValue('tok-abc')
   })
 
+  it('the visible credential captions label and focus their fields', async () => {
+    const user = userEvent.setup()
+    const { store } = setup(<RequestPane />)
+    act(() => store.getState().updateDraft({ auth: { type: 'bearer', token: '' } }))
+    await user.click(screen.getByRole('tab', { name: 'Auth' }))
+    await user.click(screen.getByText('Token', { selector: 'label' }))
+    expect(screen.getByLabelText('Token')).toHaveFocus()
+    act(() => store.getState().updateDraft({ auth: { type: 'basic', username: '', password: '' } }))
+    await user.click(screen.getByText('Password', { selector: 'label' }))
+    expect(screen.getByLabelText('Password')).toHaveFocus()
+  })
+
   it('masks auth credentials again when the draft switches', async () => {
     const user = userEvent.setup()
     const { store } = setup(<RequestPane />)

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Variable } from '../../shared/types'
-import { LockIcon } from '../features/shell/icons'
+import { LockIcon } from './icons'
 import { cx } from './cx'
 import { IconButton } from './IconButton'
 import { Input } from './Input'
@@ -36,21 +36,33 @@ export function KeyValueGrid({
   valuePlaceholder = 'Value',
   secretColumn = false
 }: KeyValueGridProps): React.JSX.Element {
-  // Bumped when rows shift position, so a revealed secret never carries over to another row.
-  const [generation, setGeneration] = useState(0)
+  // `generation` keys the secret inputs. It is bumped when a row is removed and whenever `rows`
+  // arrives from outside this grid's own edits (discard, reload, store changes), so a revealed
+  // secret never carries over to whatever row lands in its slot.
+  const [emitted, setEmitted] = useState<Variable[] | null>(null)
+  const [seen, setSeen] = useState({ rows, generation: 0 })
+  let generation = seen.generation
+  if (seen.rows !== rows) {
+    if (rows !== emitted) generation += 1
+    setSeen({ rows, generation })
+  }
+  const emit = (next: Variable[]): void => {
+    setEmitted(next)
+    onChange(next)
+  }
   const update = (index: number, patch: Partial<Variable>): void => {
     if (index === rows.length) {
-      onChange([...rows, { key: '', value: '', enabled: true, ...patch }])
+      emit([...rows, { key: '', value: '', enabled: true, ...patch }])
     } else {
-      onChange(rows.map((row, i) => (i === index ? { ...row, ...patch } : row)))
+      emit(rows.map((row, i) => (i === index ? { ...row, ...patch } : row)))
     }
   }
   const remove = (index: number): void => {
-    setGeneration((g) => g + 1)
-    onChange(rows.filter((_, i) => i !== index))
+    setSeen((s) => ({ ...s, generation: s.generation + 1 }))
+    emit(rows.filter((_, i) => i !== index))
   }
   const toggleSecret = (index: number): void =>
-    onChange(
+    emit(
       rows.map((row, i) => {
         if (i !== index) return row
         if (!row.secret) return { ...row, secret: true }

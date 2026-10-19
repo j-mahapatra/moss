@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import type { RequestAuth } from '../../../shared/types'
 import { Input, SecretInput, Select } from '../../ui'
 import { useWorkspace } from '../../state/workspace-hooks'
@@ -19,6 +20,8 @@ export function AuthTab(): React.JSX.Element {
   const auth = useWorkspace((s) => s.draft.auth)
   // Keys the credential fields so a revealed value is masked again on another draft.
   const draftId = useWorkspace((s) => s.draft.id)
+  const tokenId = useId()
+  const passwordId = useId()
   const updateDraft = useWorkspace((s) => s.updateDraft)
   return (
     <div className="auth-tab">
@@ -30,9 +33,10 @@ export function AuthTab(): React.JSX.Element {
       />
       {auth.type === 'bearer' && (
         <div className="auth-tab__field">
-          <span aria-hidden="true">Token</span>
+          <label htmlFor={tokenId}>Token</label>
           <SecretInput
             key={draftId}
+            id={tokenId}
             label="Token"
             value={auth.token}
             onChange={(token) => updateDraft({ auth: { type: 'bearer', token } })}
@@ -50,9 +54,10 @@ export function AuthTab(): React.JSX.Element {
             />
           </label>
           <div className="auth-tab__field">
-            <span aria-hidden="true">Password</span>
+            <label htmlFor={passwordId}>Password</label>
             <SecretInput
               key={draftId}
+              id={passwordId}
               label="Password"
               value={auth.password}
               onChange={(password) => updateDraft({ auth: { ...auth, password } })}

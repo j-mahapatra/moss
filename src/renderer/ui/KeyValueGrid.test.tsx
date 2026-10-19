@@ -179,5 +179,32 @@ describe('KeyValueGrid', () => {
       expect(screen.getByLabelText('Value 1')).toHaveValue('sb')
       expect(screen.getByLabelText('Value 1')).toHaveAttribute('type', 'password')
     })
+
+    it('masks again when rows are replaced from outside the grid', async () => {
+      const a: Variable[] = [{ key: 'a', value: 'sa', enabled: true, secret: true }]
+      const { rerender } = render(<KeyValueGrid rows={a} onChange={vi.fn()} secretColumn />)
+      await userEvent.click(screen.getByRole('button', { name: 'Show Value 1' }))
+      expect(screen.getByLabelText('Value 1')).toHaveAttribute('type', 'text')
+      rerender(
+        <KeyValueGrid rows={[{ ...a[0]!, value: 'other' }]} onChange={vi.fn()} secretColumn />
+      )
+      expect(screen.getByLabelText('Value 1')).toHaveValue('other')
+      expect(screen.getByLabelText('Value 1')).toHaveAttribute('type', 'password')
+    })
+
+    it('stays revealed across its own edits', async () => {
+      render(
+        <Stateful
+          initial={[{ key: 'a', value: '', enabled: true, secret: true }]}
+          onChange={vi.fn()}
+          secretColumn
+        />
+      )
+      await userEvent.click(screen.getByRole('button', { name: 'Show Value 1' }))
+      await userEvent.type(screen.getByLabelText('Value 1'), 'xyz')
+      expect(screen.getByLabelText('Value 1')).toHaveValue('xyz')
+      expect(screen.getByLabelText('Value 1')).toHaveAttribute('type', 'text')
+      expect(screen.getByLabelText('Value 1')).toHaveFocus()
+    })
   })
 })

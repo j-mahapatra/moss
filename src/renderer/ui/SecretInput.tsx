@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
-import { EyeIcon, EyeOffIcon } from '../features/shell/icons'
+import { EyeIcon, EyeOffIcon } from './icons'
 import { IconButton } from './IconButton'
 import { Input } from './Input'
 import './SecretInput.css'
@@ -10,6 +10,8 @@ export type SecretInputProps = {
   /** Accessible name of the input; the toggle reads "Show <label>" / "Hide <label>". */
   label: string
   placeholder?: string
+  /** Id of the input, for a visible `<label htmlFor>`. */
+  id?: string
 }
 
 /**
@@ -20,7 +22,13 @@ export function SecretInput(props: SecretInputProps): React.JSX.Element {
   return <SecretField key={props.label} {...props} />
 }
 
-function SecretField({ value, onChange, label, placeholder }: SecretInputProps): React.JSX.Element {
+function SecretField({
+  value,
+  onChange,
+  label,
+  placeholder,
+  id
+}: SecretInputProps): React.JSX.Element {
   const [revealed, setRevealed] = useState(false)
   const ref = useRef<HTMLInputElement>(null)
 
@@ -35,6 +43,7 @@ function SecretField({ value, onChange, label, placeholder }: SecretInputProps):
     <div className="moss-secret">
       <Input
         ref={ref}
+        id={id}
         mono
         type={revealed ? 'text' : 'password'}
         aria-label={label}
