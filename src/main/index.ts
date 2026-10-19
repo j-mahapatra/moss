@@ -16,6 +16,8 @@ import { HistoryRepo } from './storage/history-repo'
 import { installQuitDrain, isQuitting } from './quit-drain'
 import { SettingsRepo } from './storage/settings-repo'
 import { createScopeResolver } from './scope'
+import { chooseCipher } from './secrets/safe-storage'
+import { createSecretCodec, storageNotices } from './secrets/secret-codec'
 
 // MOSS_USER_DATA isolates e2e runs from the real user-data folder (absolute paths only).
 if (!app.isPackaged && process.env.MOSS_USER_DATA && isAbsolute(process.env.MOSS_USER_DATA)) {
@@ -103,10 +105,12 @@ app.whenReady().then(() => {
 
   const dataDir = app.getPath('userData')
   const queue = new WriteQueue()
-  const collections = new CollectionsRepo(dataDir, queue)
+  // Secrets are sealed and opened inside the repos; the renderer only ever sees plaintext.
+  const codec = createSecretCodec(chooseCipher({ isPackaged: app.isPackaged, env: process.env }))
+  const collections = new CollectionsRepo(dataDir, queue, undefined, undefined, codec)
   const settings = new SettingsRepo(dataDir, queue)
-  const environments = new EnvironmentsRepo(dataDir, queue)
-  const history = new HistoryRepo(dataDir, queue)
+  const environments = new EnvironmentsRepo(dataDir, queue, undefined, undefined, codec)
+  const history = new HistoryRepo(dataDir, queue, undefined, undefined, codec)
   installQuitDrain(app, queue, { onDrained: () => supervisor.dispose() })
   const scope = createScopeResolver(collections, environments)
 
@@ -120,7 +124,8 @@ app.whenReady().then(() => {
     collections,
     settings,
     environments,
-    history
+    history,
+    startupWarnings: storageNotices(codec)
   })
   createWindow()
 

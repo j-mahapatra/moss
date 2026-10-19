@@ -2,6 +2,7 @@ import { EnvironmentSchema } from '../../shared/schemas'
 import type { Environment } from '../../shared/types'
 import { defaultFs, type AtomicFs, type WriteQueue } from './atomic-write'
 import { DocRepo } from './doc-repo'
+import { plainCodec, type SecretCodec } from '../secrets/secret-codec'
 
 export class EnvironmentsRepo {
   private repo: DocRepo<Environment>
@@ -10,7 +11,8 @@ export class EnvironmentsRepo {
     dataDir: string,
     queue: WriteQueue,
     fsImpl: AtomicFs = defaultFs,
-    now: () => number = Date.now
+    now: () => number = Date.now,
+    codec: SecretCodec = plainCodec
   ) {
     this.repo = new DocRepo<Environment>({
       dataDir,
@@ -19,7 +21,12 @@ export class EnvironmentsRepo {
       label: 'environment',
       queue,
       fsImpl,
-      now
+      now,
+      codec: {
+        available: () => codec.available(),
+        seal: (doc) => codec.sealEnvironment(doc),
+        open: (doc) => codec.openEnvironment(doc)
+      }
     })
   }
 

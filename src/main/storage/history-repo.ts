@@ -4,13 +4,17 @@ import { HistoryEntrySchema } from '../../shared/schemas'
 import type { HistoryEntry } from '../../shared/types'
 import { sweepTmp } from './tmp-sweep'
 import { atomicWriteText, defaultFs, type AtomicFs, type WriteQueue } from './atomic-write'
+import { decryptWarning, plainCodec, type SecretCodec } from '../secrets/secret-codec'
 
-const encode = (entries: HistoryEntry[]): string =>
-  entries.map((e) => JSON.stringify(e) + '\n').join('')
+/** `stored` is the line as written (secrets sealed); `open` is what callers see. */
+type Cached = { stored: HistoryEntry; open: HistoryEntry }
+
+const encode = (entries: Cached[]): string =>
+  entries.map((e) => JSON.stringify(e.stored) + '\n').join('')
 
 /** Append-only `history.jsonl`; the cache holds entries oldest-first (file order). */
 export class HistoryRepo {
-  private cache: HistoryEntry[] | null = null
+  private cache: Cached[] | null = null
   private lineCount = 0
   private pendingWarnings: string[] = []
   private swept = false
@@ -19,15 +23,20 @@ export class HistoryRepo {
     private dataDir: string,
     private queue: WriteQueue,
     private fsImpl: AtomicFs = defaultFs,
-    private now: () => number = Date.now
+    private now: () => number = Date.now,
+    private codec: SecretCodec = plainCodec
   ) {}
+
+  private seal(e: HistoryEntry): HistoryEntry {
+    return { ...e, request: this.codec.sealRequest(e.request) }
+  }
 
   private get path(): string {
     return join(this.dataDir, 'history.jsonl')
   }
 
   /** Must run inside the file's queue slot. Loads, quarantines and compacts once. */
-  private async ensureLoaded(): Promise<HistoryEntry[]> {
+  private async ensureLoaded(): Promise<Cached[]> {
     if (this.cache) return this.cache
     if (!this.swept) {
       this.swept = true
@@ -53,14 +62,32 @@ export class HistoryRepo {
         invalid.push(line)
       }
     }
-    const kept = valid.slice(-HISTORY_CAP)
+    let failed = 0
+    let plaintext = false
+    const kept = valid.slice(-HISTORY_CAP).map((stored): Cached => {
+      const opened = this.codec.openRequest(stored.request)
+      failed += opened.failed
+      plaintext ||= opened.plaintext
+      // Sealing leaves already-sealed (including undecryptable) values as they are.
+      return {
+        stored: opened.plaintext ? this.seal(stored) : stored,
+        open: { ...stored, request: opened.value }
+      }
+    })
+    const migrate = plaintext && this.codec.available()
     const warnings: string[] = []
     if (invalid.length > 0) {
       const name = `history.corrupt-${this.now()}.jsonl`
       await atomicWriteText(join(this.dataDir, name), invalid.join('\n') + '\n', this.fsImpl)
       warnings.push(`Some history entries couldn't be read and were moved to "${name}".`)
     }
-    if (invalid.length > 0 || kept.length < valid.length || (raw !== '' && !raw.endsWith('\n'))) {
+    if (failed > 0) warnings.push(decryptWarning(failed))
+    if (
+      migrate ||
+      invalid.length > 0 ||
+      kept.length < valid.length ||
+      (raw !== '' && !raw.endsWith('\n'))
+    ) {
       await atomicWriteText(this.path, encode(kept), this.fsImpl)
     }
     this.cache = kept
@@ -74,23 +101,25 @@ export class HistoryRepo {
       const cache = await this.ensureLoaded()
       const warnings = this.pendingWarnings
       this.pendingWarnings = []
-      return { entries: cache.slice(-HISTORY_CAP).reverse(), warnings }
+      const entries = cache.slice(-HISTORY_CAP).map((e) => e.open)
+      return { entries: entries.reverse(), warnings }
     })
   }
 
   async append(e: HistoryEntry): Promise<void> {
     const entry = HistoryEntrySchema.parse(e)
+    const stored = this.seal(entry)
     await this.queue.run(this.path, async () => {
       const cache = await this.ensureLoaded()
       await this.fsImpl.mkdir(dirname(this.path), { recursive: true })
       try {
-        await this.fsImpl.appendFile(this.path, JSON.stringify(entry) + '\n', 'utf8')
+        await this.fsImpl.appendFile(this.path, JSON.stringify(stored) + '\n', 'utf8')
       } catch (err) {
         // A partial write may have left a torn tail; reload (and quarantine) before the next op.
         this.cache = null
         throw err
       }
-      cache.push(entry)
+      cache.push({ stored, open: entry })
       this.lineCount++
       if (this.lineCount > 2 * HISTORY_CAP) {
         const trimmed = cache.slice(-HISTORY_CAP)
@@ -108,8 +137,8 @@ export class HistoryRepo {
   async delete(id: string): Promise<void> {
     await this.queue.run(this.path, async () => {
       const cache = await this.ensureLoaded()
-      if (!cache.some((e) => e.id === id)) return
-      const next = cache.filter((e) => e.id !== id)
+      if (!cache.some((e) => e.open.id === id)) return
+      const next = cache.filter((e) => e.open.id !== id)
       await atomicWriteText(this.path, encode(next), this.fsImpl)
       this.cache = next
       this.lineCount = next.length

@@ -2,6 +2,7 @@ import { CollectionSchema } from '../../shared/schemas'
 import type { Collection } from '../../shared/types'
 import { defaultFs, type AtomicFs, type WriteQueue } from './atomic-write'
 import { DocRepo } from './doc-repo'
+import { plainCodec, type SecretCodec } from '../secrets/secret-codec'
 
 export class CollectionsRepo {
   private repo: DocRepo<Collection>
@@ -10,7 +11,8 @@ export class CollectionsRepo {
     dataDir: string,
     queue: WriteQueue,
     fsImpl: AtomicFs = defaultFs,
-    now: () => number = Date.now
+    now: () => number = Date.now,
+    codec: SecretCodec = plainCodec
   ) {
     this.repo = new DocRepo<Collection>({
       dataDir,
@@ -19,7 +21,12 @@ export class CollectionsRepo {
       label: 'collection',
       queue,
       fsImpl,
-      now
+      now,
+      codec: {
+        available: () => codec.available(),
+        seal: (doc) => codec.sealCollection(doc),
+        open: (doc) => codec.openCollection(doc)
+      }
     })
   }
 

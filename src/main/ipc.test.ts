@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { registerIpc } from './ipc'
+import { registerIpc, type IpcDeps } from './ipc'
 import { newRequestSpec } from '../shared/types'
 import { DEFAULT_SETTINGS } from '../shared/types'
 import type { HistoryEntry, SendResult, SendOutcome } from '../shared/types'
 
 type Handler = (event: unknown, input: unknown) => unknown
 
-function setup(): {
+function setup(extra: Partial<IpcDeps> = {}): {
   invoke: (channel: string, input?: unknown) => Promise<unknown>
   supervisor: { send: ReturnType<typeof vi.fn>; cancel: ReturnType<typeof vi.fn> }
   pickFile: ReturnType<typeof vi.fn>
@@ -61,7 +61,8 @@ function setup(): {
     settings: settings as never,
     environments: environments as never,
     history: history as never,
-    now: () => 1_700_000_000_000
+    now: () => 1_700_000_000_000,
+    ...extra
   })
   return {
     invoke: async (c, i) => {
@@ -266,6 +267,17 @@ describe('registerIpc', () => {
 
   it('lists collections', async () => {
     const t = setup()
+    expect(await t.invoke('collections:list')).toEqual({ collections: [], warnings: ['w'] })
+  })
+
+  it('adds startup warnings to the first collections:list only', async () => {
+    const t = setup({ startupWarnings: ['Secrets are stored unencrypted on this system.'] })
+    t.collections.list.mockRejectedValueOnce(new Error('disk'))
+    await expect(t.invoke('collections:list')).rejects.toThrow('disk')
+    expect(await t.invoke('collections:list')).toEqual({
+      collections: [],
+      warnings: ['w', 'Secrets are stored unencrypted on this system.']
+    })
     expect(await t.invoke('collections:list')).toEqual({ collections: [], warnings: ['w'] })
   })
 

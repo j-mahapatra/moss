@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   CollectionSchema,
+  EnvironmentSchema,
   HistoryEntrySchema,
+  VariableSchema,
   SendOutcomeSchema,
   ItemSchema,
   RequestSpecSchema,
@@ -102,6 +104,34 @@ describe('collection schemas', () => {
     const c = deep()
     const parsed = CollectionSchema.parse(JSON.parse(JSON.stringify(c)))
     expect(parsed).toEqual(c)
+  })
+  it('accepts an optional secret flag on variables, and old files without it', () => {
+    expect(VariableSchema.parse({ key: 'k', value: 'v', enabled: true })).toEqual({
+      key: 'k',
+      value: 'v',
+      enabled: true
+    })
+    expect(VariableSchema.parse({ key: 'k', value: 'v', enabled: true, secret: true }).secret).toBe(
+      true
+    )
+    expect(
+      VariableSchema.safeParse({ key: 'k', value: 'v', enabled: true, secret: 1 }).success
+    ).toBe(false)
+    const withSecret = {
+      ...deep(),
+      variables: [{ key: 'a', value: '1', enabled: true, secret: true }]
+    }
+    expect(CollectionSchema.parse(withSecret)).toEqual(withSecret)
+    const env = {
+      id: crypto.randomUUID(),
+      name: 'E',
+      variables: [
+        { key: 'a', value: '1', enabled: true },
+        { key: 'b', value: '2', enabled: true, secret: false }
+      ],
+      schemaVersion: 1
+    }
+    expect(EnvironmentSchema.parse(env)).toEqual(env)
   })
   it('rejects an item with an unknown kind', () => {
     expect(ItemSchema.safeParse({ ...request(), kind: 'other' }).success).toBe(false)

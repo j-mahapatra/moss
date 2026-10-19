@@ -32,7 +32,9 @@ export async function readJsonDir<T extends { id: string }>(
   schema: z.ZodType<T>,
   queue: WriteQueue,
   now: () => number = Date.now,
-  fsImpl: AtomicFs = defaultFs
+  fsImpl: AtomicFs = defaultFs,
+  /** Runs inside the file's queue slot for each valid file; its result is what gets listed. */
+  onLoad: (doc: T, path: string) => Promise<T> = async (doc) => doc
 ): Promise<DirReadResult<T>> {
   let names: string[]
   try {
@@ -54,7 +56,7 @@ export async function readJsonDir<T extends { id: string }>(
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') return
       }
-      if (parsed) values.push(parsed)
+      if (parsed) values.push(await onLoad(parsed, join(dir, file)))
       else warnings.push(await quarantine(dir, file, now(), fsImpl))
     })
   }

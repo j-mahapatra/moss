@@ -25,7 +25,9 @@ export async function launchApp(opts: { userDataDir?: string } = {}): Promise<La
   const env = {
     ...process.env,
     NODE_ENV: 'production',
-    MOSS_USER_DATA: userDataDir
+    MOSS_USER_DATA: userDataDir,
+    // Keep e2e off the real keychain.
+    MOSS_SECRETS: 'plain'
   } as Record<string, string>
   delete env['ELECTRON_RENDERER_URL']
   const app = await electron.launch({ args: ['out/main/index.js'], env })

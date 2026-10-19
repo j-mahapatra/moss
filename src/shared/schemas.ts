@@ -19,7 +19,8 @@ import type {
   ResolvedBody,
   ResolvedRequest,
   SendOutcome,
-  SendResult
+  SendResult,
+  Variable
 } from './types'
 
 type Equal<A, B> =
@@ -33,6 +34,8 @@ export const KeyValueSchema = z.object({
   value: z.string(),
   enabled: z.boolean()
 })
+
+export const VariableSchema = KeyValueSchema.extend({ secret: z.boolean().optional() })
 
 export const FormFieldSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('text'), key: z.string(), value: z.string(), enabled: z.boolean() }),
@@ -81,14 +84,14 @@ export const CollectionSchema = z.object({
   id: z.uuid(),
   name: z.string(),
   items: z.array(ItemSchema),
-  variables: z.array(KeyValueSchema),
+  variables: z.array(VariableSchema),
   schemaVersion: z.literal(1)
 })
 
 export const EnvironmentSchema = z.object({
   id: z.uuid(),
   name: z.string(),
-  variables: z.array(KeyValueSchema),
+  variables: z.array(VariableSchema),
   schemaVersion: z.literal(1)
 })
 
@@ -192,6 +195,7 @@ export const SendOutcomeSchema = z.object({
 export type _Checks = [
   Assert<Equal<z.infer<typeof HttpMethodSchema>, HttpMethod>>,
   Assert<Equal<z.infer<typeof KeyValueSchema>, KeyValue>>,
+  Assert<Equal<z.infer<typeof VariableSchema>, Variable>>,
   Assert<Equal<z.infer<typeof FormFieldSchema>, FormField>>,
   Assert<Equal<z.infer<typeof RequestBodySchema>, RequestBody>>,
   Assert<Equal<z.infer<typeof RequestAuthSchema>, RequestAuth>>,

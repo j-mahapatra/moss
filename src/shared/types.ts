@@ -1,5 +1,10 @@
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS'
 export type KeyValue = { key: string; value: string; enabled: boolean }
+/**
+ * A collection or environment variable: KeyValue plus `secret` (encrypted at rest, masked in the
+ * UI). Written flat rather than as `KeyValue & {...}` so the schema Equal guards hold.
+ */
+export type Variable = { key: string; value: string; enabled: boolean; secret?: boolean }
 export type FormField =
   | { kind: 'text'; key: string; value: string; enabled: boolean }
   | { kind: 'file'; key: string; filePath: string; enabled: boolean }
@@ -98,10 +103,10 @@ export type Collection = {
   id: string
   name: string
   items: Item[]
-  variables: KeyValue[]
+  variables: Variable[]
   schemaVersion: 1
 }
-export type Environment = { id: string; name: string; variables: KeyValue[]; schemaVersion: 1 }
+export type Environment = { id: string; name: string; variables: Variable[]; schemaVersion: 1 }
 export type ThemePref = 'system' | 'light' | 'dark'
 export type Settings = {
   schemaVersion: 1

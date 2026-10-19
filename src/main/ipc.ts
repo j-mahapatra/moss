@@ -25,12 +25,15 @@ export interface IpcDeps {
   settings: Pick<SettingsRepo, 'get' | 'set'>
   environments: Pick<EnvironmentsRepo, 'list' | 'save' | 'delete'>
   history: Pick<HistoryRepo, 'list' | 'append' | 'delete' | 'clear'>
+  /** One-time session warnings, added to the first successful collections:list. */
+  startupWarnings?: string[]
   now?: () => number
 }
 
 // Invalid input throws a ZodError (a programming error); Electron rejects the renderer promise.
 export function registerIpc(ipcMain: Pick<IpcMain, 'handle'>, deps: IpcDeps): void {
   const now = deps.now ?? Date.now
+  let startupWarnings = deps.startupWarnings ?? []
   ipcMain.handle('request:send', async (_event, raw): Promise<SendOutcome> => {
     const { requestId, request, collectionId, environmentId } =
       ipcContract['request:send'].input.parse(raw)
@@ -94,9 +97,13 @@ export function registerIpc(ipcMain: Pick<IpcMain, 'handle'>, deps: IpcDeps): vo
     return deps.saveExportFile(suggestedName, text)
   })
 
-  ipcMain.handle('collections:list', (_event, raw) => {
+  ipcMain.handle('collections:list', async (_event, raw) => {
     ipcContract['collections:list'].input.parse(raw)
-    return deps.collections.list()
+    const result = await deps.collections.list()
+    if (startupWarnings.length === 0) return result
+    const extra = startupWarnings
+    startupWarnings = []
+    return { ...result, warnings: [...result.warnings, ...extra] }
   })
 
   ipcMain.handle('collections:save', async (_event, raw) => {
