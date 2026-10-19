@@ -174,13 +174,24 @@ export function EnvironmentsPanel(): React.JSX.Element {
                   tabIndex={0}
                   data-env-id={env.id}
                   className="env-row"
-                  onDoubleClick={actions.edit}
+                  onDoubleClick={(e) => {
+                    if (renaming || (e.target as Element).closest('button,input')) return
+                    actions.edit()
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    focusRow(env.id)
+                    setMenuId(env.id)
+                  }}
                   onKeyDown={(e) => {
                     if (e.target !== e.currentTarget || e.metaKey || e.ctrlKey) return
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      actions.edit()
-                    }
+                    if (e.key === 'Enter') actions.edit()
+                    else if (e.key === 'F2') actions.rename()
+                    else if (e.key === 'Delete' || e.key === 'Backspace') actions.remove()
+                    else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10'))
+                      setMenuId(env.id)
+                    else return
+                    e.preventDefault()
                   }}
                 >
                   {renaming ? (

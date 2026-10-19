@@ -181,4 +181,57 @@ describe('EnvironmentsPanel', () => {
     )
     expect(screen.getByText('No environments yet')).toBeInTheDocument()
   })
+
+  it('F2 renames the focused row', async () => {
+    const a = env('alpha')
+    const { user } = await setup([a])
+    row('alpha').focus()
+    await user.keyboard('{F2}')
+    expect(await screen.findByRole('textbox', { name: 'Rename' })).toHaveFocus()
+  })
+
+  it.each(['{Delete}', '{Backspace}'])('%s on a row asks to delete it', async (key) => {
+    const a = env('alpha')
+    const { user } = await setup([a])
+    row('alpha').focus()
+    await user.keyboard(key)
+    expect(await screen.findByRole('dialog', { name: 'Delete “alpha”?' })).toBeInTheDocument()
+  })
+
+  it('ContextMenu and Shift+F10 open the row menu', async () => {
+    const a = env('alpha')
+    const { user } = await setup([a])
+    row('alpha').focus()
+    await user.keyboard('{ContextMenu}')
+    expect(await screen.findByRole('menu')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+    row('alpha').focus()
+    await user.keyboard('{Shift>}{F10}{/Shift}')
+    expect(await screen.findByRole('menu')).toBeInTheDocument()
+  })
+
+  it('right-click opens the row menu', async () => {
+    const a = env('alpha')
+    const { user } = await setup([a])
+    await user.pointer({ keys: '[MouseRight]', target: row('alpha') })
+    expect(await screen.findByRole('menu')).toBeInTheDocument()
+  })
+
+  it('double-click inside the rename input does not open the dialog', async () => {
+    const a = env('alpha')
+    const { user } = await setup([a])
+    await pick(user, 'alpha', 'Rename')
+    const input = await screen.findByRole('textbox', { name: 'Rename' })
+    await user.dblClick(input)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('textbox', { name: 'Rename' })).toBeInTheDocument()
+  })
+
+  it('double-click on More actions does not open the dialog', async () => {
+    const a = env('alpha')
+    const { user } = await setup([a])
+    await user.dblClick(within(row('alpha')).getByRole('button', { name: 'More actions' }))
+    expect(screen.queryByRole('dialog', { name: 'Variables · alpha' })).toBeNull()
+  })
 })
