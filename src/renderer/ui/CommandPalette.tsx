@@ -17,6 +17,8 @@ export type CommandPaletteProps = {
   onOpenChange(open: boolean): void
   items: PaletteItem[]
   placeholder: string
+  /** Runs as the palette closes, before focus returns; `preventDefault` to place it yourself. */
+  onCloseAutoFocus?(event: Event): void
 }
 
 /** Searchable list of items in a dialog: type to filter, arrows to move, Enter to run. */
@@ -24,7 +26,8 @@ export function CommandPalette({
   open,
   onOpenChange,
   items,
-  placeholder
+  placeholder,
+  onCloseAutoFocus
 }: CommandPaletteProps): React.JSX.Element {
   return (
     <Dialog
@@ -33,6 +36,7 @@ export function CommandPalette({
       title="Command palette"
       titleHidden
       className="moss-palette"
+      onCloseAutoFocus={onCloseAutoFocus}
     >
       {/* Mounted only while open, so each opening starts from an empty query. */}
       <PaletteBody items={items} placeholder={placeholder} onClose={() => onOpenChange(false)} />

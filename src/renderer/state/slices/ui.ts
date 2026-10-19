@@ -17,6 +17,7 @@ export type UiState = {
   confirmDiscard: ConfirmDiscard
   /** Which panel the navigator column shows. */
   navigatorView: NavigatorView
+  paletteOpen: boolean
 }
 
 export type NavigatorView = 'collections' | 'environments' | 'history' | 'import'
@@ -26,7 +27,13 @@ export function createUi({
   get
 }: SliceCtx): Pick<
   WorkspaceState,
-  'ui' | 'showPanel' | 'openSaveDialog' | 'openVariables' | 'setConfirmDiscard' | 'confirmDiscard'
+  | 'ui'
+  | 'showPanel'
+  | 'openSaveDialog'
+  | 'openVariables'
+  | 'setConfirmDiscard'
+  | 'confirmDiscard'
+  | 'setPaletteOpen'
 > {
   const patch = (p: Partial<UiState>): void => set((s) => ({ ui: { ...s.ui, ...p } }))
   return {
@@ -34,7 +41,8 @@ export function createUi({
       saveDialogOpen: false,
       variablesFor: null,
       confirmDiscard: null,
-      navigatorView: 'collections'
+      navigatorView: 'collections',
+      paletteOpen: false
     },
     showPanel: (view) => {
       patch({ navigatorView: view })
@@ -43,6 +51,7 @@ export function createUi({
     openSaveDialog: (open) => patch({ saveDialogOpen: open }),
     openVariables: (id) => patch({ variablesFor: id }),
     setConfirmDiscard: (v) => patch({ confirmDiscard: v }),
+    setPaletteOpen: (open) => patch({ paletteOpen: open }),
     confirmDiscard: () => {
       const pending = get().ui.confirmDiscard
       if (!pending) return

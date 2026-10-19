@@ -22,6 +22,7 @@ const requiredPairs: [TokenName, TokenName][] = [
   ['text-muted', 'accent-soft'],
   ['text', 'accent-soft'],
   ['text-muted', 'surface-raised'],
+  ['text-muted', 'bg'],
   ['accent', 'surface-raised'],
   ['accent', 'accent-soft']
 ]

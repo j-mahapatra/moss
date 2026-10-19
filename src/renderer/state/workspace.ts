@@ -133,6 +133,8 @@ export type WorkspaceState = {
   openSaveDialog(open: boolean): void
   openVariables(collectionId: string | null): void
   setConfirmDiscard(v: ConfirmDiscard): void
+  /** Opens or closes the command palette. */
+  setPaletteOpen(open: boolean): void
   /** Re-runs the pending new/open/history/imported open with discard, then clears the confirmation. */
   confirmDiscard(): void
 }

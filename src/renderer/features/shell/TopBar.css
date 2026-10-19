@@ -2,13 +2,51 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--moss-space-4);
   padding: var(--moss-space-2) var(--moss-space-4);
   border-bottom: 1px solid var(--moss-border);
   background: var(--moss-surface);
 }
 
 .topbar__wordmark {
+  flex: none;
   color: var(--moss-accent-text);
   font-size: var(--moss-text-lg);
   font-weight: var(--moss-weight-bold);
+}
+
+.topbar__search {
+  display: flex;
+  flex: 0 1 420px;
+  align-items: center;
+  gap: var(--moss-space-2);
+  min-width: 0;
+  height: var(--moss-control-md);
+  padding: 0 var(--moss-space-3);
+  border: 1px solid var(--moss-border);
+  border-radius: var(--moss-radius-sm);
+  background: var(--moss-bg);
+  color: var(--moss-text-muted);
+  font: inherit;
+  font-size: var(--moss-text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.topbar__search:hover {
+  background: var(--moss-surface-raised);
+}
+
+.topbar__search-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar__search-key {
+  flex: none;
+  font: inherit;
+  font-size: var(--moss-text-xs);
 }
