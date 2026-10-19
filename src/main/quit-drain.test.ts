@@ -6,21 +6,27 @@ type Listener = (e: { preventDefault(): void }) => void
 function fakeApp(): {
   app: Parameters<typeof installQuitDrain>[0]
   fire: () => boolean
+  fireWill: () => boolean
   quit: ReturnType<typeof vi.fn>
 } {
-  let listener: Listener | undefined
+  const listeners: Record<string, Listener> = {}
   const quit = vi.fn()
   return {
     app: {
-      on: (_event: 'before-quit', l: Listener) => {
-        listener = l
+      on: (event: 'before-quit' | 'will-quit', l: Listener) => {
+        listeners[event] = l
         return undefined
       },
       quit
     },
     fire: () => {
       let prevented = false
-      listener?.({ preventDefault: () => (prevented = true) })
+      listeners['before-quit']?.({ preventDefault: () => (prevented = true) })
+      return prevented
+    },
+    fireWill: () => {
+      let prevented = false
+      listeners['will-quit']?.({ preventDefault: () => (prevented = true) })
       return prevented
     },
     quit
@@ -126,5 +132,20 @@ describe('installQuitDrain', () => {
     await vi.advanceTimersByTimeAsync(2)
     expect(quit).toHaveBeenCalledTimes(1)
     expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('holds will-quit until a write queued after the windows closed has landed', async () => {
+    const queue = new WriteQueue()
+    const { app, fireWill, quit } = fakeApp()
+    installQuitDrain(app, queue)
+    let release!: () => void
+    const write = queue.run('k', () => new Promise<void>((r) => (release = r)))
+    expect(fireWill()).toBe(true)
+    await new Promise((r) => setTimeout(r, 20))
+    expect(quit).not.toHaveBeenCalled()
+    release()
+    await write
+    await vi.waitFor(() => expect(quit).toHaveBeenCalledTimes(1))
+    expect(fireWill()).toBe(false)
   })
 })

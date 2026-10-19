@@ -1,10 +1,10 @@
 import type { WriteQueue } from './storage/atomic-write'
 
-type BeforeQuitListener = (e: { preventDefault(): void }) => void
+type QuitListener = (e: { preventDefault(): void }) => void
 
 /** The slice of Electron's `App` we use, so tests need no `electron` import. */
 export type QuitApp = {
-  on(event: 'before-quit', listener: BeforeQuitListener): unknown
+  on(event: 'before-quit' | 'will-quit', listener: QuitListener): unknown
   quit(): void
 }
 
@@ -19,6 +19,7 @@ export function installQuitDrain(
 ): void {
   let draining = false
   let done = false
+  let settled = false
   app.on('before-quit', (e) => {
     if (done) return
     e.preventDefault()
@@ -45,6 +46,29 @@ export function installQuitDrain(
       } finally {
         clearTimeout(timer)
         done = true
+        app.quit()
+      }
+    })()
+  })
+  // Windows close after the drain above, and a renderer's `beforeunload` flush reaches main
+  // only then. Hold the final quit once more until that last write has landed.
+  app.on('will-quit', (e) => {
+    if (settled) return
+    e.preventDefault()
+    void (async () => {
+      let timer: ReturnType<typeof setTimeout> | undefined
+      try {
+        // Let IPC messages already received by main enqueue their writes first.
+        await new Promise<void>((resolve) => setImmediate(resolve))
+        await Promise.race([
+          queue.idle(),
+          new Promise<void>((resolve) => {
+            timer = setTimeout(resolve, timeoutMs)
+          })
+        ])
+      } finally {
+        clearTimeout(timer)
+        settled = true
         app.quit()
       }
     })()
