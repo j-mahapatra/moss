@@ -96,6 +96,8 @@ state, but you have to choose the file again before the request can be sent.
 Otherwise opening a collection someone else wrote could make Send upload any
 local file they named, such as an SSH key.
 
+Exported file fields keep only the file name, never the full local path.
+
 A collection survives export and import unchanged, with these exceptions:
 
 - ids are regenerated;
@@ -136,9 +138,4 @@ same version. `src/renderer/ui/layering.test.tsx` guards this.
 
 ## Clean-room statement
 
-Moss is an independent project. It contains no Postman code or assets and interoperates only via the public Postman Collection v2.1 format.
-
-The test suite includes the official Collection v2.1 JSON schema
-(`src/shared/import-export/__fixtures__/postman-collection-v2.1.0.schema.json`,
-from the postmanlabs/schemas repository, Apache-2.0; see the `NOTICE.md` beside
-it). It is a test fixture only and is not bundled into the app.
+Moss is an independent project. It contains no Postman application code or assets and interoperates only via the public Postman Collection v2.1 format. The only Postman-authored file in the repository is the official Collection v2.1 JSON schema (`src/shared/import-export/__fixtures__/postman-collection-v2.1.0.schema.json`, Apache-2.0, from the postmanlabs/schemas repository; see the `NOTICE.md` beside it). The test suite uses it to validate exports, and it is not bundled into the app.
