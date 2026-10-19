@@ -1,16 +1,20 @@
+import type { ThemePref } from '../../shared/types'
+
 const QUERY = '(prefers-color-scheme: dark)'
 
 /**
- * Sets `<html data-theme>` from the OS color scheme and keeps it in sync.
- * Returns a function that stops following OS changes.
+ * Sets `<html data-theme>` from the preference: 'light' / 'dark' directly, 'system' from the
+ * OS color scheme. OS changes are followed only while the preference is 'system'.
+ * `refresh()` re-reads the preference; `dispose()` stops following OS changes.
  */
-export function applyTheme(): () => void {
+export function applyTheme(getPref: () => ThemePref): { refresh(): void; dispose(): void } {
   const mql = window.matchMedia(QUERY)
-  const set = (dark: boolean): void => {
+  const refresh = (): void => {
+    const pref = getPref()
+    const dark = pref === 'system' ? mql.matches : pref === 'dark'
     document.documentElement.dataset.theme = dark ? 'dark' : 'light'
   }
-  set(mql.matches)
-  const onChange = (e: Pick<MediaQueryListEvent, 'matches'>): void => set(e.matches)
-  mql.addEventListener('change', onChange)
-  return () => mql.removeEventListener('change', onChange)
+  refresh()
+  mql.addEventListener('change', refresh)
+  return { refresh, dispose: () => mql.removeEventListener('change', refresh) }
 }

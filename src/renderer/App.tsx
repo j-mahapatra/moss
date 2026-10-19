@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Workbench } from './features/shell/Workbench'
-import { createWorkspaceStore } from './state/workspace'
+import type { StoreApi } from 'zustand/vanilla'
+import { createWorkspaceStore, type WorkspaceState } from './state/workspace'
 import { WorkspaceProvider } from './state/workspace-context'
 
-function App(): React.JSX.Element {
-  const [store] = useState(() => createWorkspaceStore(window.api))
+function App({ store: given }: { store?: StoreApi<WorkspaceState> }): React.JSX.Element {
+  const [store] = useState(() => given ?? createWorkspaceStore(window.api))
   useEffect(() => {
     void store.getState().init()
     // Settings saves are debounced; write any pending one before the window goes (RF5).

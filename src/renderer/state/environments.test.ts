@@ -24,6 +24,7 @@ function setup(
     split: 0.3,
     navigatorCollapsed: false,
     activeEnvironmentId: null,
+    theme: 'system',
     ...opts.settings
   }
   const api = {
@@ -223,8 +224,36 @@ describe('init and settings', () => {
       schemaVersion: 1,
       split: 0.7,
       navigatorCollapsed: true,
-      activeEnvironmentId: null
+      activeEnvironmentId: null,
+      theme: 'system'
     })
+  })
+
+  it('setTheme persists, and a theme chosen before init resolves is kept', async () => {
+    vi.useFakeTimers()
+    const { store, api } = setup()
+    await store.getState().init()
+    store.getState().setTheme('dark')
+    expect(store.getState().theme).toBe('dark')
+    await vi.advanceTimersByTimeAsync(300)
+    expect(api['settings:set']).toHaveBeenLastCalledWith(expect.objectContaining({ theme: 'dark' }))
+
+    const loading = setup({ settings: { theme: 'light' } })
+    const gate = deferred<void>()
+    const real = loading.api['settings:get'].getMockImplementation()!
+    loading.api['settings:get'].mockImplementationOnce(async () => {
+      await gate.promise
+      return real()
+    })
+    const p = loading.store.getState().init()
+    loading.store.getState().setTheme('system')
+    gate.resolve()
+    await p
+    expect(loading.store.getState().theme).toBe('system')
+    await vi.advanceTimersByTimeAsync(300)
+    expect(loading.api['settings:set']).toHaveBeenLastCalledWith(
+      expect.objectContaining({ theme: 'system' })
+    )
   })
 
   it('createCollection called before init resolves waits for it', async () => {

@@ -10,7 +10,7 @@ const SAVE_DELAY_MS = 300
 
 export const clampSplit = (r: number): number => Math.min(SPLIT_HIGH, Math.max(SPLIT_LOW, r))
 
-type Field = 'split' | 'navigatorCollapsed' | 'activeEnvironmentId'
+type Field = 'split' | 'navigatorCollapsed' | 'activeEnvironmentId' | 'theme'
 
 export function createSettings(
   { set, get, api }: SliceCtx,
@@ -30,7 +30,9 @@ export function createSettings(
     | 'split'
     | 'navigatorCollapsed'
     | 'activeEnvironmentId'
+    | 'theme'
     | 'setSplit'
+    | 'setTheme'
     | 'toggleNavigator'
     | 'setActiveEnvironment'
     | 'flushSettings'
@@ -45,14 +47,20 @@ export function createSettings(
   let unresolvedId: string | null | undefined
 
   const write = (): Promise<void> => {
-    const { split, navigatorCollapsed } = get()
+    const { split, navigatorCollapsed, theme } = get()
     const activeEnvironmentId =
       unresolvedId !== undefined ? unresolvedId : get().activeEnvironmentId
     let sent: Promise<void>
     try {
       // Called synchronously so a flush from `beforeunload` reaches IPC before the page goes.
       sent = Promise.resolve(
-        api['settings:set']({ schemaVersion: 1, split, navigatorCollapsed, activeEnvironmentId })
+        api['settings:set']({
+          schemaVersion: 1,
+          split,
+          navigatorCollapsed,
+          activeEnvironmentId,
+          theme
+        })
       )
     } catch (err) {
       sent = Promise.reject(err)
@@ -94,6 +102,7 @@ export function createSettings(
         const patch: Partial<WorkspaceState> = {}
         if (!dirtyFields.has('split')) patch.split = clampSplit(s.split)
         if (!dirtyFields.has('navigatorCollapsed')) patch.navigatorCollapsed = s.navigatorCollapsed
+        if (!dirtyFields.has('theme')) patch.theme = s.theme
         if (!dirtyFields.has('activeEnvironmentId')) {
           const id = s.activeEnvironmentId
           if (!envsLoaded) {
@@ -115,7 +124,12 @@ export function createSettings(
       split: SPLIT_DEFAULT,
       navigatorCollapsed: false,
       activeEnvironmentId: null,
+      theme: 'system',
       setSplit: (r) => change('split', { split: clampSplit(r) }),
+      setTheme: (pref) => {
+        if (!loading && pref === get().theme) return
+        change('theme', { theme: pref })
+      },
       toggleNavigator: () =>
         change('navigatorCollapsed', { navigatorCollapsed: !get().navigatorCollapsed }),
       setActiveEnvironment: (id) => {

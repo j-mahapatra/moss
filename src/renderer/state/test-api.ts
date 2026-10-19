@@ -35,7 +35,8 @@ export function noopExtras(): Extras {
         schemaVersion: 1 as const,
         split: 0.5,
         navigatorCollapsed: false,
-        activeEnvironmentId: null
+        activeEnvironmentId: null,
+        theme: 'system' as const
       },
       warnings: []
     })),

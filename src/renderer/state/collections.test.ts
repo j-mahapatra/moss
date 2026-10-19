@@ -61,7 +61,8 @@ function setup(initial: Collection[] = [], opts: { hold?: boolean } = {}) {
         schemaVersion: 1 as const,
         split: 0.3,
         navigatorCollapsed: true,
-        activeEnvironmentId: null as string | null
+        activeEnvironmentId: null as string | null,
+        theme: 'system' as const
       },
       warnings: ['settings reset']
     })),
@@ -486,7 +487,8 @@ describe('settings', () => {
       schemaVersion: 1,
       split: 0.6,
       navigatorCollapsed: false,
-      activeEnvironmentId: null as string | null
+      activeEnvironmentId: null as string | null,
+      theme: 'system'
     })
   })
 
@@ -499,7 +501,8 @@ describe('settings', () => {
         schemaVersion: 1 as const,
         split: 0.3,
         navigatorCollapsed: false,
-        activeEnvironmentId: id
+        activeEnvironmentId: id,
+        theme: 'system' as const
       },
       warnings: []
     })
@@ -515,7 +518,8 @@ describe('settings', () => {
       schemaVersion: 1,
       split: 0.4,
       navigatorCollapsed: false,
-      activeEnvironmentId: id
+      activeEnvironmentId: id,
+      theme: 'system'
     })
   })
 

@@ -5,7 +5,8 @@ import type {
   Environment,
   HistoryEntry,
   RequestSpec,
-  SendResult
+  SendResult,
+  ThemePref
 } from '../../shared/types'
 import { errorMessage, type SliceCtx } from './slices/ctx'
 import { createCollections } from './slices/collections'
@@ -69,12 +70,15 @@ export type WorkspaceState = {
   /** Sent requests, newest first, at most HISTORY_CAP. */
   history: HistoryEntry[]
   navigatorCollapsed: boolean
+  /** Theme preference; 'system' follows the OS. */
+  theme: ThemePref
   ui: UiState
 
   updateDraft(patch: Partial<RequestSpec>): void
   send(): Promise<void>
   cancel(): void
   setSplit(r: number): void
+  setTheme(pref: ThemePref): void
   init(): Promise<void>
   openRequest(ref: RequestRef, opts?: { discard?: boolean }): 'opened' | 'confirm-discard'
   newRequest(opts?: { discard?: boolean }): 'opened' | 'confirm-discard'

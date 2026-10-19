@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { ThemePref } from '../../shared/types'
 import { applyTheme } from './theme'
 
 type Listener = (e: { matches: boolean }) => void
@@ -38,26 +39,51 @@ afterEach(() => {
 describe('applyTheme', () => {
   it('uses dark when the OS prefers dark', () => {
     fakeMatchMedia(true)
-    applyTheme()
+    applyTheme(() => 'system')
     expect(document.documentElement.dataset.theme).toBe('dark')
   })
 
   it('uses light when the OS prefers light', () => {
     fakeMatchMedia(false)
-    applyTheme()
+    applyTheme(() => 'system')
     expect(document.documentElement.dataset.theme).toBe('light')
   })
 
-  it('follows OS changes and stops after cleanup', () => {
+  it('follows OS changes while system, and stops after dispose', () => {
     const mm = fakeMatchMedia(false)
-    const stop = applyTheme()
+    const t = applyTheme(() => 'system')
     mm.set(true)
     expect(document.documentElement.dataset.theme).toBe('dark')
     mm.set(false)
     expect(document.documentElement.dataset.theme).toBe('light')
-    stop()
+    t.dispose()
     expect(mm.listeners.size).toBe(0)
     mm.set(true)
     expect(document.documentElement.dataset.theme).toBe('light')
+  })
+
+  it('ignores OS changes while the preference is light or dark', () => {
+    const mm = fakeMatchMedia(false)
+    applyTheme(() => 'light')
+    mm.set(true)
+    expect(document.documentElement.dataset.theme).toBe('light')
+    vi.unstubAllGlobals()
+    const mm2 = fakeMatchMedia(true)
+    applyTheme(() => 'dark')
+    mm2.set(false)
+    expect(document.documentElement.dataset.theme).toBe('dark')
+  })
+
+  it('refresh re-reads the preference', () => {
+    fakeMatchMedia(true)
+    let pref: ThemePref = 'system'
+    const t = applyTheme(() => pref)
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    pref = 'light'
+    t.refresh()
+    expect(document.documentElement.dataset.theme).toBe('light')
+    pref = 'system'
+    t.refresh()
+    expect(document.documentElement.dataset.theme).toBe('dark')
   })
 })

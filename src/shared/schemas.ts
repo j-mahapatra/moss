@@ -96,7 +96,8 @@ export const SettingsSchema = z.object({
   schemaVersion: z.literal(1),
   split: z.number().min(0.2).max(0.8),
   navigatorCollapsed: z.boolean(),
-  activeEnvironmentId: z.uuid().nullable().default(null)
+  activeEnvironmentId: z.uuid().nullable().default(null),
+  theme: z.enum(['system', 'light', 'dark']).default('system')
 })
 
 const HeaderListSchema = z.array(z.tuple([z.string(), z.string()]))

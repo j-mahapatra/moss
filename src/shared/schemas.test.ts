@@ -117,6 +117,13 @@ describe('collection schemas', () => {
     expect(SettingsSchema.safeParse({ ...DEFAULT_SETTINGS, split: 0.1 }).success).toBe(false)
   })
 
+  it('defaults theme to system for old settings and rejects unknown values', () => {
+    const old = { schemaVersion: 1, split: 0.5, navigatorCollapsed: false }
+    expect(SettingsSchema.parse(old).theme).toBe('system')
+    expect(SettingsSchema.parse({ ...old, theme: 'dark' }).theme).toBe('dark')
+    expect(SettingsSchema.safeParse({ ...old, theme: 'blue' }).success).toBe(false)
+  })
+
   it('defaults activeEnvironmentId to null and rejects a non-UUID', () => {
     expect(
       SettingsSchema.parse({ schemaVersion: 1, split: 0.5, navigatorCollapsed: false })

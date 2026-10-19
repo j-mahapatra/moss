@@ -102,15 +102,18 @@ export type Collection = {
   schemaVersion: 1
 }
 export type Environment = { id: string; name: string; variables: KeyValue[]; schemaVersion: 1 }
+export type ThemePref = 'system' | 'light' | 'dark'
 export type Settings = {
   schemaVersion: 1
   split: number
   navigatorCollapsed: boolean
   activeEnvironmentId: string | null
+  theme: ThemePref
 }
 export const DEFAULT_SETTINGS: Settings = {
   schemaVersion: 1,
   split: 0.5,
   navigatorCollapsed: false,
-  activeEnvironmentId: null
+  activeEnvironmentId: null,
+  theme: 'system'
 }

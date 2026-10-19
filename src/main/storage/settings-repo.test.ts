@@ -29,7 +29,7 @@ describe('SettingsRepo', () => {
     await writeFile(join(dir, 'settings.json'), JSON.stringify(legacy))
     const r = await new SettingsRepo(dir).get()
     expect(r.warnings).toEqual([])
-    expect(r.settings).toEqual({ ...legacy, activeEnvironmentId: null })
+    expect(r.settings).toEqual({ ...legacy, activeEnvironmentId: null, theme: 'system' })
     expect(await readdir(dir)).toEqual(['settings.json'])
   })
 
@@ -42,7 +42,8 @@ describe('SettingsRepo', () => {
       schemaVersion: 1 as const,
       split: 0.3,
       navigatorCollapsed: true,
-      activeEnvironmentId: null
+      activeEnvironmentId: null,
+      theme: 'system' as const
     }
     await new SettingsRepo(dir).set(s)
     expect(await new SettingsRepo(dir).get()).toEqual({ settings: s, warnings: [] })
@@ -104,7 +105,8 @@ describe('SettingsRepo', () => {
       schemaVersion: 1 as const,
       split: 0.4,
       navigatorCollapsed: true,
-      activeEnvironmentId: null
+      activeEnvironmentId: null,
+      theme: 'system' as const
     }
     const setting = repo.set(s)
     await new Promise((r) => setTimeout(r, 20))
@@ -150,7 +152,8 @@ describe('SettingsRepo', () => {
         schemaVersion: 1,
         split: 0.3,
         navigatorCollapsed: true,
-        activeEnvironmentId: null
+        activeEnvironmentId: null,
+        theme: 'system'
       })
       await new Promise((r) => setTimeout(r, 20))
       const getting = repo.get()
