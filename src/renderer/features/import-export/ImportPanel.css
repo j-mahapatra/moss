@@ -53,8 +53,10 @@
   justify-content: flex-end;
 }
 
+/* Stays rendered while empty so screen readers keep the live region; only its spacing collapses. */
 .import-panel__status:empty {
-  display: none;
+  margin: 0;
+  padding: 0;
 }
 
 .import-panel__done {
