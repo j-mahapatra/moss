@@ -13,7 +13,7 @@ import { WriteQueue } from './storage/atomic-write'
 import { CollectionsRepo } from './storage/collections-repo'
 import { EnvironmentsRepo } from './storage/environments-repo'
 import { HistoryRepo } from './storage/history-repo'
-import { installQuitDrain } from './quit-drain'
+import { installQuitDrain, isQuitting } from './quit-drain'
 import { SettingsRepo } from './storage/settings-repo'
 import { createScopeResolver } from './scope'
 
@@ -88,7 +88,7 @@ function createWindow(): void {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('dev.moss.app')
+  electronApp.setAppUserModelId('dev.moss.desktop')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -133,11 +133,10 @@ app.whenReady().then(() => {
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
+// explicitly with Cmd + Q. A quit already under way (e.g. from SIGTERM, held by the write
+// drain) closes the windows without Electron's quitting state, so finish it here.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  if (process.platform !== 'darwin' || isQuitting()) app.quit()
 })
 
 // In this file you can include the rest of your app's specific main process

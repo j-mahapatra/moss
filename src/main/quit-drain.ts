@@ -1,5 +1,16 @@
 import type { WriteQueue } from './storage/atomic-write'
 
+let quitRequested = false
+
+/**
+ * True once a quit has started (⌘Q, a signal, or `app.quit()`). The drain's own `app.quit()`
+ * can close the windows without Electron's quitting state, so `window-all-closed` uses this to
+ * finish the quit on macOS instead of idling.
+ */
+export function isQuitting(): boolean {
+  return quitRequested
+}
+
 type QuitListener = (e: { preventDefault(): void }) => void
 
 /** The slice of Electron's `App` we use, so tests need no `electron` import. */
@@ -23,6 +34,7 @@ export function installQuitDrain(
   let done = false
   let settled = false
   app.on('before-quit', (e) => {
+    quitRequested = true
     if (done) return
     e.preventDefault()
     if (draining) return

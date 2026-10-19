@@ -116,3 +116,17 @@ describe('installQuitDrain', () => {
     expect(fireWill()).toBe(false)
   })
 })
+
+describe('isQuitting', () => {
+  it('is false until before-quit fires, then stays true', async () => {
+    vi.resetModules()
+    const mod = await import('./quit-drain')
+    const { app, fire } = fakeApp()
+    mod.installQuitDrain(app, new WriteQueue())
+    expect(mod.isQuitting()).toBe(false)
+    fire()
+    expect(mod.isQuitting()).toBe(true)
+    await vi.waitFor(() => expect(fire()).toBe(false))
+    expect(mod.isQuitting()).toBe(true)
+  })
+})
