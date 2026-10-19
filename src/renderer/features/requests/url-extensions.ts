@@ -87,10 +87,15 @@ const variableMarks = ViewPlugin.fromClass(
   { decorations: (p) => p.decorations }
 )
 
+/** Text shown when hovering `{{name}}`: the value that will be sent, or "Not defined". */
+export function tooltipTextFor(name: string, scope: VariableScope): string {
+  return scope.get(name) ?? 'Not defined'
+}
+
 const variableTooltip = hoverTooltip((view, pos) => {
   const hit = findVariables(view.state.doc.toString()).find((v) => pos >= v.start && pos <= v.end)
   if (!hit) return null
-  const value = view.state.field(scopeField).get(hit.name)
+  const text = tooltipTextFor(hit.name, view.state.field(scopeField))
   return {
     pos: hit.start,
     end: hit.end,
@@ -98,7 +103,7 @@ const variableTooltip = hoverTooltip((view, pos) => {
     create() {
       const dom = document.createElement('div')
       dom.className = 'moss-var-tip'
-      dom.textContent = value === undefined ? 'Not defined' : value
+      dom.textContent = text
       return { dom }
     }
   }

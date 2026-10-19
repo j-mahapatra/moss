@@ -1,8 +1,7 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { parseQuery } from '../../../shared/url-params'
-import { buildScope } from '../../../shared/variables'
 import { Button, Tabs } from '../../ui'
-import { selectActiveCollection } from '../../state/selectors'
+import { selectScope } from '../../state/selectors'
 import { useWorkspace, useWorkspaceStore } from '../../state/workspace-hooks'
 import { AuthTab } from './AuthTab'
 import { BodyTab, type BodyCache } from './BodyTab'
@@ -17,8 +16,7 @@ export function RequestPane(): React.JSX.Element {
   const method = useWorkspace((s) => s.draft.method)
   const url = useWorkspace((s) => s.draft.url)
   const headerCount = useWorkspace((s) => s.draft.headers.filter((h) => h.enabled).length)
-  const variables = useWorkspace((s) => selectActiveCollection(s)?.variables)
-  const scope = useMemo(() => buildScope(variables ?? []), [variables])
+  const scope = useWorkspace(selectScope)
   const inFlight = useWorkspace((s) => s.inFlight !== null)
   const [tab, setTab] = useState('params')
   const [bodyCache] = useState<BodyCache>(() => new Map())

@@ -2,7 +2,10 @@ import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { newCollection } from '../../../shared/collection-tree'
+import { newEnvironment } from '../../../shared/environments'
+import { selectScope } from '../../state/selectors'
 import { RequestPane } from './RequestPane'
+import { tooltipTextFor } from './url-extensions'
 import { setDoc, setup, viewOf } from './test-utils'
 
 beforeAll(() => {
@@ -122,5 +125,55 @@ describe('RequestPane', () => {
     })
     expect(container.querySelector('.var-resolved')?.textContent).toBe('{{base}}')
     expect(container.querySelector('.var-unresolved')).toBeNull()
+  })
+
+  describe('environment scope', () => {
+    const env = {
+      ...newEnvironment('Dev'),
+      variables: [{ key: 'base', value: 'http://env', enabled: true }]
+    }
+    const col = {
+      ...newCollection('C'),
+      variables: [{ key: 'base', value: 'http://col', enabled: true }]
+    }
+
+    it('resolves a variable defined only in the active environment', () => {
+      const { container, store } = setup(<RequestPane />)
+      setDoc(viewOf(container, 'Request URL'), '{{base}}/x')
+      act(() => {
+        store.setState({ environments: [env], activeEnvironmentId: env.id })
+      })
+      expect(container.querySelector('.var-resolved')?.textContent).toBe('{{base}}')
+      expect(container.querySelector('.var-unresolved')).toBeNull()
+    })
+
+    it('shows the environment value when the collection also defines it', () => {
+      const { container, store } = setup(<RequestPane />)
+      setDoc(viewOf(container, 'Request URL'), '{{base}}/x')
+      act(() => {
+        store.setState({
+          environments: [env],
+          activeEnvironmentId: env.id,
+          collections: [col],
+          active: { collectionId: col.id, requestId: 'r' }
+        })
+      })
+      expect(container.querySelector('.var-resolved')?.textContent).toBe('{{base}}')
+      expect(tooltipTextFor('base', selectScope(store.getState()))).toBe('http://env')
+    })
+
+    it('marks an environment-only variable unresolved after switching to No environment', () => {
+      const { container, store } = setup(<RequestPane />)
+      setDoc(viewOf(container, 'Request URL'), '{{base}}/x')
+      act(() => {
+        store.setState({ environments: [env], activeEnvironmentId: env.id })
+      })
+      expect(container.querySelector('.var-resolved')).not.toBeNull()
+      act(() => {
+        store.setState({ activeEnvironmentId: null })
+      })
+      expect(container.querySelector('.var-unresolved')?.textContent).toBe('{{base}}')
+      expect(container.querySelector('.var-resolved')).toBeNull()
+    })
   })
 })
