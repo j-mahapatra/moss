@@ -14,6 +14,7 @@ import {
   type RequestSpec,
   type SendResult
 } from '../../shared/types'
+import { newEnvironment } from '../../shared/environments'
 import { selectActiveCollection, selectDirtyIds } from './selectors'
 import { createWorkspaceStore } from './workspace'
 
@@ -48,6 +49,9 @@ function setup(initial: Collection[] = [], opts: { hold?: boolean } = {}) {
       })
     }),
     'collections:delete': vi.fn(async ({ id }: { id: string }) => void disk.delete(id)),
+    'environments:list': vi.fn(async () => ({ environments: [], warnings: [] })),
+    'environments:save': vi.fn(async () => undefined),
+    'environments:delete': vi.fn(async () => undefined),
     'settings:get': vi.fn(async () => ({
       settings: {
         schemaVersion: 1 as const,
@@ -492,6 +496,11 @@ describe('settings', () => {
       },
       warnings: []
     })
+    // Plan 3: init drops an active id with no matching environment, so this one exists.
+    api['environments:list'].mockResolvedValueOnce({
+      environments: [{ ...newEnvironment('E'), id }] as never,
+      warnings: []
+    })
     await store.getState().init()
     store.getState().setSplit(0.4)
     await vi.advanceTimersByTimeAsync(300)
@@ -680,5 +689,33 @@ describe('fix round 2', () => {
     expect(s.draft.name).toBe('B')
     expect(s.saved?.id).toBe(b.id)
     expect(s.collections[0]!.items.some((i) => i.name === 'Copy')).toBe(true)
+  })
+})
+
+describe('delete fence (Plan 3)', () => {
+  it('deleteCollection resolves true; an update queued after it resolves false without saving', async () => {
+    const { col } = fixture()
+    const { store, api, saves } = setup([col], { hold: true })
+    await store.getState().init()
+    const early = store.getState().updateCollection(col.id, (c) => ({ ...c, name: 'One' }))
+    const del = store.getState().deleteCollection(col.id)
+    const late = store.getState().updateCollection(col.id, (c) => ({ ...c, name: 'Two' }))
+    expect(await late).toBe(false)
+    await vi.waitFor(() => expect(saves).toHaveLength(1))
+    saves[0]!.resolve()
+    expect(await early).toBe(true)
+    expect(await del).toBe(true)
+    expect(api['collections:save']).toHaveBeenCalledTimes(1)
+    expect(api['collections:delete']).toHaveBeenCalledTimes(1)
+    expect(store.getState().collections).toEqual([])
+  })
+
+  it('deleteCollection resolves false when the delete fails', async () => {
+    const { col } = fixture()
+    const { store, api } = setup([col])
+    await store.getState().init()
+    api['collections:delete'].mockRejectedValueOnce(new Error('locked'))
+    expect(await store.getState().deleteCollection(col.id)).toBe(false)
+    expect(store.getState().notices.at(-1)?.message).toBe(`Couldn't delete "Col": locked`)
   })
 })

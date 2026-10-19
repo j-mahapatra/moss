@@ -11,7 +11,7 @@ import {
 } from '../../../shared/collection-tree'
 import { newRequestSpec, type Collection, type Item } from '../../../shared/types'
 import { selectDirtyIds } from '../../state/selectors'
-import { useWorkspace, useWorkspaceStore } from '../../state/workspace-hooks'
+import { useWorkspace } from '../../state/workspace-hooks'
 import { ConfirmDeleteDialog, type DeleteTarget } from './ConfirmDeleteDialog'
 import {
   DRAG_TYPE,
@@ -86,7 +86,6 @@ function findSiblings(items: Item[], parentId: string): Item[] | null {
 }
 
 export function CollectionTree({ renamingId, onRenamingChange }: Props): React.JSX.Element {
-  const store = useWorkspaceStore()
   const collections = useWorkspace((s) => s.collections)
   const active = useWorkspace((s) => s.active)
   const dirty = useWorkspace(selectDirtyIds)
@@ -204,9 +203,7 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
       if (key) focusRow(key)
     }
     if (t.kind === 'collection') {
-      void deleteCollection(t.id).then(() =>
-        restore(!store.getState().collections.some((c) => c.id === t.id))
-      )
+      void deleteCollection(t.id).then(restore)
     } else {
       void updateCollection(t.collectionId, (c) => removeItem(c, t.id)).then(restore)
     }

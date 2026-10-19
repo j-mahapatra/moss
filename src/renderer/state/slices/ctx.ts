@@ -11,3 +11,19 @@ export type SliceCtx = {
 export function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
+
+/**
+ * Wraps a mutating action so it runs only after `init` has applied the loaded state. Once
+ * loaded it calls through synchronously, so ops keep the order the caller issued them in.
+ */
+export function afterInit<A extends unknown[], R>(
+  get: SliceCtx['get'],
+  fn: (...args: A) => Promise<R>
+): (...args: A) => Promise<R> {
+  return (...args) =>
+    get().loaded
+      ? fn(...args)
+      : get()
+          .init()
+          .then(() => fn(...args))
+}

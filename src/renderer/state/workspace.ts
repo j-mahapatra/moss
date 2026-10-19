@@ -1,8 +1,10 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { MossApi } from '../../shared/ipc-contract'
-import type { Collection, RequestSpec, SendResult } from '../../shared/types'
+import type { Collection, Environment, RequestSpec, SendResult } from '../../shared/types'
 import { errorMessage, type SliceCtx } from './slices/ctx'
 import { createCollections } from './slices/collections'
+import { byName } from './slices/doc-queue'
+import { createEnvironments } from './slices/environments'
 import { createNotices } from './slices/notices'
 import { createRequests } from './slices/requests'
 import { createUi, type ConfirmDiscard, type UiState } from './slices/ui'
@@ -21,6 +23,9 @@ export type WorkspaceApi = Pick<
   | 'collections:list'
   | 'collections:save'
   | 'collections:delete'
+  | 'environments:list'
+  | 'environments:save'
+  | 'environments:delete'
   | 'settings:get'
   | 'settings:set'
 >
@@ -32,6 +37,9 @@ export type WorkspaceState = {
   /** Request pane share of the split, 0.2 to 0.8. */
   split: number
   collections: Collection[]
+  environments: Environment[]
+  /** Selected environment; always the id of an entry in `environments`, or null. */
+  activeEnvironmentId: string | null
   loaded: boolean
   notices: Notice[]
   /** Where `draft` lives; null = an unsaved new request. */
@@ -58,7 +66,15 @@ export type WorkspaceState = {
   }): Promise<'saved' | 'failed' | 'gone'>
   createCollection(name: string): Promise<Collection | null>
   updateCollection(collectionId: string, fn: (c: Collection) => Collection): Promise<boolean>
-  deleteCollection(collectionId: string): Promise<void>
+  /** Resolves true once deleted; false if missing, already being deleted, or the delete failed. */
+  deleteCollection(collectionId: string): Promise<boolean>
+  createEnvironment(name: string): Promise<Environment | null>
+  updateEnvironment(id: string, fn: (e: Environment) => Environment): Promise<boolean>
+  deleteEnvironment(id: string): Promise<boolean>
+  /** Updates state at once and schedules a settings save; an unknown id is a no-op. */
+  setActiveEnvironment(id: string | null): void
+  /** Saves pending settings now (used on unload); resolves when the in-flight save settles. */
+  flushSettings(): Promise<void>
   dismissNotice(id: string): void
   toggleNavigator(): void
   openSaveDialog(open: boolean): void
@@ -78,8 +94,10 @@ export function createWorkspaceStore(api: WorkspaceApi): StoreApi<WorkspaceState
     let initPromise: Promise<void> | null = null
     const init = (): Promise<void> => {
       initPromise ??= (async () => {
-        const [cols, sets] = await Promise.allSettled([
+        settings.beginLoad()
+        const [cols, envs, sets] = await Promise.allSettled([
           Promise.resolve().then(() => api['collections:list']()),
+          Promise.resolve().then(() => api['environments:list']()),
           Promise.resolve().then(() => api['settings:get']())
         ])
         if (cols.status === 'fulfilled') {
@@ -91,10 +109,21 @@ export function createWorkspaceStore(api: WorkspaceApi): StoreApi<WorkspaceState
             `Couldn't load your collections: ${errorMessage(cols.reason)}`
           )
         }
+        if (envs.status === 'fulfilled') {
+          set({ environments: [...envs.value.environments].sort(byName) })
+          for (const w of envs.value.warnings) notices.addNotice('warning', w)
+        } else {
+          notices.addNotice(
+            'danger',
+            `Couldn't load your environments: ${errorMessage(envs.reason)}`
+          )
+        }
+        // After environments: an active id that no longer exists is dropped here.
         if (sets.status === 'fulfilled') {
           settings.applySettings(sets.value.settings)
           for (const w of sets.value.warnings) notices.addNotice('warning', w)
         } else {
+          settings.applySettings(null)
           notices.addNotice('danger', `Couldn't load settings: ${errorMessage(sets.reason)}`)
         }
         set({ loaded: true })
@@ -105,6 +134,7 @@ export function createWorkspaceStore(api: WorkspaceApi): StoreApi<WorkspaceState
     return {
       ...createRequests(ctx),
       ...collections.slice,
+      ...createEnvironments(ctx, notices.addNotice),
       ...settings.slice,
       ...notices.slice,
       ...createUi(ctx),

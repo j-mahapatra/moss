@@ -2,7 +2,7 @@ import { findItem, insertItem, toItem, toSpec, updateItem } from '../../../share
 import { deepEqual } from '../../../shared/equal'
 import { newRequestSpec, type RequestSpec } from '../../../shared/types'
 import type { WorkspaceState } from '../workspace'
-import type { SliceCtx } from './ctx'
+import { afterInit, type SliceCtx } from './ctx'
 
 type RequestsSlice = Pick<
   WorkspaceState,
@@ -65,11 +65,14 @@ export function createRequests({ set, get, api }: SliceCtx): RequestsSlice {
       set({ inFlight: { requestId, startedAt: Date.now() } })
       const isCurrent = (): boolean => get().inFlight?.requestId === requestId
       const collectionId = get().active?.collectionId
+      // Read from state, not saved settings: a switch made ms ago counts (RF2).
+      const environmentId = get().activeEnvironmentId ?? undefined
       try {
         const result = await api['request:send']({
           requestId,
           request: get().draft,
-          ...(collectionId ? { collectionId } : {})
+          ...(collectionId ? { collectionId } : {}),
+          ...(environmentId ? { environmentId } : {})
         })
         if (isCurrent()) set({ result, inFlight: null })
       } catch (err) {
@@ -129,31 +132,36 @@ export function createRequests({ set, get, api }: SliceCtx): RequestsSlice {
       return 'saved'
     },
 
-    saveAs: async (target) => {
-      const { draft } = get()
-      const idTaken = get().collections.some((c) => findItem(c, draft.id) !== null)
-      const spec: RequestSpec = {
-        ...draft,
-        id: idTaken ? crypto.randomUUID() : draft.id,
-        name: target.name.trim() || 'Untitled request'
+    saveAs: afterInit(
+      get,
+      async (
+        target: Parameters<WorkspaceState['saveAs']>[0]
+      ): ReturnType<WorkspaceState['saveAs']> => {
+        const { draft } = get()
+        const idTaken = get().collections.some((c) => findItem(c, draft.id) !== null)
+        const spec: RequestSpec = {
+          ...draft,
+          id: idTaken ? crypto.randomUUID() : draft.id,
+          name: target.name.trim() || 'Untitled request'
+        }
+        if (!get().collections.some((c) => c.id === target.collectionId)) return 'gone'
+        const ok = await get().updateCollection(target.collectionId, (c) =>
+          insertItem(c, target.folderId, toItem(spec))
+        )
+        // A failed save raised a notice; a missing collection/folder raised none.
+        if (!ok) return 'failed'
+        const tc = get().collections.find((c) => c.id === target.collectionId)
+        if (!tc || !findItem(tc, spec.id)) return 'gone'
+        // Only retarget the view if the user is still on the draft that was saved.
+        if (get().draft.id !== draft.id) return 'saved'
+        set({
+          // keep edits typed while the save was pending
+          draft: { ...get().draft, id: spec.id, name: spec.name },
+          saved: spec,
+          active: { collectionId: target.collectionId, requestId: spec.id }
+        })
+        return 'saved'
       }
-      if (!get().collections.some((c) => c.id === target.collectionId)) return 'gone'
-      const ok = await get().updateCollection(target.collectionId, (c) =>
-        insertItem(c, target.folderId, toItem(spec))
-      )
-      // A failed save raised a notice; a missing collection/folder raised none.
-      if (!ok) return 'failed'
-      const tc = get().collections.find((c) => c.id === target.collectionId)
-      if (!tc || !findItem(tc, spec.id)) return 'gone'
-      // Only retarget the view if the user is still on the draft that was saved.
-      if (get().draft.id !== draft.id) return 'saved'
-      set({
-        // keep edits typed while the save was pending
-        draft: { ...get().draft, id: spec.id, name: spec.name },
-        saved: spec,
-        active: { collectionId: target.collectionId, requestId: spec.id }
-      })
-      return 'saved'
-    }
+    )
   }
 }
