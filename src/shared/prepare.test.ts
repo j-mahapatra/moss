@@ -134,6 +134,21 @@ describe('prepareRequest', () => {
       ]
     })
   })
+  it('rejects an enabled form-data file field with no path', () => {
+    const spec = (enabled: boolean): RequestSpec =>
+      make({
+        body: {
+          mode: 'form-data',
+          fields: [{ kind: 'file', key: 'avatar', filePath: '', enabled }]
+        }
+      })
+    expect(prepareRequest(spec(true), scope())).toEqual({
+      ok: false,
+      error: { kind: 'invalid-request', message: 'Choose a file for form field "avatar"' }
+    })
+    const r = ok(spec(false))
+    expect(r.body).toEqual({ kind: 'form', fields: [] })
+  })
   it('keeps duplicate headers in order', () => {
     const r = ok(make({ headers: [kv('X-A', '1'), kv('X-A', '2')] }))
     expect(r.headers).toEqual([

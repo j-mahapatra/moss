@@ -75,16 +75,20 @@ export function prepareRequest(spec: RequestSpec, scope: VariableScope): Prepare
     }
   } else if (body0.mode === 'form-data') {
     headers = headers.filter(([n]) => n.trim().toLowerCase() !== 'content-type')
-    body = {
-      kind: 'form',
-      fields: body0.fields
-        .filter((f) => f.enabled)
-        .map((f) =>
-          f.kind === 'text'
-            ? { name: r(f.key), value: r(f.value) }
-            : { name: r(f.key), filePath: r(f.filePath) }
-        )
+    const fields: Extract<ResolvedBody, { kind: 'form' }>['fields'] = []
+    for (const f of body0.fields) {
+      if (!f.enabled) continue
+      if (f.kind === 'text') {
+        fields.push({ name: r(f.key), value: r(f.value) })
+        continue
+      }
+      const filePath = r(f.filePath)
+      if (filePath.trim() === '') {
+        return fail('invalid-request', `Choose a file for form field "${r(f.key)}"`)
+      }
+      fields.push({ name: r(f.key), filePath })
     }
+    body = { kind: 'form', fields }
   }
 
   return { ok: true, request: { method: spec.method, url: url.href, headers, body } }
