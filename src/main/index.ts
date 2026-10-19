@@ -7,6 +7,7 @@ import icon from '../../resources/icon.png?asset'
 import { createWindowOptions } from './window-options'
 import { isAllowedNavigation } from './navigation'
 import { registerIpc } from './ipc'
+import { IMPORT_FILTERS, readImportFile, type ImportFileResult } from './import-files'
 import { RunnerSupervisor, forkUtilityRunner } from './runner-supervisor'
 import { WriteQueue } from './storage/atomic-write'
 import { CollectionsRepo } from './storage/collections-repo'
@@ -36,6 +37,22 @@ async function saveFile(base64: string, name: string): Promise<boolean> {
   const r = parent ? await dialog.showSaveDialog(parent, opts) : await dialog.showSaveDialog(opts)
   if (r.canceled || !r.filePath) return false
   await writeFile(r.filePath, Buffer.from(base64, 'base64'))
+  return true
+}
+
+async function openImportFile(): Promise<ImportFileResult | null> {
+  const parent = BrowserWindow.getFocusedWindow()
+  const opts = { properties: ['openFile' as const], filters: IMPORT_FILTERS }
+  const r = parent ? await dialog.showOpenDialog(parent, opts) : await dialog.showOpenDialog(opts)
+  return r.canceled || !r.filePaths[0] ? null : readImportFile(r.filePaths[0])
+}
+
+async function saveExportFile(name: string, text: string): Promise<boolean> {
+  const parent = BrowserWindow.getFocusedWindow()
+  const opts = { defaultPath: name }
+  const r = parent ? await dialog.showSaveDialog(parent, opts) : await dialog.showSaveDialog(opts)
+  if (r.canceled || !r.filePath) return false
+  await writeFile(r.filePath, text, 'utf8')
   return true
 }
 
@@ -98,6 +115,8 @@ app.whenReady().then(() => {
     scope,
     pickFile,
     saveFile,
+    openImportFile,
+    saveExportFile,
     collections,
     settings,
     environments,

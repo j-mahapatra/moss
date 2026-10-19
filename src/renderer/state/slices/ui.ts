@@ -1,8 +1,14 @@
+import type { RequestSpec } from '../../../shared/types'
 import type { RequestRef, WorkspaceState } from '../workspace'
 import type { SliceCtx } from './ctx'
 
 export type ConfirmDiscard =
-  null | { then: 'new' } | { then: 'open'; ref: RequestRef } | { then: 'history'; id: string }
+  | null
+  | { then: 'new' }
+  | { then: 'open'; ref: RequestRef }
+  | { then: 'history'; id: string }
+  /** `notice` is raised once the imported request actually opens. */
+  | { then: 'imported'; spec: RequestSpec; notice?: string }
 
 export type UiState = {
   saveDialogOpen: boolean
@@ -13,7 +19,7 @@ export type UiState = {
   navigatorView: NavigatorView
 }
 
-export type NavigatorView = 'collections' | 'environments' | 'history'
+export type NavigatorView = 'collections' | 'environments' | 'history' | 'import'
 
 export function createUi({
   set,
@@ -43,7 +49,12 @@ export function createUi({
       patch({ confirmDiscard: null })
       if (pending.then === 'new') get().newRequest({ discard: true })
       else if (pending.then === 'history') get().openHistoryEntry(pending.id, { discard: true })
-      else get().openRequest(pending.ref, { discard: true })
+      else if (pending.then === 'imported') {
+        get().openImportedRequest(pending.spec, {
+          discard: true,
+          ...(pending.notice ? { notice: pending.notice } : {})
+        })
+      } else get().openRequest(pending.ref, { discard: true })
     }
   }
 }

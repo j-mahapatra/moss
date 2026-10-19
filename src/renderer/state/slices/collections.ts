@@ -20,6 +20,8 @@ export function createCollections(
    * clears `draftCollectionId` once its collection is gone.
    */
   reconcile(): void
+  /** Saves a ready-made collection (e.g. an import) through the queue; afterInit-gated. */
+  create(c: Collection): Promise<boolean>
 } {
   const locate = (cols: Collection[], requestId: string): RequestSpec | null => {
     for (const c of cols) {
@@ -83,6 +85,7 @@ export function createCollections(
 
   return {
     reconcile,
+    create: afterInit(get, async (c: Collection) => queue.create(c)),
     slice: {
       collections: [],
       updateCollection: afterInit(

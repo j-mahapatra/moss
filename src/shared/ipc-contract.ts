@@ -46,7 +46,22 @@ export const ipcContract = {
     output: z.object({ entries: z.array(HistoryEntrySchema), warnings: z.array(z.string()) })
   },
   'history:delete': { input: z.object({ id: z.uuid() }), output: z.void() },
-  'history:clear': { input: z.void(), output: z.void() }
+  'history:clear': { input: z.void(), output: z.void() },
+  /** null = the dialog was cancelled. */
+  'import:open-file': {
+    input: z.void(),
+    output: z
+      .discriminatedUnion('ok', [
+        z.object({ ok: z.literal(true), name: z.string(), text: z.string() }),
+        z.object({ ok: z.literal(false), error: z.string() })
+      ])
+      .nullable()
+  },
+  /** false = the dialog was cancelled. */
+  'export:save-file': {
+    input: z.object({ suggestedName: z.string().min(1).max(255), text: z.string() }),
+    output: z.boolean()
+  }
 } as const
 
 export { channels, type Channel }

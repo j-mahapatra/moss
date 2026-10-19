@@ -12,13 +12,14 @@ import { createCollections } from './slices/collections'
 import { byName } from './slices/doc-queue'
 import { createEnvironments } from './slices/environments'
 import { createHistory } from './slices/history'
+import { createImportExport, type ImportOutcome } from './slices/import-export'
 import { createNotices } from './slices/notices'
 import { createRequests } from './slices/requests'
 import { createUi, type ConfirmDiscard, type NavigatorView, type UiState } from './slices/ui'
 import { createSettings, SPLIT_DEFAULT } from './slices/settings'
 
 export { SPLIT_DEFAULT }
-export type { ConfirmDiscard }
+export type { ConfirmDiscard, ImportOutcome }
 
 export type RequestRef = { collectionId: string; requestId: string }
 export type Notice = { id: string; tone: 'warning' | 'danger'; message: string }
@@ -38,6 +39,8 @@ export type WorkspaceApi = Pick<
   | 'history:list'
   | 'history:delete'
   | 'history:clear'
+  | 'import:open-file'
+  | 'export:save-file'
 >
 
 export type WorkspaceState = {
@@ -77,6 +80,23 @@ export type WorkspaceState = {
   newRequest(opts?: { discard?: boolean }): 'opened' | 'confirm-discard'
   /** Opens a copy of a history entry's request as an unsaved draft; an unknown id is a no-op. */
   openHistoryEntry(id: string, opts?: { discard?: boolean }): 'opened' | 'confirm-discard'
+  /**
+   * Opens a copy of an imported request (fresh id) as an unsaved draft, with the same leave
+   * rules as openHistoryEntry. On 'confirm-discard' it sets `ui.confirmDiscard` itself;
+   * `notice` is raised as a warning only once the request opens.
+   */
+  openImportedRequest(
+    spec: RequestSpec,
+    opts?: { discard?: boolean; notice?: string }
+  ): 'opened' | 'confirm-discard'
+  /** Imports pasted/opened text: a v2.1 collection is saved, a curl command is opened. */
+  importText(text: string): Promise<ImportOutcome>
+  /** Picks a file and imports it; null = the dialog was cancelled. */
+  importFile(): Promise<ImportOutcome | null>
+  /** Saves a collection as Postman v2.1 JSON; an unknown id is 'failed' without a notice. */
+  exportCollection(id: string): Promise<'saved' | 'cancelled' | 'failed'>
+  /** Replaces the draft's request parts (not id/name) from a curl command; false = parse error. */
+  applyCurlToDraft(text: string): boolean
   /** Optimistic; resolves false (entry restored, notice shown) if the delete failed. */
   deleteHistoryEntry(id: string): Promise<boolean>
   /** Optimistic; resolves false (list restored, notice shown) if the clear failed. */
@@ -107,7 +127,7 @@ export type WorkspaceState = {
   openSaveDialog(open: boolean): void
   openVariables(collectionId: string | null): void
   setConfirmDiscard(v: ConfirmDiscard): void
-  /** Re-runs the pending new/open/history open with discard, then clears the confirmation. */
+  /** Re-runs the pending new/open/history/imported open with discard, then clears the confirmation. */
   confirmDiscard(): void
 }
 
@@ -167,9 +187,10 @@ export function createWorkspaceStore(api: WorkspaceApi): StoreApi<WorkspaceState
     }
 
     return {
-      ...createRequests(ctx, history.prepend),
+      ...createRequests(ctx, history.prepend, notices.addNotice),
       ...history.slice,
       ...collections.slice,
+      ...createImportExport(ctx, notices.addNotice, collections.create),
       ...createEnvironments(ctx, notices.addNotice),
       ...settings.slice,
       ...notices.slice,

@@ -3,6 +3,7 @@ import { deepEqual } from '../../../shared/equal'
 import { newRequestSpec, type HistoryEntry, type RequestSpec } from '../../../shared/types'
 import type { WorkspaceState } from '../workspace'
 import { afterInit, type SliceCtx } from './ctx'
+import type { AddNotice } from './notices'
 
 type RequestsSlice = Pick<
   WorkspaceState,
@@ -21,12 +22,14 @@ type RequestsSlice = Pick<
   | 'saveActive'
   | 'saveAs'
   | 'openHistoryEntry'
+  | 'openImportedRequest'
 >
 
 export function createRequests(
   { set, get, api }: SliceCtx,
   /** Records a sent request's history entry. */
-  recordHistory: (entry: HistoryEntry) => void
+  recordHistory: (entry: HistoryEntry) => void,
+  addNotice: AddNotice
 ): RequestsSlice {
   const isBlank = (d: RequestSpec): boolean =>
     deepEqual({ ...d, id: '' }, { ...newRequestSpec(), id: '' })
@@ -147,6 +150,27 @@ export function createRequests(
         saved: null,
         draftCollectionId: cid && get().collections.some((c) => c.id === cid) ? cid : null
       })
+      return 'opened'
+    },
+
+    openImportedRequest: (spec, opts) => {
+      if (!leaveDraft(opts?.discard)) {
+        set((s) => ({
+          ui: {
+            ...s.ui,
+            confirmDiscard: {
+              then: 'imported',
+              spec,
+              ...(opts?.notice ? { notice: opts.notice } : {})
+            }
+          }
+        }))
+        return 'confirm-discard'
+      }
+      const draft: RequestSpec = { ...structuredClone(spec), id: crypto.randomUUID() }
+      reopened = draft
+      set({ draft, active: null, saved: null, draftCollectionId: null })
+      if (opts?.notice) addNotice('warning', opts.notice)
       return 'opened'
     },
 

@@ -11,6 +11,8 @@ function setup(): {
   supervisor: { send: ReturnType<typeof vi.fn>; cancel: ReturnType<typeof vi.fn> }
   pickFile: ReturnType<typeof vi.fn>
   saveFile: ReturnType<typeof vi.fn>
+  openImportFile: ReturnType<typeof vi.fn>
+  saveExportFile: ReturnType<typeof vi.fn>
   scope: ReturnType<typeof vi.fn>
   collections: Record<'list' | 'save' | 'delete', ReturnType<typeof vi.fn>>
   settings: Record<'get' | 'set', ReturnType<typeof vi.fn>>
@@ -23,6 +25,8 @@ function setup(): {
   const supervisor = { send: vi.fn(async () => okResult), cancel: vi.fn() }
   const pickFile = vi.fn(async () => '/tmp/a.txt')
   const saveFile = vi.fn(async () => true)
+  const openImportFile = vi.fn(async () => ({ ok: true as const, name: 'a.json', text: '{}' }))
+  const saveExportFile = vi.fn(async () => true)
   const scope = vi.fn(async (ids: { collectionId?: string; environmentId?: string }) =>
     ids.collectionId ? new Map([['base', 'http://h']]) : new Map([['base', 'http://x.io']])
   )
@@ -51,6 +55,8 @@ function setup(): {
     scope,
     pickFile,
     saveFile,
+    openImportFile,
+    saveExportFile,
     collections: collections as never,
     settings: settings as never,
     environments: environments as never,
@@ -66,6 +72,8 @@ function setup(): {
     supervisor,
     pickFile,
     saveFile,
+    openImportFile,
+    saveExportFile,
     scope,
     collections,
     settings,
@@ -319,5 +327,25 @@ describe('registerIpc', () => {
     await expect(t.invoke('environments:delete', { id: 'x/../y' })).rejects.toThrow()
     expect(t.environments.save).not.toHaveBeenCalled()
     expect(t.environments.delete).not.toHaveBeenCalled()
+  })
+
+  it('opens an import file through the deps', async () => {
+    const t = setup()
+    expect(await t.invoke('import:open-file')).toEqual({ ok: true, name: 'a.json', text: '{}' })
+    expect(t.openImportFile).toHaveBeenCalledTimes(1)
+    await expect(t.invoke('import:open-file', { path: '/etc/passwd' })).rejects.toThrow()
+    expect(t.openImportFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('saves an export file through the deps after parsing the input', async () => {
+    const t = setup()
+    expect(await t.invoke('export:save-file', { suggestedName: 'c.json', text: '{}' })).toBe(true)
+    expect(t.saveExportFile).toHaveBeenCalledWith('c.json', '{}')
+    await expect(t.invoke('export:save-file', { suggestedName: '', text: '{}' })).rejects.toThrow()
+    await expect(
+      t.invoke('export:save-file', { suggestedName: 'x'.repeat(256), text: '{}' })
+    ).rejects.toThrow()
+    await expect(t.invoke('export:save-file', { suggestedName: 'c.json' })).rejects.toThrow()
+    expect(t.saveExportFile).toHaveBeenCalledTimes(1)
   })
 })

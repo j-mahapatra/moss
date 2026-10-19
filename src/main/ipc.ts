@@ -5,6 +5,7 @@ import { buildEntry } from './history-recorder'
 import { ipcContract } from '../shared/ipc-contract'
 import { prepareRequest } from '../shared/prepare'
 import type { VariableScope } from '../shared/variables'
+import type { ImportFileResult } from './import-files'
 import type { RunnerSupervisor } from './runner-supervisor'
 import type { CollectionsRepo } from './storage/collections-repo'
 import type { EnvironmentsRepo } from './storage/environments-repo'
@@ -16,6 +17,10 @@ export interface IpcDeps {
   scope: (ids: { collectionId?: string; environmentId?: string }) => Promise<VariableScope>
   pickFile: () => Promise<string | null>
   saveFile: (base64: string, name: string) => Promise<boolean>
+  /** null = cancelled. */
+  openImportFile: () => Promise<ImportFileResult | null>
+  /** false = cancelled. */
+  saveExportFile: (name: string, text: string) => Promise<boolean>
   collections: Pick<CollectionsRepo, 'list' | 'save' | 'delete'>
   settings: Pick<SettingsRepo, 'get' | 'set'>
   environments: Pick<EnvironmentsRepo, 'list' | 'save' | 'delete'>
@@ -77,6 +82,16 @@ export function registerIpc(ipcMain: Pick<IpcMain, 'handle'>, deps: IpcDeps): vo
   ipcMain.handle('response:save', (_event, raw) => {
     const { bodyBase64, suggestedName } = ipcContract['response:save'].input.parse(raw)
     return deps.saveFile(bodyBase64, suggestedName)
+  })
+
+  ipcMain.handle('import:open-file', (_event, raw) => {
+    ipcContract['import:open-file'].input.parse(raw)
+    return deps.openImportFile()
+  })
+
+  ipcMain.handle('export:save-file', (_event, raw) => {
+    const { suggestedName, text } = ipcContract['export:save-file'].input.parse(raw)
+    return deps.saveExportFile(suggestedName, text)
   })
 
   ipcMain.handle('collections:list', (_event, raw) => {

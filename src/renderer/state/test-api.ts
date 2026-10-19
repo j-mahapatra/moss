@@ -18,6 +18,8 @@ type Extras = Pick<
   | 'history:list'
   | 'history:delete'
   | 'history:clear'
+  | 'import:open-file'
+  | 'export:save-file'
 >
 
 export function noopExtras(): Extras {
@@ -40,6 +42,8 @@ export function noopExtras(): Extras {
     'settings:set': vi.fn(async () => undefined),
     'history:list': vi.fn(async () => ({ entries: [], warnings: [] })),
     'history:delete': vi.fn(async () => undefined),
-    'history:clear': vi.fn(async () => undefined)
+    'history:clear': vi.fn(async () => undefined),
+    'import:open-file': vi.fn(async () => null),
+    'export:save-file': vi.fn(async () => false)
   }
 }

@@ -1,3 +1,5 @@
+// First: configures zod before any module parses with it.
+import './zod-config'
 import '@fontsource-variable/instrument-sans/wght.css'
 import '@fontsource-variable/spline-sans-mono/wght.css'
 import './ui/tokens.css'
