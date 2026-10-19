@@ -4,6 +4,7 @@ import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { deepEqual } from '../../shared/equal'
 import type { Collection } from '../../shared/types'
+import { WriteQueue } from './atomic-write'
 import { CollectionsRepo } from './collections-repo'
 
 const ID1 = '11111111-1111-4111-8111-111111111111'
@@ -27,13 +28,13 @@ afterEach(async () => {
 
 describe('CollectionsRepo', () => {
   it('round-trips save -> list', async () => {
-    const repo = new CollectionsRepo(dir)
+    const repo = new CollectionsRepo(dir, new WriteQueue())
     const c: Collection = {
       ...mk(ID1, 'Alpha'),
       variables: [{ key: 'a', value: 'b', enabled: true }]
     }
     await repo.save(c)
-    const fresh = new CollectionsRepo(dir)
+    const fresh = new CollectionsRepo(dir, new WriteQueue())
     const { collections, warnings } = await fresh.list()
     expect(warnings).toEqual([])
     expect(collections).toHaveLength(1)
@@ -41,16 +42,16 @@ describe('CollectionsRepo', () => {
   })
 
   it('sorts by name case-insensitively, then id', async () => {
-    const repo = new CollectionsRepo(dir)
+    const repo = new CollectionsRepo(dir, new WriteQueue())
     await repo.save(mk(ID3, 'beta'))
     await repo.save(mk(ID2, 'Alpha'))
     await repo.save(mk(ID1, 'alpha'))
-    const { collections } = await new CollectionsRepo(dir).list()
+    const { collections } = await new CollectionsRepo(dir, new WriteQueue()).list()
     expect(collections.map((c) => c.id)).toEqual([ID1, ID2, ID3])
   })
 
   it('survives 20 concurrent saves of the same collection', async () => {
-    const repo = new CollectionsRepo(dir)
+    const repo = new CollectionsRepo(dir, new WriteQueue())
     const versions = Array.from({ length: 20 }, (_, i) => mk(ID1, `v${i}`))
     await Promise.all(versions.map((v) => repo.save(v)))
     const file = join(dir, 'collections', `${ID1}.json`)
@@ -60,17 +61,17 @@ describe('CollectionsRepo', () => {
   })
 
   it('deletes, and deleting a missing id resolves', async () => {
-    const repo = new CollectionsRepo(dir)
+    const repo = new CollectionsRepo(dir, new WriteQueue())
     await repo.save(mk(ID1, 'A'))
     await repo.delete(ID1)
     expect(await repo.get(ID1)).toBeNull()
-    expect((await new CollectionsRepo(dir).list()).collections).toEqual([])
+    expect((await new CollectionsRepo(dir, new WriteQueue()).list()).collections).toEqual([])
     await expect(repo.delete(ID2)).resolves.toBeUndefined()
   })
 
   it('get reads from disk when not cached, null when missing or invalid', async () => {
-    await new CollectionsRepo(dir).save(mk(ID1, 'A'))
-    const repo = new CollectionsRepo(dir)
+    await new CollectionsRepo(dir, new WriteQueue()).save(mk(ID1, 'A'))
+    const repo = new CollectionsRepo(dir, new WriteQueue())
     expect(await repo.get(ID1)).toEqual(mk(ID1, 'A'))
     expect(await repo.get(ID2)).toBeNull()
     await writeFile(join(dir, 'collections', `${ID3}.json`), '{bad')
@@ -83,8 +84,8 @@ describe('CollectionsRepo', () => {
     await mkdir(cdir)
     await writeFile(join(cdir, `${ID1}.json`), '{not json')
     await writeFile(join(cdir, `${ID2}.json`), JSON.stringify({ id: ID2, name: 5 }))
-    await new CollectionsRepo(dir, undefined, undefined, () => 1234).save(mk(ID3, 'Ok'))
-    const repo = new CollectionsRepo(dir, undefined, undefined, () => 1234)
+    await new CollectionsRepo(dir, new WriteQueue(), undefined, () => 1234).save(mk(ID3, 'Ok'))
+    const repo = new CollectionsRepo(dir, new WriteQueue(), undefined, () => 1234)
     const { collections, warnings } = await repo.list()
     expect(collections.map((c) => c.id)).toEqual([ID3])
     expect(warnings).toEqual([
@@ -101,7 +102,7 @@ describe('CollectionsRepo', () => {
     const cdir = join(dir, 'collections')
     await mkdir(cdir)
     await writeFile(join(cdir, `${ID1}.json`), JSON.stringify(mk(ID2, 'X')))
-    const repo = new CollectionsRepo(dir, undefined, undefined, () => 9)
+    const repo = new CollectionsRepo(dir, new WriteQueue(), undefined, () => 9)
     const { collections, warnings } = await repo.list()
     expect(collections).toEqual([])
     expect(warnings).toEqual([
@@ -115,7 +116,7 @@ describe('CollectionsRepo', () => {
     await writeFile(join(cdir, 'notes.txt'), 'hi')
     await writeFile(join(cdir, 'x.tmp'), 'hi')
     await writeFile(join(cdir, `${ID1}.json.abc.tmp`), 'hi')
-    const { collections, warnings } = await new CollectionsRepo(dir).list()
+    const { collections, warnings } = await new CollectionsRepo(dir, new WriteQueue()).list()
     expect(collections).toEqual([])
     expect(warnings).toEqual([])
     expect((await readdir(cdir)).sort()).toEqual(
@@ -124,9 +125,9 @@ describe('CollectionsRepo', () => {
   })
 
   it('passes the injected fs through and keeps the original on failure', async () => {
-    const repo0 = new CollectionsRepo(dir)
+    const repo0 = new CollectionsRepo(dir, new WriteQueue())
     await repo0.save(mk(ID1, 'Old'))
-    const repo = new CollectionsRepo(dir, undefined, {
+    const repo = new CollectionsRepo(dir, new WriteQueue(), {
       readFile,
       mkdir,
       writeFile,
@@ -136,7 +137,7 @@ describe('CollectionsRepo', () => {
       }
     })
     await expect(repo.save(mk(ID1, 'New'))).rejects.toThrow('crash')
-    expect((await new CollectionsRepo(dir).get(ID1))?.name).toBe('Old')
+    expect((await new CollectionsRepo(dir, new WriteQueue()).get(ID1))?.name).toBe('Old')
     expect(await readdir(join(dir, 'collections'))).toEqual([`${ID1}.json`])
   })
 
@@ -152,7 +153,7 @@ describe('CollectionsRepo', () => {
       const cdir = join(dir, 'collections')
       await mkdir(cdir)
       await writeFile(join(cdir, `${ID1}.json`), '{bad')
-      await new CollectionsRepo(dir).save(mk(ID2, 'Good'))
+      await new CollectionsRepo(dir, new WriteQueue()).save(mk(ID2, 'Good'))
       const fs = {
         ...real,
         rename: async (from: string, to: string): Promise<void> => {
@@ -160,15 +161,15 @@ describe('CollectionsRepo', () => {
           return rename(from, to)
         }
       }
-      const { collections, warnings } = await new CollectionsRepo(dir, undefined, fs).list()
+      const { collections, warnings } = await new CollectionsRepo(dir, new WriteQueue(), fs).list()
       expect(collections.map((c) => c.id)).toEqual([ID2])
       expect(warnings).toEqual([`Couldn't read "${ID1}.json". It was left in place.`])
       expect(await readdir(cdir)).toContain(`${ID1}.json`)
     })
 
     it('does not let a concurrent list() overwrite a newer save in the cache', async () => {
-      await new CollectionsRepo(dir).save(mk(ID1, 'v1'))
-      await new CollectionsRepo(dir).save(mk(ID2, 'other'))
+      await new CollectionsRepo(dir, new WriteQueue()).save(mk(ID1, 'v1'))
+      await new CollectionsRepo(dir, new WriteQueue()).save(mk(ID2, 'other'))
       const gate = deferred()
       const fs = {
         ...real,
@@ -177,7 +178,7 @@ describe('CollectionsRepo', () => {
           return readFile(p, enc)
         }
       }
-      const repo = new CollectionsRepo(dir, undefined, fs)
+      const repo = new CollectionsRepo(dir, new WriteQueue(), fs)
       const listing = repo.list()
       await new Promise((r) => setTimeout(r, 20)) // list has read ID1 (v1), is parked on ID2
       await repo.save(mk(ID1, 'v2'))
@@ -188,8 +189,8 @@ describe('CollectionsRepo', () => {
     })
 
     it('does not resurrect a collection deleted during list()', async () => {
-      await new CollectionsRepo(dir).save(mk(ID1, 'gone'))
-      await new CollectionsRepo(dir).save(mk(ID2, 'other'))
+      await new CollectionsRepo(dir, new WriteQueue()).save(mk(ID1, 'gone'))
+      await new CollectionsRepo(dir, new WriteQueue()).save(mk(ID2, 'other'))
       const gate = deferred()
       const fs = {
         ...real,
@@ -198,7 +199,7 @@ describe('CollectionsRepo', () => {
           return readFile(p, enc)
         }
       }
-      const repo = new CollectionsRepo(dir, undefined, fs)
+      const repo = new CollectionsRepo(dir, new WriteQueue(), fs)
       const listing = repo.list()
       await new Promise((r) => setTimeout(r, 20))
       await repo.delete(ID1)
@@ -220,7 +221,7 @@ describe('CollectionsRepo', () => {
           return rename(from, to)
         }
       }
-      const repo = new CollectionsRepo(dir, undefined, fs, () => 5)
+      const repo = new CollectionsRepo(dir, new WriteQueue(), fs, () => 5)
       const listing = repo.list()
       await new Promise((r) => setTimeout(r, 20))
       const saving = repo.save(mk(ID1, 'fresh'))
@@ -233,7 +234,7 @@ describe('CollectionsRepo', () => {
 
     it('rejects path-traversal ids', async () => {
       await writeFile(join(dir, 'settings.json'), 'keep')
-      const repo = new CollectionsRepo(dir)
+      const repo = new CollectionsRepo(dir, new WriteQueue())
       await expect(repo.delete('../settings')).rejects.toThrow('Invalid collection id')
       expect(await readFile(join(dir, 'settings.json'), 'utf8')).toBe('keep')
       await expect(repo.save(mk('../../x', 'Evil'))).rejects.toThrow('Invalid collection id')

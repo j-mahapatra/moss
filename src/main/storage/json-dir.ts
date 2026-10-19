@@ -1,11 +1,11 @@
 import { readdir } from 'fs/promises'
 import { join } from 'path'
 import type { z } from 'zod'
-import { defaultFs, WriteQueue, type AtomicFs } from './atomic-write'
+import { defaultFs, type WriteQueue, type AtomicFs } from './atomic-write'
 
 export type DirReadResult<T> = { values: T[]; warnings: string[] }
 
-const NAME_RE = /^[0-9a-f-]{36}\.json$/i
+const NAME_RE = /^[0-9a-f-]{36}\.json$/
 
 export function quarantineName(file: string, ts: number): string {
   return `${file.replace(/\.json$/i, '')}.corrupt-${ts}.json`
@@ -30,8 +30,8 @@ export async function quarantine(
 export async function readJsonDir<T extends { id: string }>(
   dir: string,
   schema: z.ZodType<T>,
+  queue: WriteQueue,
   now: () => number = Date.now,
-  queue: WriteQueue = new WriteQueue(),
   fsImpl: AtomicFs = defaultFs
 ): Promise<DirReadResult<T>> {
   let names: string[]
@@ -50,7 +50,7 @@ export async function readJsonDir<T extends { id: string }>(
       try {
         const raw = await fsImpl.readFile(join(dir, file), 'utf8')
         const r = schema.safeParse(JSON.parse(raw))
-        if (r.success && `${r.data.id}.json`.toLowerCase() === file.toLowerCase()) parsed = r.data
+        if (r.success && `${r.data.id}.json` === file) parsed = r.data
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') return
       }

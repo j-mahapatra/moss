@@ -14,6 +14,15 @@ afterEach(async () => {
 })
 
 describe('SettingsRepo', () => {
+  it('loads a Plan 2 settings file without activeEnvironmentId as null, untouched', async () => {
+    const legacy = { schemaVersion: 1, split: 0.4, navigatorCollapsed: false }
+    await writeFile(join(dir, 'settings.json'), JSON.stringify(legacy))
+    const r = await new SettingsRepo(dir).get()
+    expect(r.warnings).toEqual([])
+    expect(r.settings).toEqual({ ...legacy, activeEnvironmentId: null })
+    expect(await readdir(dir)).toEqual(['settings.json'])
+  })
+
   it('returns defaults when missing', async () => {
     expect(await new SettingsRepo(dir).get()).toEqual({ settings: DEFAULT_SETTINGS, warnings: [] })
   })
