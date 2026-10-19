@@ -1,6 +1,14 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type -- test helpers */
 import userEvent from '@testing-library/user-event'
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import {
+  act,
+  createEvent,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within
+} from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { IMPORT_MAX_BYTES, IMPORT_TOO_LARGE } from '../../../shared/import-export/report'
 import { noopExtras } from '../../state/test-api'
@@ -164,6 +172,43 @@ describe('ImportPanel', () => {
     expect(await within(status()).findByText('Imported "Basic API"')).toBeInTheDocument()
     expect(store.getState().collections.map((c) => c.name)).toEqual(['Basic API'])
     expect(zone()).not.toHaveClass('import-panel__drop--over')
+  })
+
+  it('ignores drags that are not carrying files', () => {
+    return setup().then(() => {
+      fireEvent.dragOver(zone(), { dataTransfer: { files: [], types: ['text/plain'] } })
+      expect(zone()).not.toHaveClass('import-panel__drop--over')
+      fireEvent.drop(zone(), { dataTransfer: { files: [], types: ['text/plain'] } })
+      expect(status()).toBeEmptyDOMElement()
+    })
+  })
+
+  it('keeps the highlight while the drag moves between children of the zone', async () => {
+    await setup()
+    // jsdom's drag events carry no relatedTarget, so set it on the event.
+    const leave = (relatedTarget: EventTarget | null) => {
+      const ev = createEvent.dragLeave(zone())
+      Object.defineProperty(ev, 'relatedTarget', { value: relatedTarget })
+      fireEvent(zone(), ev)
+    }
+    fireEvent.dragOver(zone(), { dataTransfer: { files: [], types: ['Files'] } })
+    leave(screen.getByRole('button', { name: 'Open file…' }))
+    expect(zone()).toHaveClass('import-panel__drop--over')
+    leave(document.body)
+    expect(zone()).not.toHaveClass('import-panel__drop--over')
+    fireEvent.dragOver(zone(), { dataTransfer: { files: [], types: ['Files'] } })
+    leave(null)
+    expect(zone()).not.toHaveClass('import-panel__drop--over')
+  })
+
+  it('imports the first of several dropped files and says so', async () => {
+    const { store } = await setup()
+    fireEvent.drop(zone(), {
+      dataTransfer: { files: [fileOf(V21), fileOf('{}', 'second.json')], types: ['Files'] }
+    })
+    expect(await within(status()).findByText('Imported "Basic API"')).toBeInTheDocument()
+    expect(within(status()).getByText('Only the first file was imported')).toBeInTheDocument()
+    expect(store.getState().collections).toHaveLength(1)
   })
 
   it('refuses a dropped file over 10 MB without importing it', async () => {

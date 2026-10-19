@@ -20,6 +20,29 @@ const CHROME = `curl 'https://api.example.com/v1/items?page=2' \\
   --data-raw $'{"name":"a\\u00e9"}' \\
   --compressed`
 
+describe('parseCurl parked fixes', () => {
+  it('treats -- as the end of options', () => {
+    const r = parseCurl('curl -X POST -- -weird https://b')
+    expect(r).toMatchObject({
+      ok: true,
+      request: { method: 'POST', url: '-weird' },
+      report: [{ path: '', message: 'Extra URL ignored: https://b' }]
+    })
+    const dd = parseCurl('curl -- -d')
+    expect(dd).toMatchObject({ ok: true, request: { method: 'GET', url: '-d' }, report: [] })
+  })
+
+  it('keeps {{vars}} in --data-urlencode content of a raw body', () => {
+    const r = parseCurl(
+      "curl -H 'Content-Type: application/json' --data-urlencode 'q={{name}} x&y' https://x"
+    )
+    expect(r).toMatchObject({
+      ok: true,
+      request: { body: { mode: 'raw', text: 'q={{name}}%20x%26y' } }
+    })
+  })
+})
+
 describe('parseCurl', () => {
   it.each<[string, string, Shape, string[]]>([
     ['bare GET', 'curl https://x.io/a', shape({ url: 'https://x.io/a' }), []],

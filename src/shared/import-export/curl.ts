@@ -1,7 +1,7 @@
 import { requestNameFromUrl } from '../request-name'
 import { newRequestSpec } from '../types'
 import type { FormField, HttpMethod, KeyValue, RequestAuth, RequestBody } from '../types'
-import { parseQuery } from '../url-params'
+import { encode, parseQuery } from '../url-params'
 import { note } from './report'
 import type { CurlResult, ImportReport } from './report'
 import { ARG_FLAGS, LONG, NO_VALUE, SHORT } from './curl-options'
@@ -141,9 +141,14 @@ function readOptions(s: State, words: string[]): string | null {
     return apply(s, opt, flag, value)
   }
 
+  let optionsEnded = false
   while (i < words.length) {
     const word = next() as string
-    if (word.startsWith('--') && word.length > 2) {
+    if (optionsEnded) {
+      apply(s, 'url', '--url', word)
+    } else if (word === '--') {
+      optionsEnded = true
+    } else if (word.startsWith('--') && word.length > 2) {
       const eq = word.indexOf('=')
       const flag = eq === -1 ? word : word.slice(0, eq)
       const inline = eq === -1 ? undefined : word.slice(eq + 1)
@@ -188,7 +193,7 @@ function decodeForm(text: string): string {
 /** `-d` parts are already form-encoded; `--data-urlencode` content gets encoded here. */
 function encodedParts(s: State, plusAsSpace: boolean): string[] {
   const data = plusAsSpace ? s.data.map((d) => d.replace(/\+/g, '%20')) : s.data
-  return [...data, ...s.encoded.map((f) => `${f.key}=${encodeURIComponent(f.value)}`)]
+  return [...data, ...s.encoded.map((f) => `${f.key}=${encode(f.value)}`)]
 }
 
 function appendQuery(url: string, parts: string[]): string {

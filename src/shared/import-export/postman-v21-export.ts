@@ -32,6 +32,23 @@ export type PostmanV21Collection = {
   variable?: Row[]
 }
 
+/** Replaces unpaired surrogates with U+FFFD (`toWellFormed` where available), so encoding can't throw. */
+export function wellFormed(text: string): string {
+  if (typeof text.toWellFormed === 'function') return text.toWellFormed()
+  let out = ''
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i)
+    if (c >= 0xd800 && c <= 0xdbff) {
+      const d = text.charCodeAt(i + 1)
+      if (d >= 0xdc00 && d <= 0xdfff) {
+        out += text.slice(i, i + 2)
+        i++
+      } else out += '\ufffd'
+    } else out += c >= 0xdc00 && c <= 0xdfff ? '\ufffd' : text[i]
+  }
+  return out
+}
+
 const row = (r: KeyValue): Row =>
   r.enabled ? { key: r.key, value: r.value } : { key: r.key, value: r.value, disabled: true }
 
@@ -41,7 +58,10 @@ const row = (r: KeyValue): Row =>
  * encoded. If the counts disagree every row is encoded.
  */
 function queryRows(url: string, params: KeyValue[]): Row[] {
-  const encoded = (p: KeyValue): Row => row({ ...p, key: encode(p.key), value: encode(p.value) })
+  const encoded = (p: KeyValue): Row =>
+    row({ ...p, key: encode(wellFormed(p.key)), value: encode(wellFormed(p.value)) })
+  // Blank rows are not part of the url and are not emitted.
+  params = params.filter((p) => p.key !== '' || p.value !== '')
   const query = splitUrl(url).query
   const parts = query ? query.split('&').filter((part) => part !== '') : []
   if (params.filter((p) => p.enabled).length !== parts.length) return params.map(encoded)

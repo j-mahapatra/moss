@@ -31,6 +31,10 @@ function resultOf(outcome: ImportOutcome): Result | null {
   }
 }
 
+const ONLY_FIRST = 'Only the first file was imported'
+
+const hasFiles = (e: React.DragEvent): boolean => Array.from(e.dataTransfer.types).includes('Files')
+
 const succeeded = (outcome: ImportOutcome): boolean =>
   outcome.kind === 'collection' || (outcome.kind === 'request' && outcome.opened === 'opened')
 
@@ -47,11 +51,16 @@ export function ImportPanel(): React.JSX.Element {
   const [busy, setBusy] = useState(false)
   const [over, setOver] = useState(false)
   const [result, setResult] = useState<Result | null>(null)
+  const [note, setNote] = useState<string | null>(null)
 
   /** Runs one import at a time and shows its outcome. */
-  const run = async (start: () => Promise<ImportOutcome | null>): Promise<boolean> => {
+  const run = async (
+    start: () => Promise<ImportOutcome | null>,
+    extra: string | null = null
+  ): Promise<boolean> => {
     if (busy) return false
     setBusy(true)
+    setNote(extra)
     try {
       const outcome = await start()
       if (outcome === null) return false
@@ -79,15 +88,19 @@ export function ImportPanel(): React.JSX.Element {
     setOver(false)
     const file = e.dataTransfer.files[0]
     if (!file || busy) return
+    const extra = e.dataTransfer.files.length > 1 ? ONLY_FIRST : null
     if (file.size > IMPORT_MAX_BYTES) {
+      setNote(extra)
       setResult({ kind: 'error', message: IMPORT_TOO_LARGE })
       return
     }
-    void run(() =>
-      file.text().then(importText, (err: unknown) => ({
-        kind: 'error' as const,
-        message: `Couldn't read the file: ${errorMessage(err)}`
-      }))
+    void run(
+      () =>
+        file.text().then(importText, (err: unknown) => ({
+          kind: 'error' as const,
+          message: `Couldn't read the file: ${errorMessage(err)}`
+        })),
+      extra
     )
   }
 
@@ -102,11 +115,17 @@ export function ImportPanel(): React.JSX.Element {
           aria-label="Drop a collection file here"
           className={over ? 'import-panel__drop import-panel__drop--over' : 'import-panel__drop'}
           onDragOver={(e) => {
+            if (!hasFiles(e)) return
             e.preventDefault()
             e.dataTransfer.dropEffect = 'copy'
             setOver(true)
           }}
-          onDragLeave={() => setOver(false)}
+          onDragLeave={(e) => {
+            // Moving onto a child of the zone also fires dragleave; stay highlighted then.
+            const to = e.relatedTarget
+            if (to instanceof Node && e.currentTarget.contains(to)) return
+            setOver(false)
+          }}
           onDrop={onDrop}
         >
           <p className="navigator__quiet">Drop a collection file here</p>
@@ -151,6 +170,7 @@ export function ImportPanel(): React.JSX.Element {
         </div>
         <div role="status" className="import-panel__status">
           {result && <ResultView result={result} onShow={() => showPanel('collections')} />}
+          {note && <p className="import-panel__message">{note}</p>}
         </div>
       </div>
     </aside>

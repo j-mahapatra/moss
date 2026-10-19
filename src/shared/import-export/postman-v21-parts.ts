@@ -45,6 +45,23 @@ export const nonEmpty = (x: unknown): boolean =>
   !(Array.isArray(x) && x.length === 0) &&
   !(typeof x === 'object' && !Array.isArray(x) && Object.keys(x).length === 0)
 
+/** True when `event` holds a script that actually does something (not just empty or blank exec). */
+export function hasScripts(event: unknown): boolean {
+  if (!Array.isArray(event)) return nonEmpty(event)
+  return event.some((e) => {
+    const script = obj(e)?.['script']
+    if (script === undefined || script === null) return obj(e) === null && nonEmpty(e)
+    const s = obj(script)
+    if (!s) return nonEmpty(script)
+    const exec = s['exec']
+    const lines = Array.isArray(exec) ? exec : [exec]
+    if (lines.some((l) => str(l).trim() !== '')) return true
+    return Object.entries(s).some(
+      ([k, v]) => k !== 'exec' && k !== 'type' && k !== 'id' && nonEmpty(v)
+    )
+  })
+}
+
 type Row = z.infer<typeof RowRead>
 
 /** Object rows of a list; `null` if the list itself is unusable. Non-object entries are reported. */
@@ -83,10 +100,14 @@ export function headerList(x: unknown, add: Notes): KeyValue[] {
     .split(/\r?\n/)
     .filter((line) => line.trim() !== '')
     .map((line) => {
-      const colon = line.indexOf(':')
+      // A `//` prefix is how the string form marks a disabled header.
+      const off = /^\s*\/\//.test(line)
+      const text = off ? line.replace(/^\s*\/\/\s*/, '') : line
+      const colon = text.indexOf(':')
+      const enabled = !off
       return colon === -1
-        ? { key: line.trim(), value: '', enabled: true }
-        : { key: line.slice(0, colon).trim(), value: line.slice(colon + 1).trim(), enabled: true }
+        ? { key: text.trim(), value: '', enabled }
+        : { key: text.slice(0, colon).trim(), value: text.slice(colon + 1).trim(), enabled }
     })
 }
 

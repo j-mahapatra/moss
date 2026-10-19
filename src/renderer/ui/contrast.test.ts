@@ -5,6 +5,7 @@ import { palette, type TokenName } from './tokens'
 const requiredPairs: [TokenName, TokenName][] = [
   ['text', 'bg'],
   ['text', 'surface'],
+  ['text', 'surface-raised'],
   ['text-muted', 'surface'],
   ['accent-text', 'accent'],
   ['status-2xx', 'surface'],

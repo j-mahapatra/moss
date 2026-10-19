@@ -194,6 +194,40 @@ describe('exportPostmanV21', () => {
     ])
   })
 
+  it('skips blank rows when pairing enabled params with raw parts, and does not emit them', () => {
+    expect(
+      query({
+        url: 'https://e.com/p?q=a%20b',
+        params: [
+          { key: 'q', value: 'a b', enabled: true },
+          { key: '', value: '', enabled: true },
+          { key: '', value: '', enabled: false }
+        ]
+      })
+    ).toEqual([{ key: 'q', value: 'a%20b' }])
+  })
+
+  it('never throws on lone surrogates; they become U+FFFD before encoding', () => {
+    const c = withItems('S', [
+      req('r', {
+        url: 'https://e.com/p?a=1',
+        params: [
+          { key: 'a', value: '1', enabled: true },
+          { key: 'k\ud800', value: 'v\udc00x', enabled: false },
+          { key: 'n', value: '\ud83d', enabled: true }
+        ]
+      })
+    ])
+    expect(() => exportPostmanV21(c)).not.toThrow()
+    expect(
+      query({
+        url: 'https://e.com/p',
+        params: [{ key: 'k\ud800', value: '\udc00', enabled: false }]
+      })
+    ).toEqual([{ key: 'k%EF%BF%BD', value: '%EF%BF%BD', disabled: true }])
+    expect(() => JSON.stringify(exportPostmanV21(c))).not.toThrow()
+  })
+
   it('exports only the file name of form-data files', () => {
     const fields: FormField[] = [
       { kind: 'file', key: 'a', filePath: '/Users/me/secret/a.png', enabled: true },

@@ -408,6 +408,19 @@ describe('importPostmanV21', () => {
       expect(r.params).toEqual([kv('a', '1'), kv('d', '4', false)])
     })
 
+    it('decodes query[] values before rebuilding a url from parts', () => {
+      const { r } = one({
+        protocol: 'https',
+        host: ['x'],
+        query: [
+          { key: 'q', value: 'a%20b' },
+          { key: 'off', value: 'x%20y', disabled: true }
+        ]
+      })
+      expect(r.url).toBe('https://x?q=a%20b')
+      expect(r.params).toEqual([kv('q', 'a b'), kv('off', 'x y', false)])
+    })
+
     it('adds the hash when building a url from parts', () => {
       const { r } = one({
         protocol: 'https',
@@ -433,6 +446,59 @@ describe('importPostmanV21', () => {
     it('ignores empty variable arrays', () => {
       const { report } = one({ raw: 'https://x', variable: [] }, { variable: [] })
       expect(report).toEqual([])
+    })
+  })
+
+  describe('parked fixes', () => {
+    const run = (
+      item: object,
+      root: object = {}
+    ): { collection: Collection; report: ImportNote[] } =>
+      imported({ info: { schema: V21 }, item: [item], ...root })
+    const listen = (exec: unknown): object[] => [{ listen: 'test', script: { exec } }]
+
+    it.each<[string, unknown]>([
+      ['empty exec array', listen([])],
+      ['blank exec lines', listen(['', '  '])],
+      ['blank exec string', listen(' ')],
+      ['no event entries', []]
+    ])('does not report scripts for %s', (_n, event) => {
+      const { report } = run({ name: 'R', request: { url: 'https://x' }, event })
+      expect(report).toEqual([])
+      const folder = run({ name: 'F', item: [], event })
+      expect(folder.report).toEqual([])
+      expect(run({ name: 'R', request: 'https://x' }, { event }).report).toEqual([])
+    })
+
+    it.each<[string, unknown]>([
+      ['exec lines', listen(['pm.test()'])],
+      ['exec string', listen('x()')],
+      ['script src', [{ listen: 'test', script: { src: 'https://x/s.js' } }]]
+    ])('still reports scripts for %s', (_n, event) => {
+      const { report } = run({ name: 'R', request: { url: 'https://x' }, event })
+      expect(report).toEqual([{ path: 'R', message: 'Scripts were not imported' }])
+    })
+
+    it('imports string headers prefixed // as disabled', () => {
+      const { collection } = run({
+        name: 'R',
+        request: { url: 'https://x', header: 'A: 1\n//X-Off: 2\n// Y: 3' }
+      })
+      expect(req(collection, 'R').headers).toEqual([
+        kv('A', '1'),
+        kv('X-Off', '2', false),
+        kv('Y', '3', false)
+      ])
+    })
+
+    it('reports a request on a folder item', () => {
+      const { collection, report } = run({
+        name: 'F',
+        item: [{ name: 'In', request: { url: 'https://x' } }],
+        request: { url: 'https://y' }
+      })
+      expect(report).toEqual([{ path: 'F', message: 'Request on a folder item was not imported' }])
+      expect(at(collection.items, 'F').kind).toBe('folder')
     })
   })
 

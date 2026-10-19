@@ -55,7 +55,7 @@
 
 /* Stays rendered while empty so screen readers keep the live region; only its spacing collapses. */
 .import-panel__status:empty {
-  margin: 0;
+  margin: calc(-1 * var(--moss-space-2)) 0 0;
   padding: 0;
 }
 

@@ -6,6 +6,7 @@ import { applyParams, decode, parseQuery } from '../url-params'
 import {
   headerList,
   hasAuth,
+  hasScripts,
   keyValues,
   mapAuth,
   mapBody,
@@ -108,7 +109,9 @@ function mapUrl(x: unknown, add: Notes): { url: string; params: KeyValue[] } {
     (port ? `:${port}` : '') +
     (path ? `/${path}` : '') +
     (hash ? `#${hash}` : '')
-  const params = rows ?? parseQuery(built)
+  const params = rows
+    ? rows.map((r) => ({ ...r, key: decode(r.key), value: decode(r.value) }))
+    : parseQuery(built)
   return { url: applyParams(built, params), params }
 }
 
@@ -149,7 +152,7 @@ function mapRequest(
   if (Array.isArray(item.variable) && item.variable.length > 0) {
     add('Request variables were not imported')
   }
-  if (nonEmpty(item.event)) add('Scripts were not imported')
+  if (hasScripts(item.event)) add('Scripts were not imported')
   if (nonEmpty(item.response)) add('Examples were not imported')
   if (nonEmpty(item.protocolProfileBehavior)) add('Request settings were not imported')
   if (nonEmpty(req.description) || nonEmpty(item.description)) add('Description was not imported')
@@ -187,9 +190,12 @@ function mapItems(list: unknown[], prefix: string, depth: number, report: Import
         continue
       }
       if (hasAuth(item.auth)) report.push(note(path, 'Folder auth was not imported'))
-      if (nonEmpty(item.event)) report.push(note(path, 'Folder scripts were not imported'))
+      if (hasScripts(item.event)) report.push(note(path, 'Folder scripts were not imported'))
       if (nonEmpty(item.variable)) report.push(note(path, 'Folder variables were not imported'))
       if (nonEmpty(item.description)) report.push(note(path, 'Description was not imported'))
+      if (item.request !== undefined && item.request !== null) {
+        report.push(note(path, 'Request on a folder item was not imported'))
+      }
       const folder = newFolder(name || 'Folder')
       folder.items = mapItems(item.item, path, depth + 1, report)
       out.push(folder)
@@ -217,7 +223,7 @@ function convert(json: unknown): CollectionImportResult {
   const collection = newCollection(str(info['name']).trim() || 'Imported collection')
   if (nonEmpty(info['description'])) add('Description was not imported')
   if (hasAuth(root['auth'])) add('Collection auth was not imported')
-  if (nonEmpty(root['event'])) add('Collection scripts were not imported')
+  if (hasScripts(root['event'])) add('Collection scripts were not imported')
   collection.variables = keyValues(root['variable'], 'collection variables', add)
 
   const items = root['item']
