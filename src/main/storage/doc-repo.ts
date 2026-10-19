@@ -106,16 +106,18 @@ export class DocRepo<T extends { id: string; name: string }> {
   async get(id: string): Promise<T | null> {
     const lower = id.toLowerCase()
     if (!ID_RE.test(lower)) return null
-    const cached = this.cache.get(lower)
-    if (cached) return cached
-    try {
-      const r = this.schema.safeParse(
-        JSON.parse(await this.fsImpl.readFile(this.file(lower), 'utf8'))
-      )
-      return r.success && r.data.id === lower ? r.data : null
-    } catch {
-      return null
-    }
+    const path = this.file(lower)
+    // Same queue key as save/delete, so a read waits for a pending write of this doc.
+    return this.queue.run(path, async () => {
+      const cached = this.cache.get(lower)
+      if (cached) return cached
+      try {
+        const r = this.schema.safeParse(JSON.parse(await this.fsImpl.readFile(path, 'utf8')))
+        return r.success && r.data.id === lower ? r.data : null
+      } catch {
+        return null
+      }
+    })
   }
 
   async save(doc: T): Promise<void> {

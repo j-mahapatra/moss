@@ -69,7 +69,7 @@ you wouldn't keep in a regular file.
 
 The renderer runs with context isolation and the sandbox on, and with Node
 integration off. It reaches the rest of the app only through a typed preload
-script that exposes four channels. Main validates every payload with zod before
+script that exposes twelve channels. Main validates every payload with zod before
 acting on it. Network access happens in a separate utility process, never in
 the renderer.
 

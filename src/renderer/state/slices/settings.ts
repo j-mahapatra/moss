@@ -20,9 +20,11 @@ export function createSettings(
   beginLoad(): void
   /**
    * Applies loaded settings (null = load failed), keeping fields the user changed while
-   * loading. An active id that is not in `environments` is dropped and the drop persisted.
+   * loading. An active id that is not in `environments` is dropped and the drop persisted,
+   * unless the environments failed to load (`envsLoaded` false): then the id cannot be
+   * checked, so it is kept privately and written back unchanged until the user picks another.
    */
-  applySettings(s: Settings | null): void
+  applySettings(s: Settings | null, envsLoaded: boolean): void
   slice: Pick<
     WorkspaceState,
     | 'split'
@@ -39,9 +41,13 @@ export function createSettings(
   const dirtyFields = new Set<Field>()
   let timer: ReturnType<typeof setTimeout> | undefined
   let inFlight: Promise<void> | null = null
+  /** Saved active id we could not resolve (environments failed to load); undefined = none. */
+  let unresolvedId: string | null | undefined
 
   const write = (): Promise<void> => {
-    const { split, navigatorCollapsed, activeEnvironmentId } = get()
+    const { split, navigatorCollapsed } = get()
+    const activeEnvironmentId =
+      unresolvedId !== undefined ? unresolvedId : get().activeEnvironmentId
     let sent: Promise<void>
     try {
       // Called synchronously so a flush from `beforeunload` reaches IPC before the page goes.
@@ -71,6 +77,7 @@ export function createSettings(
 
   const change = (field: Field, patch: Partial<WorkspaceState>): void => {
     if (loading) dirtyFields.add(field)
+    if (field === 'activeEnvironmentId') unresolvedId = undefined
     set(patch)
     schedule()
   }
@@ -80,7 +87,7 @@ export function createSettings(
       loading = true
     },
 
-    applySettings: (s) => {
+    applySettings: (s, envsLoaded) => {
       loading = false
       let save = dirtyFields.size > 0
       if (s) {
@@ -89,9 +96,14 @@ export function createSettings(
         if (!dirtyFields.has('navigatorCollapsed')) patch.navigatorCollapsed = s.navigatorCollapsed
         if (!dirtyFields.has('activeEnvironmentId')) {
           const id = s.activeEnvironmentId
-          const exists = id === null || get().environments.some((e) => e.id === id)
-          patch.activeEnvironmentId = exists ? id : null
-          if (!exists) save = true
+          if (!envsLoaded) {
+            unresolvedId = id
+            patch.activeEnvironmentId = null
+          } else {
+            const exists = id === null || get().environments.some((e) => e.id === id)
+            patch.activeEnvironmentId = exists ? id : null
+            if (!exists) save = true
+          }
         }
         set(patch)
       }

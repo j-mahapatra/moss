@@ -151,6 +151,29 @@ describe('DocRepo', () => {
       expect(await readdir(tdir())).toContain(later)
     })
 
+    it('get waits for a pending save of the same doc and returns the new value', async () => {
+      await mkdir(tdir())
+      const gate = deferred()
+      const fs = {
+        ...real,
+        rename: async (from: string, to: string): Promise<void> => {
+          await gate.promise
+          return rename(from, to)
+        }
+      }
+      const repo = make({ fsImpl: fs })
+      await writeFile(join(tdir(), `${ID1}.json`), JSON.stringify(mk(ID1, 'old')))
+      const saving = repo.save(mk(ID1, 'new'))
+      await new Promise((r) => setTimeout(r, 20))
+      let got: Doc | null | undefined
+      const getting = repo.get(ID1).then((d) => (got = d))
+      await new Promise((r) => setTimeout(r, 20))
+      expect(got).toBeUndefined()
+      gate.release()
+      await Promise.all([saving, getting])
+      expect(got?.name).toBe('new')
+    })
+
     it('does not remove the tmp file of an in-flight write', async () => {
       await mkdir(tdir())
       const gate = deferred()

@@ -124,10 +124,10 @@ export function createWorkspaceStore(api: WorkspaceApi): StoreApi<WorkspaceState
         }
         // After environments: an active id that no longer exists is dropped here.
         if (sets.status === 'fulfilled') {
-          settings.applySettings(sets.value.settings)
+          settings.applySettings(sets.value.settings, envs.status === 'fulfilled')
           for (const w of sets.value.warnings) notices.addNotice('warning', w)
         } else {
-          settings.applySettings(null)
+          settings.applySettings(null, envs.status === 'fulfilled')
           notices.addNotice('danger', `Couldn't load settings: ${errorMessage(sets.reason)}`)
         }
         set({ loaded: true })

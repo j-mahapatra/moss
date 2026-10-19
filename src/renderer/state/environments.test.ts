@@ -132,6 +132,33 @@ describe('environments', () => {
     expect(api['settings:set'].mock.calls[0]![0].activeEnvironmentId).toBeNull()
   })
 
+  it('after deleting the active environment, selectScope no longer resolves its variables', async () => {
+    const dev = { ...newEnvironment('Dev'), variables: [kv('onlyDev', 'x')] }
+    const { store } = setup({ envs: [dev], settings: { activeEnvironmentId: dev.id } })
+    await store.getState().init()
+    expect(selectScope(store.getState()).get('onlyDev')).toBe('x')
+    expect(await store.getState().deleteEnvironment(dev.id)).toBe(true)
+    expect(selectScope(store.getState()).has('onlyDev')).toBe(false)
+  })
+
+  it('an environments load failure keeps the saved id and later saves persist it unchanged', async () => {
+    const dev = newEnvironment('Dev')
+    const { store, api } = setup({ envs: [dev], settings: { activeEnvironmentId: dev.id } })
+    api['environments:list'].mockRejectedValueOnce(new Error('gone'))
+    vi.useFakeTimers()
+    await store.getState().init()
+    expect(store.getState().notices.map((n) => n.message)).toContain(
+      "Couldn't load your environments: gone"
+    )
+    expect(store.getState().activeEnvironmentId).toBeNull()
+    await vi.advanceTimersByTimeAsync(300)
+    expect(api['settings:set']).not.toHaveBeenCalled()
+    store.getState().setSplit(0.4)
+    await vi.advanceTimersByTimeAsync(300)
+    expect(api['settings:set']).toHaveBeenCalledTimes(1)
+    expect(api['settings:set'].mock.calls[0]![0].activeEnvironmentId).toBe(dev.id)
+  })
+
   it('setActiveEnvironment ignores unknown ids', async () => {
     const { store } = setup()
     await store.getState().init()

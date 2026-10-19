@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { Dialog } from './Dialog'
 import { Menu } from './Menu'
 import { Popover } from './Popover'
+import { Select } from './Select'
 import { staticTokens } from './tokens'
 
 const css = (name: string): string => readFileSync(resolve(__dirname, name), 'utf8')
@@ -64,6 +65,34 @@ describe('layering', () => {
     expect(screen.getByRole('dialog', { name: 'Pop' })).toBeInTheDocument()
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog', { name: 'Pop' })).toBeNull()
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: 'T' })).toBeInTheDocument()
+  })
+
+  it('closes only the Select on Esc when opened inside a Dialog', async () => {
+    const user = userEvent.setup()
+    const onOpenChange = vi.fn()
+    // jsdom lacks these; Radix Select calls them when opening.
+    Element.prototype.scrollIntoView ??= () => {}
+    Element.prototype.hasPointerCapture ??= () => false
+    render(
+      <Dialog open onOpenChange={onOpenChange} title="T">
+        <Select
+          aria-label="Pick"
+          value="a"
+          onValueChange={() => {}}
+          options={[
+            { value: 'a', label: 'Alpha' },
+            { value: 'b', label: 'Beta' }
+          ]}
+        />
+      </Dialog>
+    )
+    screen.getByRole('combobox', { name: 'Pick' }).focus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('listbox')).toBeNull()
     expect(onOpenChange).not.toHaveBeenCalled()
     expect(screen.getByRole('dialog', { name: 'T' })).toBeInTheDocument()
   })
