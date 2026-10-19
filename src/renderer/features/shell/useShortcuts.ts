@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { selectRecentEntries } from '../../state/selectors'
 import { useWorkspaceStore } from '../../state/workspace-hooks'
+import { isMac } from '../../ui/platform'
 
-const isMac = (): boolean => /Mac|iPhone|iPad/.test(navigator.platform)
 /** Dialogs, menus and Select popups. Our own listboxes live inside dialogs. */
 const anyOverlay = (): boolean =>
   !!document.querySelector('[role="dialog"],[role="menu"],[role="listbox"]')

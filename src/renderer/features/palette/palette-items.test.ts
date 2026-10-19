@@ -60,6 +60,23 @@ function state(over: Partial<PaletteState> = {}): PaletteState {
 }
 
 describe('buildPaletteItems', () => {
+  it('shows the New request shortcut with the platform modifier', () => {
+    const build = (): string | undefined =>
+      buildPaletteItems(
+        state({ theme: 'system', environments: [], activeEnvironmentId: null, collections: [] }),
+        actions() as unknown as PaletteActions
+      ).find((i) => i.id === 'command:new-request')?.hint
+    const platform = vi.spyOn(navigator, 'platform', 'get')
+    try {
+      platform.mockReturnValue('MacIntel')
+      expect(build()).toBe('⌘N')
+      platform.mockReturnValue('Win32')
+      expect(build()).toBe('Ctrl+N')
+    } finally {
+      platform.mockRestore()
+    }
+  })
+
   it('lists commands, environments, then requests with exact labels, details and badges', () => {
     const { collections } = fixture()
     const items = buildPaletteItems(
@@ -75,7 +92,13 @@ describe('buildPaletteItems', () => {
     expect(
       items.map(({ group, label, detail, hint, badge }) => ({ group, label, detail, hint, badge }))
     ).toEqual([
-      { group: 'Commands', label: 'New request', detail: undefined, hint: '⌘N', badge: undefined },
+      {
+        group: 'Commands',
+        label: 'New request',
+        detail: undefined,
+        hint: 'Ctrl+N',
+        badge: undefined
+      },
       { group: 'Commands', label: 'Import…', detail: undefined, hint: undefined, badge: undefined },
       {
         group: 'Commands',

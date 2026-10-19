@@ -16,7 +16,7 @@ function makeItems(): (PaletteItem & { run: Mock<() => void> })[] {
       run: vi.fn<() => void>()
     },
     { id: 'e1', label: 'Staging', group: 'Environments', badge: 'env', run: vi.fn<() => void>() },
-    { id: 'c1', label: 'New request', group: 'Commands', hint: '⌘N', run: vi.fn<() => void>() }
+    { id: 'c1', label: 'New request', group: 'Commands', hint: 'Ctrl+N', run: vi.fn<() => void>() }
   ]
 }
 
@@ -83,7 +83,7 @@ describe('CommandPalette', () => {
     expect(groups[2]).toBe(screen.getByRole('group', { name: 'Commands' }))
     expect(within(groups[0] as HTMLElement).getAllByRole('option')).toHaveLength(2)
     expect(optionLabels()).toEqual(['GET user', 'debug user', 'Staging', 'New request'])
-    expect(screen.getByText('⌘N')).toBeInTheDocument()
+    expect(screen.getByText('Ctrl+N')).toBeInTheDocument()
     expect(screen.getByText('env')).toBeInTheDocument()
   })
 
@@ -189,5 +189,14 @@ describe('CommandPalette', () => {
     fireEvent.keyDown(input, { key: 'ArrowDown', isComposing: true })
     fireEvent.keyDown(input, { key: 'ArrowDown', keyCode: 229 })
     expect(activeOption()).toHaveAttribute('data-label', 'GET user')
+  })
+
+  it('does not close on Escape while an IME composition is in progress', () => {
+    const onOpenChange = vi.fn<(open: boolean) => void>()
+    render(<Harness items={makeItems()} onOpenChange={onOpenChange} />)
+    const input = screen.getByRole('combobox')
+    fireEvent.keyDown(input, { key: 'Escape', isComposing: true })
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 })

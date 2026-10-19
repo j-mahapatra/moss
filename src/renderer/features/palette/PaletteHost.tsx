@@ -7,7 +7,7 @@ import { buildPaletteItems } from './palette-items'
 
 const NO_ITEMS: PaletteItem[] = []
 
-/** The app's command palette, opened by ⌘K or the top-bar search field. */
+/** The app's command palette, opened by ⌘K (Ctrl+K off macOS) or the top-bar search field. */
 export function PaletteHost(): React.JSX.Element {
   const store = useWorkspaceStore()
   const open = useWorkspace((s) => s.ui.paletteOpen)

@@ -2,6 +2,7 @@ import type { PaletteItem } from '../../../shared/fuzzy'
 import type { Collection, Item, ThemePref } from '../../../shared/types'
 import { byName } from '../../state/slices/doc-queue'
 import type { WorkspaceState } from '../../state/workspace'
+import { modKey } from '../../ui/platform'
 
 /** The store fields the palette lists. */
 export type PaletteState = Pick<
@@ -33,7 +34,7 @@ export function buildPaletteItems(state: PaletteState, actions: PaletteActions):
       id: 'command:new-request',
       group: 'Commands',
       label: 'New request',
-      hint: '⌘N',
+      hint: modKey('N'),
       run: () => {
         if (actions.newRequest() === 'confirm-discard') actions.setConfirmDiscard({ then: 'new' })
       }

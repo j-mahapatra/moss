@@ -96,6 +96,26 @@ describe('PaletteHost', () => {
     expect(palette()).not.toBeNull()
   })
 
+  it('the top-bar search field shows ⌘K on macOS', async () => {
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue('MacIntel')
+    await setup()
+    const field = within(screen.getByRole('banner')).getByRole('button', {
+      name: 'Open command palette (⌘K)'
+    })
+    expect(field).toHaveTextContent('⌘K')
+  })
+
+  it('Esc during an IME composition leaves the palette open', async () => {
+    const { urlEditor } = await setup()
+    act(() => urlEditor.focus())
+    pressK(urlEditor)
+    const input = within(palette() as HTMLElement).getByRole('combobox')
+    fireEvent.keyDown(input, { key: 'Escape', isComposing: true })
+    expect(palette()).not.toBeNull()
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(palette()).toBeNull()
+  })
+
   it('typing a request name and pressing Enter opens that request', async () => {
     const { store, col, getUser, urlEditor } = await setup()
     act(() => urlEditor.focus())
@@ -144,10 +164,10 @@ describe('PaletteHost', () => {
     await setup()
     const user = userEvent.setup()
     const field = within(screen.getByRole('banner')).getByRole('button', {
-      name: 'Open command palette (⌘K)'
+      name: 'Open command palette (Ctrl+K)'
     })
     expect(field).toHaveTextContent('Search requests, collections, commands…')
-    expect(field).toHaveTextContent('⌘K')
+    expect(field).toHaveTextContent('Ctrl+K')
     await user.click(field)
     expect(palette()).not.toBeNull()
     await user.keyboard('{Escape}')

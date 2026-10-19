@@ -1,10 +1,11 @@
-import { useEffect, useId, useState } from 'react'
+import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
 import type { StoreApi } from 'zustand'
 import { selectRecentEntries } from '../../state/selectors'
 import type { RequestRef, WorkspaceState } from '../../state/workspace'
 import { useWorkspace, useWorkspaceStore } from '../../state/workspace-hooks'
 import { Badge } from '../../ui/Badge'
 import { Dialog } from '../../ui/Dialog'
+import { keepOpenWhileComposing } from '../../ui/ime'
 import { useReturnFocus } from '../shell/useReturnFocus'
 import './RecentsSwitcher.css'
 
@@ -17,6 +18,7 @@ export function RecentsSwitcher(): React.JSX.Element {
   const setOpen = useWorkspace((s) => s.setRecentsOpen)
   // ⌃Tab has no trigger for Radix to return focus to.
   const onCloseAutoFocus = useReturnFocus(open)
+  const close = useCallback(() => setOpen(false), [setOpen])
   return (
     <Dialog
       open={open}
@@ -25,9 +27,10 @@ export function RecentsSwitcher(): React.JSX.Element {
       titleHidden
       className="moss-recents"
       onCloseAutoFocus={onCloseAutoFocus}
+      onEscapeKeyDown={keepOpenWhileComposing}
     >
       {/* Mounted only while open, so each opening picks its starting row afresh. */}
-      <SwitcherBody onClose={() => setOpen(false)} />
+      <SwitcherBody onClose={close} />
     </Dialog>
   )
 }
@@ -42,22 +45,38 @@ function SwitcherBody({ onClose }: { onClose(): void }): React.JSX.Element {
   const store = useWorkspaceStore()
   const entries = useWorkspace(selectRecentEntries)
   // Start on the previous request; the first row is the current one when there is one.
+  // The selection follows its request, so rows vanishing around it don't move it.
   const [selected, setSelected] = useState(() => {
     const current = store.getState().active?.requestId
-    return entries.length > 1 && entries[0]?.ref.requestId === current ? 1 : 0
+    const i = entries.length > 1 && entries[0]?.ref.requestId === current ? 1 : 0
+    return { requestId: entries[i]?.ref.requestId, index: i }
   })
-  const index = Math.min(selected, entries.length - 1)
+  const found = entries.findIndex((e) => e.ref.requestId === selected.requestId)
+  const index = found >= 0 ? found : Math.min(selected.index, entries.length - 1)
   const baseId = useId()
   const optionId = (i: number): string => `${baseId}-option-${i}`
+  const select = (i: number): void =>
+    setSelected({ requestId: entries[i]?.ref.requestId, index: i })
 
-  useEffect(() => {
+  // The listeners read the latest render through a ref, so they are registered once per opening.
+  const latest = useRef({ entries, index })
+  useLayoutEffect(() => {
+    latest.current = { entries, index }
+  })
+
+  // Layout effect, so the listeners are in place before the browser can deliver a quick
+  // Ctrl release that follows the opening press.
+  useLayoutEffect(() => {
     const openAt = (i: number): void => {
-      const entry = entries[i]
+      const entry = latest.current.entries[i]
       onClose()
       if (entry) openRecent(store, entry.ref)
     }
     const move = (step: number): void => {
-      if (entries.length > 0) setSelected((index + step + entries.length) % entries.length)
+      const { entries: list, index: at } = latest.current
+      if (list.length === 0) return
+      const next = (at + step + list.length) % list.length
+      setSelected({ requestId: list[next]?.ref.requestId, index: next })
     }
     // Capture phase, ahead of the dialog's focus trap and anything focused inside it.
     const onKeyDown = (e: KeyboardEvent): void => {
@@ -66,21 +85,25 @@ function SwitcherBody({ onClose }: { onClose(): void }): React.JSX.Element {
       else if (e.key === 'ArrowUp') move(-1)
       else if (e.key === 'Enter') {
         // A held Enter must not open a second request once the first one closes the switcher.
-        if (!e.repeat) openAt(index)
+        if (!e.repeat) openAt(latest.current.index)
       } else return
       e.preventDefault()
       e.stopPropagation()
     }
     const onKeyUp = (e: KeyboardEvent): void => {
-      if (e.key === 'Control') openAt(index)
+      if (e.key === 'Control') openAt(latest.current.index)
     }
+    // Ctrl may be released in another window, where the keyup never reaches us: close quietly.
+    const onBlur = (): void => onClose()
     document.addEventListener('keydown', onKeyDown, true)
     document.addEventListener('keyup', onKeyUp, true)
+    window.addEventListener('blur', onBlur)
     return () => {
       document.removeEventListener('keydown', onKeyDown, true)
       document.removeEventListener('keyup', onKeyUp, true)
+      window.removeEventListener('blur', onBlur)
     }
-  }, [entries, index, onClose, store])
+  }, [onClose, store])
 
   return (
     <div
@@ -99,7 +122,7 @@ function SwitcherBody({ onClose }: { onClose(): void }): React.JSX.Element {
           data-name={entry.name}
           className="moss-recents__option"
           onMouseMove={() => {
-            if (i !== index) setSelected(i)
+            if (i !== index) select(i)
           }}
           onClick={() => {
             onClose()

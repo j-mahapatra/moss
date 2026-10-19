@@ -10,6 +10,7 @@ import {
 import { fuzzyMatch, rankItems, type PaletteItem } from '../../shared/fuzzy'
 import { Badge } from './Badge'
 import { Dialog } from './Dialog'
+import { keepOpenWhileComposing } from './ime'
 import './CommandPalette.css'
 
 export type CommandPaletteProps = {
@@ -37,6 +38,7 @@ export function CommandPalette({
       titleHidden
       className="moss-palette"
       onCloseAutoFocus={onCloseAutoFocus}
+      onEscapeKeyDown={keepOpenWhileComposing}
     >
       {/* Mounted only while open, so each opening starts from an empty query. */}
       <PaletteBody items={items} placeholder={placeholder} onClose={() => onOpenChange(false)} />

@@ -132,6 +132,57 @@ describe('RecentsSwitcher', () => {
     expect(document.activeElement).toBe(urlEditor)
   })
 
+  it('losing window focus closes without opening anything', async () => {
+    const { store, a, b } = await setup()
+    act(() => {
+      store.getState().openRequest(b)
+      store.getState().openRequest(a)
+    })
+    pressCtrlTab()
+    expect(switcher()).not.toBeNull()
+    act(() => {
+      window.dispatchEvent(new Event('blur'))
+    })
+    expect(switcher()).toBeNull()
+    releaseCtrl()
+    expect(store.getState().active).toEqual(a)
+    expect(store.getState().ui.confirmDiscard).toBeNull()
+  })
+
+  it('Esc during an IME composition leaves the switcher open', async () => {
+    const { store, a, b } = await setup()
+    act(() => {
+      store.getState().openRequest(b)
+      store.getState().openRequest(a)
+    })
+    pressCtrlTab()
+    fireEvent.keyDown(document.activeElement as Element, { key: 'Escape', isComposing: true })
+    expect(switcher()).not.toBeNull()
+  })
+
+  it('keeps the same request selected when a row above it vanishes', async () => {
+    const { store, col, a, b, c } = await setup()
+    act(() => {
+      for (const ref of [c, b, a]) store.getState().openRequest(ref)
+    })
+    pressCtrlTab()
+    expect(selectedName()).toBe('Beta')
+    await act(async () => {
+      await store.getState().updateCollection(col.id, (x) => ({
+        ...x,
+        items: x.items.filter((i) => i.id !== a.requestId)
+      }))
+    })
+    await waitFor(() =>
+      expect(
+        within(switcher() as HTMLElement)
+          .getAllByRole('option')
+          .map((o) => o.getAttribute('data-name'))
+      ).toEqual(['Beta', 'Gamma'])
+    )
+    expect(selectedName()).toBe('Beta')
+  })
+
   it('Enter and clicking a row open it', async () => {
     const { store, a, b, c } = await setup()
     act(() => {

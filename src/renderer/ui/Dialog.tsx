@@ -16,6 +16,8 @@ export type DialogProps = {
   footer?: ReactNode
   /** Runs when focus is about to return to the trigger; `preventDefault` to place it elsewhere. */
   onCloseAutoFocus?(event: Event): void
+  /** Runs on Escape before the dialog closes; `preventDefault` to keep it open. */
+  onEscapeKeyDown?(event: KeyboardEvent): void
 }
 
 export function Dialog({
@@ -27,7 +29,8 @@ export function Dialog({
   description,
   children,
   footer,
-  onCloseAutoFocus
+  onCloseAutoFocus,
+  onEscapeKeyDown
 }: DialogProps): React.JSX.Element {
   return (
     <RDialog.Root open={open} onOpenChange={onOpenChange}>
@@ -36,6 +39,7 @@ export function Dialog({
         <RDialog.Content
           className={cx('moss-dialog', className)}
           onCloseAutoFocus={onCloseAutoFocus}
+          onEscapeKeyDown={onEscapeKeyDown}
           {...(description === undefined ? { 'aria-describedby': undefined } : {})}
         >
           <RDialog.Title
