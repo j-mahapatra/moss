@@ -37,7 +37,7 @@ export type PostmanV21Item =
 export type PostmanV21Collection = {
   info: { _postman_id: string; name: string; schema: string }
   item: PostmanV21Item[]
-  variable?: (Row & { type?: 'secret' })[]
+  variable?: Row[]
 }
 
 /** Replaces unpaired surrogates with U+FFFD (`toWellFormed` where available), so encoding can't throw. */
@@ -57,11 +57,9 @@ export function wellFormed(text: string): string {
   return out
 }
 
-/** A collection variable; a secret one keeps its key and state but never its value. */
-const variableRow = (v: Variable): Row & { type?: 'secret' } =>
-  v.secret
-    ? { key: v.key, value: '', type: 'secret', ...(v.enabled ? {} : { disabled: true as const }) }
-    : row(v)
+/** A collection variable; a secret one keeps its key and state but never its value (and no `type`, which the schema doesn't allow as `secret`). */
+const variableRow = (v: Variable): Row =>
+  v.secret ? { key: v.key, value: '', ...(v.enabled ? {} : { disabled: true as const }) } : row(v)
 
 const row = (r: KeyValue): Row =>
   r.enabled ? { key: r.key, value: r.value } : { key: r.key, value: r.value, disabled: true }

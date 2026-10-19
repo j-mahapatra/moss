@@ -12,15 +12,7 @@ import { withoutIds } from './test-helpers'
 const schema: object = JSON.parse(
   readFileSync(join(__dirname, '__fixtures__/postman-collection-v2.1.0.schema.json'), 'utf8')
 )
-// The vendored v2.1 schema's variable `type` enum predates Postman's own `secret` type, which the
-// export emits; the validator allows it and nothing else is relaxed.
-const withSecretType = JSON.parse(
-  JSON.stringify(schema).replace(
-    '"enum":["string","boolean","any","number"]',
-    '"enum":["string","boolean","any","number","secret"]'
-  )
-) as object
-const validate = new Ajv({ strict: false }).compile(withSecretType)
+const validate = new Ajv({ strict: false }).compile(schema)
 
 function req(name: string, patch: Partial<RequestItem> = {}): RequestItem {
   return { ...toItem(newRequestSpec()), name, ...patch }
@@ -80,7 +72,10 @@ const withoutSecrets = (c: Collection): Collection => {
   return {
     ...c,
     items: c.items.map(strip),
-    variables: c.variables.map((v) => (v.secret ? { ...v, value: '' } : v))
+    variables: c.variables.map((v) => {
+      if (!v.secret) return v
+      return { key: v.key, value: '', enabled: v.enabled }
+    })
   }
 }
 
@@ -339,13 +334,21 @@ describe('secrets', () => {
     expect(text).toContain('visible')
   })
 
-  it('writes secret variables as empty type secret, keeping disabled', () => {
+  it('writes secret variables with an empty value and no type, keeping disabled', () => {
     expect(exportPostmanV21(planted).variable).toEqual([
-      { key: 's', value: '', type: 'secret' },
-      { key: 'off', value: '', type: 'secret', disabled: true },
-      { key: 'empty', value: '', type: 'secret' },
+      { key: 's', value: '' },
+      { key: 'off', value: '', disabled: true },
+      { key: 'empty', value: '' },
       { key: 'plain', value: 'visible' }
     ])
+  })
+
+  it('emits no variable type outside the schema enum', () => {
+    const allowed = ['string', 'boolean', 'any', 'number']
+    for (const v of exportPostmanV21(planted).variable ?? []) {
+      const t = (v as { type?: string }).type
+      if (t !== undefined) expect(allowed).toContain(t)
+    }
   })
 
   it('blanks credentials but keeps type and username', () => {
@@ -366,9 +369,22 @@ describe('secrets', () => {
   })
 
   it('imports type secret as a secret variable', () => {
-    const r = importPostmanV21(JSON.parse(JSON.stringify(exportPostmanV21(planted))))
+    const doc = {
+      info: {
+        name: 'x',
+        schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json'
+      },
+      item: [],
+      variable: [
+        { key: 'a', value: 'v', type: 'secret' },
+        { key: 'b', value: 'v', type: 'secret', disabled: true },
+        { key: 'c', value: 'v', type: 'string' },
+        { key: 'd', value: 'v' }
+      ]
+    }
+    const r = importPostmanV21(doc)
     if (!r.ok) throw new Error(r.error)
-    expect(r.collection.variables.map((v) => v.secret === true)).toEqual([true, true, true, false])
+    expect(r.collection.variables.map((v) => v.secret === true)).toEqual([true, true, false, false])
     expect(r.collection.variables[3]).not.toHaveProperty('secret')
   })
 })
