@@ -2,6 +2,7 @@ import { dirname, join } from 'path'
 import { HISTORY_CAP } from '../../shared/history'
 import { HistoryEntrySchema } from '../../shared/schemas'
 import type { HistoryEntry } from '../../shared/types'
+import { sweepTmp } from './tmp-sweep'
 import { atomicWriteText, defaultFs, type AtomicFs, type WriteQueue } from './atomic-write'
 
 const encode = (entries: HistoryEntry[]): string =>
@@ -12,6 +13,7 @@ export class HistoryRepo {
   private cache: HistoryEntry[] | null = null
   private lineCount = 0
   private pendingWarnings: string[] = []
+  private swept = false
 
   constructor(
     private dataDir: string,
@@ -27,6 +29,10 @@ export class HistoryRepo {
   /** Must run inside the file's queue slot. Loads, quarantines and compacts once. */
   private async ensureLoaded(): Promise<HistoryEntry[]> {
     if (this.cache) return this.cache
+    if (!this.swept) {
+      this.swept = true
+      await sweepTmp(this.dataDir, 'history.jsonl', this.fsImpl.unlink)
+    }
     let raw = ''
     try {
       raw = await this.fsImpl.readFile(this.path, 'utf8')

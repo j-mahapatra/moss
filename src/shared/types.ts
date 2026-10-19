@@ -67,6 +67,8 @@ export type HistoryEntry = {
   errorKind?: ErrorKind
   collectionId?: string
   environmentId?: string
+  /** The stored request's body text was cut to HISTORY_BODY_MAX. */
+  bodyTruncated?: boolean
 }
 export type SendOutcome = { result: SendResult; history: HistoryEntry | null }
 export type RunOptions = { timeoutMs: number; maxRedirects: number; maxBodyBytes: number }

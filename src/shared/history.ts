@@ -1,6 +1,8 @@
 import type { HistoryEntry } from './types'
 
 export const HISTORY_CAP = 500
+/** Max characters of request body text kept per history entry. */
+export const HISTORY_BODY_MAX = 256 * 1024
 
 export type HistoryGroup = { key: string; label: string; entries: HistoryEntry[] }
 

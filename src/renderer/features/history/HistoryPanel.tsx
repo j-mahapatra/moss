@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { filterHistory, groupByDay } from '../../../shared/history'
 import type { HistoryEntry } from '../../../shared/types'
 import { useWorkspace } from '../../state/workspace-hooks'
@@ -23,6 +23,15 @@ export function HistoryPanel(): React.JSX.Element {
   const cleared = useRef(false)
   const listRef = useRef<HTMLDivElement>(null)
   const filterRef = useRef<HTMLInputElement>(null)
+
+  // Re-render at the next local midnight so day labels (Today/Yesterday) stay right.
+  const [dayTick, setDayTick] = useState(0)
+  useEffect(() => {
+    const now = new Date()
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+    const timer = setTimeout(() => setDayTick((n) => n + 1), midnight.getTime() - now.getTime())
+    return () => clearTimeout(timer)
+  }, [dayTick])
 
   const filtered = useMemo(() => filterHistory(history, query), [history, query])
   const groups = groupByDay(filtered, new Date())

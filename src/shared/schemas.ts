@@ -162,7 +162,8 @@ const HistoryEntryBaseSchema = z.object({
   durationMs: z.number().int().nonnegative(),
   errorKind: ErrorKindSchema.optional(),
   collectionId: z.uuid().optional(),
-  environmentId: z.uuid().optional()
+  environmentId: z.uuid().optional(),
+  bodyTruncated: z.boolean().optional()
 })
 
 export const HistoryEntrySchema = HistoryEntryBaseSchema.superRefine((e, ctx) => {

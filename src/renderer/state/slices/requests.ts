@@ -144,6 +144,8 @@ export function createRequests(
       const draft: RequestSpec = { ...structuredClone(entry.request), id: crypto.randomUUID() }
       const cid = entry.collectionId
       reopened = draft
+      if (entry.bodyTruncated)
+        addNotice('warning', "This request's body was too large to keep in full; it was shortened.")
       set({
         draft,
         active: null,

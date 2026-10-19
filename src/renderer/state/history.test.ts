@@ -194,6 +194,20 @@ describe('history: send', () => {
 })
 
 describe('history: openHistoryEntry', () => {
+  it('warns when the entry was truncated, and only then', async () => {
+    const t = { ...entry('http://t'), bodyTruncated: true }
+    const n = entry('http://n')
+    const { store } = setup({ entries: [t, n] })
+    await store.getState().init()
+    store.getState().openHistoryEntry(n.id)
+    expect(store.getState().notices).toEqual([])
+    store.getState().openHistoryEntry(t.id)
+    expect(messages(store.getState())).toContainEqual([
+      'warning',
+      "This request's body was too large to keep in full; it was shortened."
+    ])
+  })
+
   it('opens a copy of the request with a new id as an unsaved draft scoped to its collection', async () => {
     const col = colWithVar('Col', 'http://col')
     const e = entry('{{base}}/u', col.id)

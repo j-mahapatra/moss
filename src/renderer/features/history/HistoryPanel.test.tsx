@@ -60,6 +60,51 @@ async function setup(entries: HistoryEntry[] = sample()) {
 const rows = () => screen.getAllByRole('listitem')
 const row = (i: number) => rows()[i] as HTMLElement
 
+describe('HistoryPanel midnight and loading', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('re-renders at the next local midnight so Today becomes Yesterday, and clears the timer on unmount', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
+    vi.setSystemTime(new Date(2026, 9, 19, 23, 59, 0))
+    const e = entry('a', 'http://a.test/one')
+    const store = createWorkspaceStore({
+      'request:send': vi.fn(),
+      'request:cancel': vi.fn(),
+      ...noopExtras(),
+      'history:list': vi.fn(async () => ({ entries: [e], warnings: [] }))
+    } as never)
+    const view = render(
+      <WorkspaceProvider store={store}>
+        <HistoryPanel />
+      </WorkspaceProvider>
+    )
+    await act(async () => {
+      await store.getState().init()
+    })
+    expect(screen.getByRole('heading', { level: 3, name: 'Today' })).toBeInTheDocument()
+    await act(async () => {
+      vi.advanceTimersByTime(61_000)
+    })
+    expect(screen.getByRole('heading', { level: 3, name: 'Yesterday' })).toBeInTheDocument()
+    view.unmount()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('shows Loading… before history has loaded', () => {
+    const store = createWorkspaceStore({
+      'request:send': vi.fn(),
+      'request:cancel': vi.fn(),
+      ...noopExtras()
+    } as never)
+    render(
+      <WorkspaceProvider store={store}>
+        <HistoryPanel />
+      </WorkspaceProvider>
+    )
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
+  })
+})
+
 describe('HistoryPanel', () => {
   beforeEach(() => vi.useFakeTimers({ toFake: ['Date'] }))
   afterEach(() => vi.useRealTimers())

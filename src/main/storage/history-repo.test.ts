@@ -285,3 +285,17 @@ describe('HistoryRepo torn tails', () => {
     )
   })
 })
+
+describe('HistoryRepo tmp sweep', () => {
+  const U1 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  it('removes history tmp orphans on first load only, leaving other files', async () => {
+    await writeFile(join(dir, `history.jsonl.${U1}.tmp`), 'x')
+    await writeFile(join(dir, `settings.json.${U1}.tmp`), 'x')
+    const repo = new HistoryRepo(dir, new WriteQueue())
+    await repo.list()
+    expect((await readdir(dir)).sort()).toEqual([`settings.json.${U1}.tmp`])
+    await writeFile(join(dir, `history.jsonl.${U1}.tmp`), 'x')
+    await repo.list()
+    expect(await readdir(dir)).toContain(`history.jsonl.${U1}.tmp`)
+  })
+})
