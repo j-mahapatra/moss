@@ -1,14 +1,10 @@
 import { Button, Dialog } from '../../ui'
 
-export type DeleteTarget = {
-  kind: 'collection' | 'folder' | 'request' | 'environment'
-  id: string
-  /** Unused for environments. */
-  collectionId?: string
-  name: string
-  /** Environments only: the one requests currently use. */
-  active?: boolean
-}
+export type DeleteTarget =
+  | { kind: 'collection'; id: string; name: string }
+  | { kind: 'folder' | 'request'; id: string; collectionId: string; name: string }
+  /** `active`: the environment requests currently use. */
+  | { kind: 'environment'; id: string; name: string; active: boolean }
 
 type Props = {
   target: DeleteTarget | null

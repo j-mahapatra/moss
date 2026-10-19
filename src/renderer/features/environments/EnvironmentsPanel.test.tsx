@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type -- test helpers */
 import userEvent from '@testing-library/user-event'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { newEnvironment } from '../../../shared/environments'
 import type { Environment, KeyValue } from '../../../shared/types'
@@ -195,6 +195,16 @@ describe('EnvironmentsPanel', () => {
     const { user } = await setup([a])
     row('alpha').focus()
     await user.keyboard(key)
+    expect(await screen.findByRole('dialog', { name: 'Delete “alpha”?' })).toBeInTheDocument()
+  })
+
+  it('ignores auto-repeated Delete and Backspace, but not the first press', async () => {
+    const a = env('alpha')
+    await setup([a])
+    fireEvent.keyDown(row('alpha'), { key: 'Delete', repeat: true })
+    fireEvent.keyDown(row('alpha'), { key: 'Backspace', repeat: true })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    fireEvent.keyDown(row('alpha'), { key: 'Delete' })
     expect(await screen.findByRole('dialog', { name: 'Delete “alpha”?' })).toBeInTheDocument()
   })
 

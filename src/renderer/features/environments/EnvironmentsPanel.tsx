@@ -6,6 +6,7 @@ import { Badge, Button, IconButton, Menu } from '../../ui'
 import { ConfirmDeleteDialog, type DeleteTarget } from '../collections/ConfirmDeleteDialog'
 import { RenameInput } from '../collections/RenameInput'
 import { MoreIcon, PlusIcon } from '../shell/icons'
+import { focusAfterRemove, rowKeyHandler, useDeferredMenuAction } from '../shell/row-helpers'
 import { EnvironmentDialog } from './EnvironmentDialog'
 import './EnvironmentsPanel.css'
 
@@ -31,22 +32,13 @@ function EnvironmentMenu({
   actions: RowActions
 }): React.JSX.Element {
   // Actions run once the menu has fully closed, so dialogs and inputs don't fight its teardown.
-  const [pending, setPending] = useState<{ fn: () => void; moves: boolean } | null>(null)
-  const wrap =
-    (fn: () => void, moves = false) =>
-    (): void =>
-      setPending({ fn, moves })
+  const { wrap, onCloseAutoFocus } = useDeferredMenuAction()
   return (
     <Menu
       aria-label={`Actions for ${env.name}`}
       open={open}
       onOpenChange={onOpenChange}
-      onCloseAutoFocus={(e) => {
-        const next = pending
-        setPending(null)
-        if (next?.moves) e.preventDefault()
-        next?.fn()
-      }}
+      onCloseAutoFocus={onCloseAutoFocus}
       items={[
         { label: active ? 'Deactivate' : 'Set active', onSelect: wrap(actions.toggleActive) },
         { label: 'Edit variables…', onSelect: wrap(actions.edit) },
@@ -91,8 +83,9 @@ export function EnvironmentsPanel(): React.JSX.Element {
 
   const sorted = [...environments].sort(byName)
 
-  const focusRow = (id: string): void =>
-    listRef.current?.querySelector<HTMLElement>(`[data-env-id="${id}"]`)?.focus()
+  const rowEl = (id: string): HTMLElement | null =>
+    listRef.current?.querySelector<HTMLElement>(`[data-env-id="${id}"]`) ?? null
+  const focusRow = (id: string): void => rowEl(id)?.focus()
 
   // Return focus to the row once its inline rename input has unmounted.
   useEffect(() => {
@@ -119,12 +112,11 @@ export function EnvironmentsPanel(): React.JSX.Element {
 
   const confirmDelete = (t: DeleteTarget): void => {
     setDeleteTarget(null)
-    const at = sorted.findIndex((e) => e.id === t.id)
-    const fallback = sorted[at + 1]?.id ?? sorted[at - 1]?.id ?? null
+    const list = sorted.map((e) => rowEl(e.id)).filter((el) => el !== null)
+    const at = list.findIndex((el) => el.dataset.envId === t.id)
     void remove(t.id).then((deleted) => {
       if (!deleted) focusRow(t.id)
-      else if (fallback) focusRow(fallback)
-      else newRef.current?.focus()
+      else focusAfterRemove(list, at, newRef.current)
     })
   }
 
@@ -183,16 +175,12 @@ export function EnvironmentsPanel(): React.JSX.Element {
                     focusRow(env.id)
                     setMenuId(env.id)
                   }}
-                  onKeyDown={(e) => {
-                    if (e.target !== e.currentTarget || e.metaKey || e.ctrlKey) return
-                    if (e.key === 'Enter') actions.edit()
-                    else if (e.key === 'F2') actions.rename()
-                    else if (e.key === 'Delete' || e.key === 'Backspace') actions.remove()
-                    else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10'))
-                      setMenuId(env.id)
-                    else return
-                    e.preventDefault()
-                  }}
+                  onKeyDown={rowKeyHandler({
+                    open: actions.edit,
+                    rename: actions.rename,
+                    remove: actions.remove,
+                    menu: () => setMenuId(env.id)
+                  })}
                 >
                   {renaming ? (
                     <RenameInput

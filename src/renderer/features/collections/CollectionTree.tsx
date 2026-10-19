@@ -12,6 +12,7 @@ import {
 import { newRequestSpec, type Collection, type Item } from '../../../shared/types'
 import { selectDirtyIds } from '../../state/selectors'
 import { useWorkspace } from '../../state/workspace-hooks'
+import { focusAfterRemove, rowKeyHandler } from '../shell/row-helpers'
 import { ConfirmDeleteDialog, type DeleteTarget } from './ConfirmDeleteDialog'
 import {
   DRAG_TYPE,
@@ -120,6 +121,9 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
     rows[0]?.key ??
     null
 
+  const rowEl = (key: string): HTMLElement | null =>
+    treeRef.current?.querySelector<HTMLElement>(`[data-row-key="${key}"]`) ?? null
+
   const focusRow = useCallback((key: string): void => {
     setFocusKey(key)
     treeRef.current?.querySelector<HTMLElement>(`[data-row-key="${key}"]`)?.focus()
@@ -168,12 +172,11 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
       void updateCollection(row.collectionId, (c) => duplicateItem(c, row.id)?.collection ?? c)
     },
     remove: () =>
-      setDeleteTarget({
-        kind: row.kind,
-        id: row.id,
-        collectionId: row.collectionId,
-        name: row.name
-      })
+      setDeleteTarget(
+        row.kind === 'collection'
+          ? { kind: 'collection', id: row.id, name: row.name }
+          : { kind: row.kind, id: row.id, collectionId: row.collectionId, name: row.name }
+      )
   })
 
   const commitRename = (row: RowModel, name: string): void => {
@@ -188,25 +191,25 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
     }
   }
 
-  /** Where focus goes when `key` disappears: next sibling, else previous, else parent. */
-  const fallbackKey = (key: string): string | null => {
-    const row = rows.find((r) => r.key === key)
-    if (!row) return null
-    const sibs = rows.filter((r) => r.parentKey === row.parentKey)
-    const at = sibs.findIndex((r) => r.key === key)
-    return sibs[at + 1]?.key ?? sibs[at - 1]?.key ?? row.parentKey
-  }
-
   const confirmDelete = (t: DeleteTarget): void => {
     setDeleteTarget(null)
-    const fallback = fallbackKey(t.id)
+    // Focus then goes to the next sibling, else the previous one, else the parent.
+    const row = rows.find((r) => r.key === t.id)
+    const siblings = row
+      ? rows
+          .filter((r) => r.parentKey === row.parentKey)
+          .map((r) => rowEl(r.key))
+          .filter((el) => el !== null)
+      : []
+    const at = siblings.findIndex((el) => el.dataset.rowKey === t.id)
+    const parent = row?.parentKey ? rowEl(row.parentKey) : null
     const restore = (deleted: boolean): void => {
-      const key = deleted ? fallback : t.id
-      if (key) focusRow(key)
+      if (!deleted) focusRow(t.id)
+      else if (row) focusAfterRemove(siblings, at, parent)
     }
     if (t.kind === 'collection') {
       void deleteCollection(t.id).then(restore)
-    } else if (t.collectionId) {
+    } else if (t.kind !== 'environment') {
       void updateCollection(t.collectionId, (c) => removeItem(c, t.id)).then(restore)
     }
   }
@@ -323,25 +326,7 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
         if (row.expandable && row.expanded) setOpen(row.key, false)
         else go(rows.find((r) => r.key === row.parentKey))
         break
-      case 'Enter':
-        if (row.kind === 'request') open(row)
-        else setOpen(row.key, !row.expanded)
-        break
-      case 'F2':
-        onRenamingChange(row.key)
-        break
-      case 'Delete':
-      case 'Backspace':
-        if (row.kind === 'collection') return
-        actionsFor(row).remove()
-        break
-      case 'ContextMenu':
-        setMenuKey(row.key)
-        break
-      case 'F10':
-        if (!e.shiftKey) return
-        setMenuKey(row.key)
-        break
+      // Enter, F2, Delete/Backspace and the menu keys are handled by each row (rowKeyHandler).
       default:
         return
     }
@@ -369,6 +354,16 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
             dropPosition={drop?.targetKey === row.key ? drop.position : null}
             actions={actionsFor(row)}
             onMenuOpenChange={(o) => setMenuKey(o ? row.key : null)}
+            onKeyDown={rowKeyHandler({
+              open: () => {
+                if (row.kind === 'request') open(row)
+                else setOpen(row.key, !row.expanded)
+              },
+              rename: () => onRenamingChange(row.key),
+              // Collections are only deleted from their menu.
+              ...(row.kind === 'collection' ? {} : { remove: actionsFor(row).remove }),
+              menu: () => setMenuKey(row.key)
+            })}
             onActivate={() => {
               setFocusKey(row.key)
               if (row.kind === 'request') open(row)

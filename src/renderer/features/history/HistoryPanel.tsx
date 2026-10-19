@@ -4,6 +4,7 @@ import type { HistoryEntry } from '../../../shared/types'
 import { useWorkspace } from '../../state/workspace-hooks'
 import { Button, Dialog, IconButton, Input } from '../../ui'
 import { TrashIcon } from '../shell/icons'
+import { focusAfterRemove } from '../shell/row-helpers'
 import { HistoryRow, type HistoryRowActions } from './HistoryRow'
 import './HistoryPanel.css'
 
@@ -26,8 +27,9 @@ export function HistoryPanel(): React.JSX.Element {
   const filtered = useMemo(() => filterHistory(history, query), [history, query])
   const groups = groupByDay(filtered, new Date())
 
-  const focusRow = (id: string): void =>
-    listRef.current?.querySelector<HTMLElement>(`[data-history-id="${id}"]`)?.focus()
+  const rowEl = (id: string): HTMLElement | null =>
+    listRef.current?.querySelector<HTMLElement>(`[data-history-id="${id}"]`) ?? null
+  const focusRow = (id: string): void => rowEl(id)?.focus()
 
   const open = (id: string): 'opened' | 'confirm-discard' => {
     const outcome = openEntry(id)
@@ -36,12 +38,11 @@ export function HistoryPanel(): React.JSX.Element {
   }
 
   const removeEntry = (id: string): void => {
-    const at = filtered.findIndex((e) => e.id === id)
-    const fallback = filtered[at + 1]?.id ?? filtered[at - 1]?.id ?? null
+    const list = filtered.map((e) => rowEl(e.id)).filter((el) => el !== null)
+    const at = list.findIndex((el) => el.dataset.historyId === id)
     void remove(id).then((deleted) => {
       if (!deleted) focusRow(id)
-      else if (fallback) focusRow(fallback)
-      else filterRef.current?.focus()
+      else focusAfterRemove(list, at, filterRef.current)
     })
   }
 

@@ -1,6 +1,6 @@
-import { useState } from 'react'
 import { IconButton, Menu, type MenuItem } from '../../ui'
 import { MoreIcon } from '../shell/icons'
+import { useDeferredMenuAction } from '../shell/row-helpers'
 
 export type RowKind = 'collection' | 'folder' | 'request'
 
@@ -56,12 +56,8 @@ type Props = {
 }
 
 export function ItemMenu({ kind, name, open, onOpenChange, actions }: Props): React.JSX.Element {
-  // Actions run once the menu has fully closed: opening a dialog (or an input) while the
-  // modal menu is still tearing down leaves the page with pointer-events disabled.
-  const [pending, setPending] = useState<{ fn: () => void; moves: boolean } | null>(null)
-  const wrap = (fn: () => void, moves: boolean) => (): void => {
-    setPending({ fn, moves })
-  }
+  // Actions run once the menu has fully closed; rename and new folder place focus themselves.
+  const { wrap, onCloseAutoFocus } = useDeferredMenuAction()
   const wrapped: ItemActions = {
     open: wrap(actions.open, false),
     newRequest: wrap(actions.newRequest, false),
@@ -77,13 +73,7 @@ export function ItemMenu({ kind, name, open, onOpenChange, actions }: Props): Re
       aria-label={`Actions for ${name}`}
       open={open}
       onOpenChange={onOpenChange}
-      onCloseAutoFocus={(e) => {
-        const next = pending
-        setPending(null)
-        // An action that moves focus itself (rename input) must not lose it to the trigger.
-        if (next?.moves) e.preventDefault()
-        next?.fn()
-      }}
+      onCloseAutoFocus={onCloseAutoFocus}
       items={menuItemsFor(kind, wrapped)}
       trigger={
         <IconButton

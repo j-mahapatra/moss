@@ -32,6 +32,8 @@ type Props = {
   dropPosition: DropPosition | null
   actions: ItemActions
   onMenuOpenChange(open: boolean): void
+  /** Row-level keys (open, rename, delete, menu); navigation is handled by the tree. */
+  onKeyDown(e: React.KeyboardEvent<HTMLElement>): void
   onActivate(): void
   onContextMenu(e: React.MouseEvent): void
   onFocus(): void
@@ -74,6 +76,7 @@ export function TreeRow(p: Props): React.JSX.Element {
       onFocus={(e) => {
         if (e.target === e.currentTarget) p.onFocus()
       }}
+      onKeyDown={p.onKeyDown}
       onDragStart={p.onDragStart}
       onDragOver={p.onDragOver}
       onDragLeave={p.onDragLeave}

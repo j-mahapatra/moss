@@ -1,9 +1,9 @@
-import { useState } from 'react'
 import { statusLabel } from '../../../shared/history'
 import { formatDuration } from '../../../shared/format'
 import type { HistoryEntry } from '../../../shared/types'
 import { Badge, IconButton, Menu } from '../../ui'
 import { MoreIcon } from '../shell/icons'
+import { rowKeyHandler, useDeferredMenuAction } from '../shell/row-helpers'
 
 export type HistoryRowActions = {
   open(): void
@@ -25,25 +25,18 @@ function HistoryMenu({
   actions: HistoryRowActions
 }): React.JSX.Element {
   // Actions run once the menu has fully closed, so dialogs don't fight its teardown.
-  const [pending, setPending] = useState<(() => void) | null>(null)
+  const { wrap, onCloseAutoFocus } = useDeferredMenuAction()
   return (
     <Menu
       aria-label={`Actions for ${label}`}
       open={open}
       onOpenChange={onOpenChange}
-      onCloseAutoFocus={() => {
-        const fn = pending
-        setPending(null)
-        fn?.()
-      }}
+      onCloseAutoFocus={onCloseAutoFocus}
       items={[
-        { label: 'Open', onSelect: () => setPending(() => actions.open) },
-        {
-          label: 'Save to collection…',
-          onSelect: () => setPending(() => actions.saveToCollection)
-        },
+        { label: 'Open', onSelect: wrap(actions.open) },
+        { label: 'Save to collection…', onSelect: wrap(actions.saveToCollection) },
         { separator: true },
-        { label: 'Delete', onSelect: () => setPending(() => actions.remove), tone: 'danger' }
+        { label: 'Delete', onSelect: wrap(actions.remove), tone: 'danger' }
       ]}
       trigger={
         <IconButton
@@ -90,19 +83,11 @@ export function HistoryRow({
         e.currentTarget.focus()
         onMenuOpenChange(true)
       }}
-      onKeyDown={(e) => {
-        if (e.target !== e.currentTarget || e.metaKey || e.ctrlKey) return
-        if (e.key === 'Enter') {
-          if (e.repeat) return
-          actions.open()
-        } else if (e.key === 'Delete' || e.key === 'Backspace') {
-          if (e.repeat) return
-          actions.remove()
-        } else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10'))
-          onMenuOpenChange(true)
-        else return
-        e.preventDefault()
-      }}
+      onKeyDown={rowKeyHandler({
+        open: actions.open,
+        remove: actions.remove,
+        menu: () => onMenuOpenChange(true)
+      })}
     >
       <span className="history-row__method">{entry.request.method}</span>
       {url ? (
