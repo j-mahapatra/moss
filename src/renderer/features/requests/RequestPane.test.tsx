@@ -227,4 +227,16 @@ describe('RequestPane', () => {
     expect(cancel.className).toContain('moss-button--danger')
     expect(cancel.className).toContain('request-pane__send')
   })
+
+  it('ignores key repeat on the Send/Cancel button so holding Enter cannot cancel', async () => {
+    const user = userEvent.setup()
+    const { api } = setup(<RequestPane />)
+    api['request:send'].mockImplementation(() => new Promise(() => undefined))
+    screen.getByRole('button', { name: 'Send' }).focus()
+    await user.keyboard('{Enter>3}')
+    await screen.findByRole('button', { name: 'Cancel' })
+    expect(api['request:send']).toHaveBeenCalledTimes(1)
+    expect(api['request:cancel']).not.toHaveBeenCalled()
+    await user.keyboard('{/Enter}')
+  })
 })

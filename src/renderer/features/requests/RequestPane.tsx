@@ -48,6 +48,10 @@ export function RequestPane(): React.JSX.Element {
         <Button
           variant={inFlight ? 'danger' : 'primary'}
           className="request-pane__send"
+          onKeyDown={(e) => {
+            // The button swaps Send for Cancel under the key; a held key must not click it again.
+            if (e.repeat && (e.key === 'Enter' || e.key === ' ')) e.preventDefault()
+          }}
           onClick={inFlight ? () => store.getState().cancel() : submit}
         >
           {inFlight ? 'Cancel' : 'Send'}
