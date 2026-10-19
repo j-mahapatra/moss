@@ -1,7 +1,8 @@
-import { useLayoutEffect, useMemo, useRef } from 'react'
+import { useMemo } from 'react'
 import type { PaletteItem } from '../../../shared/fuzzy'
 import { useWorkspace, useWorkspaceStore } from '../../state/workspace-hooks'
 import { CommandPalette } from '../../ui/CommandPalette'
+import { useReturnFocus } from '../shell/useReturnFocus'
 import { buildPaletteItems } from './palette-items'
 
 const NO_ITEMS: PaletteItem[] = []
@@ -27,22 +28,8 @@ export function PaletteHost(): React.JSX.Element {
     [open, theme, environments, activeEnvironmentId, collections, store]
   )
 
-  // ⌘K has no trigger for Radix to return focus to, so remember where focus was. A layout
-  // effect runs before the dialog's focus scope moves focus into the palette.
-  const returnFocus = useRef<Element | null>(null)
-  useLayoutEffect(() => {
-    if (open) returnFocus.current = document.activeElement
-  }, [open])
-
-  const onCloseAutoFocus = (event: Event): void => {
-    event.preventDefault()
-    const target = returnFocus.current
-    returnFocus.current = null
-    // An action that placed focus itself (anywhere but <body>) keeps it.
-    const at = document.activeElement
-    if (at !== null && at !== document.body) return
-    if (target instanceof HTMLElement && target.isConnected) target.focus()
-  }
+  // ⌘K has no trigger for Radix to return focus to.
+  const onCloseAutoFocus = useReturnFocus(open)
 
   return (
     <CommandPalette

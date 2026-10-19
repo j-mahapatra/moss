@@ -1,7 +1,7 @@
 import { findItem, insertItem, toItem, toSpec, updateItem } from '../../../shared/collection-tree'
 import { deepEqual } from '../../../shared/equal'
 import { newRequestSpec, type HistoryEntry, type RequestSpec } from '../../../shared/types'
-import type { WorkspaceState } from '../workspace'
+import type { RequestRef, WorkspaceState } from '../workspace'
 import { afterInit, type SliceCtx } from './ctx'
 import type { AddNotice } from './notices'
 
@@ -13,6 +13,7 @@ type RequestsSlice = Pick<
   | 'active'
   | 'saved'
   | 'stash'
+  | 'recent'
   | 'draftCollectionId'
   | 'updateDraft'
   | 'send'
@@ -24,6 +25,15 @@ type RequestsSlice = Pick<
   | 'openHistoryEntry'
   | 'openImportedRequest'
 >
+
+/** How many saved requests `recent` keeps. */
+export const RECENT_MAX = 10
+
+/** `recent` with `ref` moved (or added) to the front. */
+const withRecent = (recent: RequestRef[], ref: RequestRef): RequestRef[] => [
+  ref,
+  ...recent.filter((r) => r.requestId !== ref.requestId).slice(0, RECENT_MAX - 1)
+]
 
 export function createRequests(
   { set, get, api }: SliceCtx,
@@ -67,6 +77,7 @@ export function createRequests(
     active: null,
     saved: null,
     stash: {},
+    recent: [],
     draftCollectionId: null,
 
     updateDraft: (patch) => set((s) => ({ draft: { ...s.draft, ...patch } })),
@@ -124,6 +135,7 @@ export function createRequests(
           saved: spec,
           active: ref,
           stash: rest,
+          recent: withRecent(s.recent, ref),
           draftCollectionId: null
         }
       })
@@ -217,12 +229,14 @@ export function createRequests(
         // Only retarget the view if the user is still on the draft that was saved.
         if (get().draft.id !== draft.id) return 'saved'
         reopened = null
+        const ref = { collectionId: target.collectionId, requestId: spec.id }
         set({
           draftCollectionId: null,
           // keep edits typed while the save was pending
           draft: { ...get().draft, id: spec.id, name: spec.name },
           saved: spec,
-          active: { collectionId: target.collectionId, requestId: spec.id }
+          active: ref,
+          recent: withRecent(get().recent, ref)
         })
         return 'saved'
       }

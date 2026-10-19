@@ -16,20 +16,26 @@ export function createCollections(
     'collections' | 'createCollection' | 'updateCollection' | 'deleteCollection'
   >
   /**
-   * Drops/renames the active draft and stash entries whose request changed or vanished, and
+   * Drops/renames the active draft and stash entries whose request changed or vanished, drops
+   * `recent` refs to vanished requests (and points moved ones at their new collection), and
    * clears `draftCollectionId` once its collection is gone.
    */
   reconcile(): void
   /** Saves a ready-made collection (e.g. an import) through the queue; afterInit-gated. */
   create(c: Collection): Promise<boolean>
 } {
-  const locate = (cols: Collection[], requestId: string): RequestSpec | null => {
+  const locateWithin = (
+    cols: Collection[],
+    requestId: string
+  ): { collectionId: string; item: RequestSpec } | null => {
     for (const c of cols) {
       const hit = findItem(c, requestId)
-      if (hit && hit.item.kind === 'request') return hit.item
+      if (hit && hit.item.kind === 'request') return { collectionId: c.id, item: hit.item }
     }
     return null
   }
+  const locate = (cols: Collection[], requestId: string): RequestSpec | null =>
+    locateWithin(cols, requestId)?.item ?? null
 
   const reconcile = (): void => {
     const s = get()
@@ -49,6 +55,16 @@ export function createCollections(
       }
     }
     if (stashChanged) patch.stash = stash
+    const recent = s.recent.flatMap((ref) => {
+      const found = locateWithin(cols, ref.requestId)
+      if (!found) return []
+      return [
+        found.collectionId === ref.collectionId ? ref : { ...ref, collectionId: found.collectionId }
+      ]
+    })
+    if (recent.length !== s.recent.length || recent.some((r, i) => r !== s.recent[i])) {
+      patch.recent = recent
+    }
     if (s.active) {
       const c = cols.find((x) => x.id === s.active!.collectionId)
       const hit = c ? findItem(c, s.active.requestId) : null

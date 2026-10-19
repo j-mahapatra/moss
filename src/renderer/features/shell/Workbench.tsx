@@ -4,6 +4,7 @@ import { EnvironmentsPanel } from '../environments/EnvironmentsPanel'
 import { HistoryPanel } from '../history/HistoryPanel'
 import { ImportPanel } from '../import-export/ImportPanel'
 import { PaletteHost } from '../palette/PaletteHost'
+import { RecentsSwitcher } from '../recents/RecentsSwitcher'
 import { Navigator } from '../collections/Navigator'
 import { SaveDialog } from '../collections/SaveDialog'
 import { VariablesDialog } from '../collections/VariablesDialog'
@@ -49,6 +50,7 @@ export function Workbench(): React.JSX.Element {
       <SaveDialog />
       <VariablesDialog />
       <PaletteHost />
+      <RecentsSwitcher />
     </div>
   )
 }

@@ -15,11 +15,11 @@ import { createEnvironments } from './slices/environments'
 import { createHistory } from './slices/history'
 import { createImportExport, type ImportOutcome } from './slices/import-export'
 import { createNotices } from './slices/notices'
-import { createRequests } from './slices/requests'
+import { createRequests, RECENT_MAX } from './slices/requests'
 import { createUi, type ConfirmDiscard, type NavigatorView, type UiState } from './slices/ui'
 import { createSettings, SPLIT_DEFAULT } from './slices/settings'
 
-export { SPLIT_DEFAULT }
+export { RECENT_MAX, SPLIT_DEFAULT }
 export type { ConfirmDiscard, ImportOutcome }
 
 export type RequestRef = { collectionId: string; requestId: string }
@@ -62,6 +62,11 @@ export type WorkspaceState = {
   saved: RequestSpec | null
   /** Edited drafts of non-active saved requests, by request id. */
   stash: Record<string, RequestSpec>
+  /**
+   * Saved requests most recently opened or saved, newest first: at most RECENT_MAX, no
+   * duplicates, in memory only. Names are read from `collections` when shown.
+   */
+  recent: RequestRef[]
   /**
    * Scope and Save default for an unsaved draft reopened from history: the entry's collection
    * if it still exists. Null whenever `active` is set.
@@ -135,6 +140,8 @@ export type WorkspaceState = {
   setConfirmDiscard(v: ConfirmDiscard): void
   /** Opens or closes the command palette. */
   setPaletteOpen(open: boolean): void
+  /** Opens or closes the ⌃Tab recent-requests switcher. */
+  setRecentsOpen(open: boolean): void
   /** Re-runs the pending new/open/history/imported open with discard, then clears the confirmation. */
   confirmDiscard(): void
 }

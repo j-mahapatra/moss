@@ -1,7 +1,8 @@
+import { findItem } from '../../shared/collection-tree'
 import { deepEqual } from '../../shared/equal'
-import type { Collection, Environment, KeyValue } from '../../shared/types'
+import type { Collection, Environment, HttpMethod, KeyValue } from '../../shared/types'
 import { buildScope, type VariableScope } from '../../shared/variables'
-import type { WorkspaceState } from './workspace'
+import type { RequestRef, WorkspaceState } from './workspace'
 
 let memo: {
   stash: WorkspaceState['stash']
@@ -61,5 +62,47 @@ export function selectScope(s: WorkspaceState): VariableScope {
   if (scopeMemo && scopeMemo.env === env && scopeMemo.col === col) return scopeMemo.out
   const out = buildScope(env ?? [], col ?? [])
   scopeMemo = { env, col, out }
+  return out
+}
+
+/** A `recent` ref resolved against the collections, for display. */
+export type RecentEntry = {
+  ref: RequestRef
+  name: string
+  method: HttpMethod
+  collectionName: string
+}
+
+let recentMemo: {
+  recent: WorkspaceState['recent']
+  collections: WorkspaceState['collections']
+  active: WorkspaceState['active']
+  out: RecentEntry[]
+} | null = null
+
+/**
+ * `recent` with live names, the current request first; refs that no longer resolve are left
+ * out. Returns the same array while its inputs are the same references.
+ */
+export function selectRecentEntries(s: WorkspaceState): RecentEntry[] {
+  const { recent, collections, active } = s
+  if (
+    recentMemo &&
+    recentMemo.recent === recent &&
+    recentMemo.collections === collections &&
+    recentMemo.active === active
+  ) {
+    return recentMemo.out
+  }
+  const out: RecentEntry[] = []
+  for (const ref of recent) {
+    const c = collections.find((x) => x.id === ref.collectionId)
+    const hit = c ? findItem(c, ref.requestId) : null
+    if (!c || !hit || hit.item.kind !== 'request') continue
+    const entry = { ref, name: hit.item.name, method: hit.item.method, collectionName: c.name }
+    if (active && active.requestId === ref.requestId) out.unshift(entry)
+    else out.push(entry)
+  }
+  recentMemo = { recent, collections, active, out }
   return out
 }

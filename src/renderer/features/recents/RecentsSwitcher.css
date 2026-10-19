@@ -1,0 +1,45 @@
+.moss-dialog.moss-recents {
+  max-width: 440px;
+  padding: var(--moss-space-1);
+  gap: 0;
+}
+
+.moss-recents__list {
+  display: flex;
+  flex-direction: column;
+  outline: none;
+}
+
+.moss-recents__option {
+  display: flex;
+  align-items: center;
+  gap: var(--moss-space-2);
+  min-height: var(--moss-control-md);
+  padding: var(--moss-space-1) var(--moss-space-2);
+  border-radius: var(--moss-radius-sm);
+  color: var(--moss-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.moss-recents__option[aria-selected='true'] {
+  background: var(--moss-accent-soft);
+}
+
+.moss-recents__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moss-recents__collection {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  color: var(--moss-text-muted);
+  font-size: var(--moss-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -1,8 +1,11 @@
 import { useEffect } from 'react'
+import { selectRecentEntries } from '../../state/selectors'
 import { useWorkspaceStore } from '../../state/workspace-hooks'
 
 const isMac = (): boolean => /Mac|iPhone|iPad/.test(navigator.platform)
-const anyOverlay = (): boolean => !!document.querySelector('[role="dialog"],[role="menu"]')
+/** Dialogs, menus and Select popups. Our own listboxes live inside dialogs. */
+const anyOverlay = (): boolean =>
+  !!document.querySelector('[role="dialog"],[role="menu"],[role="listbox"]')
 
 export function useShortcuts(): void {
   const store = useWorkspaceStore()
@@ -52,11 +55,24 @@ export function useShortcuts(): void {
       if (e.repeat) return
       st.setPaletteOpen(!st.ui.paletteOpen)
     }
+    // ⌃Tab (Ctrl on every platform) opens the recents switcher, which then handles the keys
+    // itself. Capture phase, so no editor or focus scope takes the Tab first.
+    const onRecentsKey = (e: KeyboardEvent): void => {
+      if (e.key !== 'Tab' || !e.ctrlKey || e.metaKey || e.altKey || anyOverlay()) return
+      const st = store.getState()
+      if (selectRecentEntries(st).length === 0) return
+      e.preventDefault()
+      e.stopPropagation()
+      if (e.repeat) return
+      st.setRecentsOpen(true)
+    }
     window.addEventListener('keydown', onKeyDown)
     document.addEventListener('keydown', onPaletteKey, true)
+    document.addEventListener('keydown', onRecentsKey, true)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       document.removeEventListener('keydown', onPaletteKey, true)
+      document.removeEventListener('keydown', onRecentsKey, true)
     }
   }, [store])
 }

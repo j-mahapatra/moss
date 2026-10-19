@@ -18,6 +18,7 @@ export type UiState = {
   /** Which panel the navigator column shows. */
   navigatorView: NavigatorView
   paletteOpen: boolean
+  recentsOpen: boolean
 }
 
 export type NavigatorView = 'collections' | 'environments' | 'history' | 'import'
@@ -34,6 +35,7 @@ export function createUi({
   | 'setConfirmDiscard'
   | 'confirmDiscard'
   | 'setPaletteOpen'
+  | 'setRecentsOpen'
 > {
   const patch = (p: Partial<UiState>): void => set((s) => ({ ui: { ...s.ui, ...p } }))
   return {
@@ -42,7 +44,8 @@ export function createUi({
       variablesFor: null,
       confirmDiscard: null,
       navigatorView: 'collections',
-      paletteOpen: false
+      paletteOpen: false,
+      recentsOpen: false
     },
     showPanel: (view) => {
       patch({ navigatorView: view })
@@ -52,6 +55,7 @@ export function createUi({
     openVariables: (id) => patch({ variablesFor: id }),
     setConfirmDiscard: (v) => patch({ confirmDiscard: v }),
     setPaletteOpen: (open) => patch({ paletteOpen: open }),
+    setRecentsOpen: (open) => patch({ recentsOpen: open }),
     confirmDiscard: () => {
       const pending = get().ui.confirmDiscard
       if (!pending) return
