@@ -55,7 +55,7 @@ export class HistoryRepo {
       await atomicWriteText(join(this.dataDir, name), invalid.join('\n') + '\n', this.fsImpl)
       warnings.push(`Some history entries couldn't be read and were moved to "${name}".`)
     }
-    if (invalid.length > 0 || kept.length < valid.length) {
+    if (invalid.length > 0 || kept.length < valid.length || (raw !== '' && !raw.endsWith('\n'))) {
       await atomicWriteText(this.path, encode(kept), this.fsImpl)
     }
     this.cache = kept
@@ -78,7 +78,13 @@ export class HistoryRepo {
     await this.queue.run(this.path, async () => {
       const cache = await this.ensureLoaded()
       await this.fsImpl.mkdir(dirname(this.path), { recursive: true })
-      await this.fsImpl.appendFile(this.path, JSON.stringify(entry) + '\n', 'utf8')
+      try {
+        await this.fsImpl.appendFile(this.path, JSON.stringify(entry) + '\n', 'utf8')
+      } catch (err) {
+        // A partial write may have left a torn tail; reload (and quarantine) before the next op.
+        this.cache = null
+        throw err
+      }
       cache.push(entry)
       this.lineCount++
       if (this.lineCount > 2 * HISTORY_CAP) {

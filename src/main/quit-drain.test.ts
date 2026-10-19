@@ -94,4 +94,37 @@ describe('installQuitDrain', () => {
     await write
     await vi.waitFor(() => expect(quit).toHaveBeenCalledTimes(1))
   })
+
+  it('waits for work enqueued by onDrained before quitting', async () => {
+    const queue = new WriteQueue()
+    const { app, fire, quit } = fakeApp()
+    let release!: () => void
+    installQuitDrain(app, queue, {
+      onDrained: () => void queue.run('late', () => new Promise<void>((r) => (release = r)))
+    })
+    fire()
+    await new Promise((r) => setTimeout(r, 10))
+    expect(quit).not.toHaveBeenCalled()
+    release()
+    await vi.waitFor(() => expect(quit).toHaveBeenCalledTimes(1))
+  })
+
+  it('caps the total wait at timeoutMs even when onDrained enqueues stuck work', async () => {
+    vi.useFakeTimers()
+    const queue = new WriteQueue()
+    const { app, fire, quit } = fakeApp()
+    installQuitDrain(app, queue, {
+      timeoutMs: 1000,
+      onDrained: () => void queue.run('late', () => new Promise<void>(() => {}))
+    })
+    void queue.run('k', async () => {
+      await new Promise((r) => setTimeout(r, 400))
+    })
+    fire()
+    await vi.advanceTimersByTimeAsync(999)
+    expect(quit).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(2)
+    expect(quit).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
+  })
 })

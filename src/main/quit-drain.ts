@@ -27,17 +27,23 @@ export function installQuitDrain(
     void (async () => {
       let timer: ReturnType<typeof setTimeout> | undefined
       try {
+        // One budget for both waits: the second race reuses the same timeout promise.
         const timeout = new Promise<void>((resolve) => {
           timer = setTimeout(resolve, timeoutMs)
         })
+        try {
+          await Promise.race([queue.idle(), timeout])
+        } finally {
+          try {
+            onDrained?.()
+          } catch {
+            // quitting must proceed even if cleanup fails
+          }
+        }
+        // onDrained may enqueue work (e.g. history for sends cut short by dispose).
         await Promise.race([queue.idle(), timeout])
       } finally {
         clearTimeout(timer)
-        try {
-          onDrained?.()
-        } catch {
-          // quitting must proceed even if cleanup fails
-        }
         done = true
         app.quit()
       }

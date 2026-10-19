@@ -232,3 +232,43 @@ describe('HistoryRepo concurrency', () => {
     expect(await readdir(dir)).toEqual(['history.jsonl'])
   })
 })
+
+describe('HistoryRepo torn tails', () => {
+  it('rewrites a valid but unterminated last line so the next append does not glue onto it', async () => {
+    await writeFile(file(), lines([entry(1)]).slice(0, -1))
+    const repo = new HistoryRepo(dir, new WriteQueue())
+    await repo.append(entry(2))
+    expect(await readFile(file(), 'utf8')).toBe(lines([entry(1), entry(2)]))
+    const fresh = await new HistoryRepo(dir, new WriteQueue()).list()
+    expect(fresh.entries).toEqual([entry(2), entry(1)])
+    expect(fresh.warnings).toEqual([])
+  })
+
+  it('reloads and quarantines the partial line after a failed append', async () => {
+    let fail = true
+    const repo = new HistoryRepo(
+      dir,
+      new WriteQueue(),
+      {
+        ...real,
+        appendFile: async (p: string, data: string, enc: 'utf8') => {
+          if (fail) {
+            await appendFile(p, data.slice(0, 20), enc)
+            throw new Error('disk full')
+          }
+          await appendFile(p, data, enc)
+        }
+      },
+      () => 9
+    )
+    await repo.append(entry(1)).catch(() => undefined)
+    fail = false
+    await repo.append(entry(2))
+    const fresh = await new HistoryRepo(dir, new WriteQueue()).list()
+    expect(fresh.entries).toEqual([entry(2)])
+    expect(await readFile(file(), 'utf8')).toBe(lines([entry(2)]))
+    expect(await readFile(join(dir, 'history.corrupt-9.jsonl'), 'utf8')).toBe(
+      JSON.stringify(entry(1)).slice(0, 20) + '\n'
+    )
+  })
+})
