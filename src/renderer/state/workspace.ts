@@ -1,10 +1,17 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { MossApi } from '../../shared/ipc-contract'
-import type { Collection, Environment, RequestSpec, SendResult } from '../../shared/types'
+import type {
+  Collection,
+  Environment,
+  HistoryEntry,
+  RequestSpec,
+  SendResult
+} from '../../shared/types'
 import { errorMessage, type SliceCtx } from './slices/ctx'
 import { createCollections } from './slices/collections'
 import { byName } from './slices/doc-queue'
 import { createEnvironments } from './slices/environments'
+import { createHistory } from './slices/history'
 import { createNotices } from './slices/notices'
 import { createRequests } from './slices/requests'
 import { createUi, type ConfirmDiscard, type NavigatorView, type UiState } from './slices/ui'
@@ -28,6 +35,9 @@ export type WorkspaceApi = Pick<
   | 'environments:delete'
   | 'settings:get'
   | 'settings:set'
+  | 'history:list'
+  | 'history:delete'
+  | 'history:clear'
 >
 
 export type WorkspaceState = {
@@ -48,6 +58,13 @@ export type WorkspaceState = {
   saved: RequestSpec | null
   /** Edited drafts of non-active saved requests, by request id. */
   stash: Record<string, RequestSpec>
+  /**
+   * Scope and Save default for an unsaved draft reopened from history: the entry's collection
+   * if it still exists. Null whenever `active` is set.
+   */
+  draftCollectionId: string | null
+  /** Sent requests, newest first, at most HISTORY_CAP. */
+  history: HistoryEntry[]
   navigatorCollapsed: boolean
   ui: UiState
 
@@ -58,6 +75,12 @@ export type WorkspaceState = {
   init(): Promise<void>
   openRequest(ref: RequestRef, opts?: { discard?: boolean }): 'opened' | 'confirm-discard'
   newRequest(opts?: { discard?: boolean }): 'opened' | 'confirm-discard'
+  /** Opens a copy of a history entry's request as an unsaved draft; an unknown id is a no-op. */
+  openHistoryEntry(id: string, opts?: { discard?: boolean }): 'opened' | 'confirm-discard'
+  /** Optimistic; resolves false (entry restored, notice shown) if the delete failed. */
+  deleteHistoryEntry(id: string): Promise<boolean>
+  /** Optimistic; resolves false (list restored, notice shown) if the clear failed. */
+  clearHistory(): Promise<boolean>
   saveActive(): Promise<'saved' | 'failed' | 'needs-target'>
   saveAs(target: {
     collectionId: string
@@ -84,7 +107,7 @@ export type WorkspaceState = {
   openSaveDialog(open: boolean): void
   openVariables(collectionId: string | null): void
   setConfirmDiscard(v: ConfirmDiscard): void
-  /** Re-runs the pending new/open with discard, then clears the confirmation. */
+  /** Re-runs the pending new/open/history open with discard, then clears the confirmation. */
   confirmDiscard(): void
 }
 
@@ -94,15 +117,17 @@ export function createWorkspaceStore(api: WorkspaceApi): StoreApi<WorkspaceState
     const notices = createNotices(ctx)
     const settings = createSettings(ctx, notices.addNotice)
     const collections = createCollections(ctx, notices.addNotice)
+    const history = createHistory(ctx, notices.addNotice)
 
     let initPromise: Promise<void> | null = null
     const init = (): Promise<void> => {
       initPromise ??= (async () => {
         settings.beginLoad()
-        const [cols, envs, sets] = await Promise.allSettled([
+        const [cols, envs, sets, hist] = await Promise.allSettled([
           Promise.resolve().then(() => api['collections:list']()),
           Promise.resolve().then(() => api['environments:list']()),
-          Promise.resolve().then(() => api['settings:get']())
+          Promise.resolve().then(() => api['settings:get']()),
+          Promise.resolve().then(() => api['history:list']())
         ])
         if (cols.status === 'fulfilled') {
           set({ collections: [...cols.value.collections] })
@@ -130,13 +155,20 @@ export function createWorkspaceStore(api: WorkspaceApi): StoreApi<WorkspaceState
           settings.applySettings(null, envs.status === 'fulfilled')
           notices.addNotice('danger', `Couldn't load settings: ${errorMessage(sets.reason)}`)
         }
+        if (hist.status === 'fulfilled') {
+          history.applyLoaded([...hist.value.entries])
+          for (const w of hist.value.warnings) notices.addNotice('warning', w)
+        } else {
+          notices.addNotice('danger', `Couldn't load history: ${errorMessage(hist.reason)}`)
+        }
         set({ loaded: true })
       })()
       return initPromise
     }
 
     return {
-      ...createRequests(ctx),
+      ...createRequests(ctx, history.prepend),
+      ...history.slice,
       ...collections.slice,
       ...createEnvironments(ctx, notices.addNotice),
       ...settings.slice,

@@ -1,7 +1,8 @@
 import type { RequestRef, WorkspaceState } from '../workspace'
 import type { SliceCtx } from './ctx'
 
-export type ConfirmDiscard = null | { then: 'new' } | { then: 'open'; ref: RequestRef }
+export type ConfirmDiscard =
+  null | { then: 'new' } | { then: 'open'; ref: RequestRef } | { then: 'history'; id: string }
 
 export type UiState = {
   saveDialogOpen: boolean
@@ -41,6 +42,7 @@ export function createUi({
       if (!pending) return
       patch({ confirmDiscard: null })
       if (pending.then === 'new') get().newRequest({ discard: true })
+      else if (pending.then === 'history') get().openHistoryEntry(pending.id, { discard: true })
       else get().openRequest(pending.ref, { discard: true })
     }
   }

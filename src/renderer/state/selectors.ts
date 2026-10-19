@@ -29,9 +29,13 @@ export function selectDirtyIds(s: WorkspaceState): ReadonlySet<string> {
   return out
 }
 
+/**
+ * The collection the draft belongs to: the active request's, else (for an unsaved draft
+ * reopened from history) `draftCollectionId`'s. Scope, Save default and send all use it.
+ */
 export function selectActiveCollection(s: WorkspaceState): Collection | null {
-  if (!s.active) return null
-  const id = s.active.collectionId
+  const id = s.active?.collectionId ?? s.draftCollectionId
+  if (id === null) return null
   return s.collections.find((c) => c.id === id) ?? null
 }
 
@@ -48,8 +52,8 @@ let scopeMemo: {
 } | null = null
 
 /**
- * The variables a send resolves against: the active environment over the active request's
- * collection. Returns the same Map while both variable arrays are the same references.
+ * The variables a send resolves against: the active environment over the draft's collection
+ * (see selectActiveCollection). Returns the same Map while both variable arrays are the same references.
  */
 export function selectScope(s: WorkspaceState): VariableScope {
   const env = selectActiveEnvironment(s)?.variables

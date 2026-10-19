@@ -1,6 +1,6 @@
 import { findItem, insertItem, toItem, toSpec, updateItem } from '../../../shared/collection-tree'
 import { deepEqual } from '../../../shared/equal'
-import { newRequestSpec, type RequestSpec } from '../../../shared/types'
+import { newRequestSpec, type HistoryEntry, type RequestSpec } from '../../../shared/types'
 import type { WorkspaceState } from '../workspace'
 import { afterInit, type SliceCtx } from './ctx'
 
@@ -12,6 +12,7 @@ type RequestsSlice = Pick<
   | 'active'
   | 'saved'
   | 'stash'
+  | 'draftCollectionId'
   | 'updateDraft'
   | 'send'
   | 'cancel'
@@ -19,11 +20,18 @@ type RequestsSlice = Pick<
   | 'newRequest'
   | 'saveActive'
   | 'saveAs'
+  | 'openHistoryEntry'
 >
 
-export function createRequests({ set, get, api }: SliceCtx): RequestsSlice {
+export function createRequests(
+  { set, get, api }: SliceCtx,
+  /** Records a sent request's history entry. */
+  recordHistory: (entry: HistoryEntry) => void
+): RequestsSlice {
   const isBlank = (d: RequestSpec): boolean =>
     deepEqual({ ...d, id: '' }, { ...newRequestSpec(), id: '' })
+  /** The draft as a history entry opened it; leaving it unedited needs no confirmation. */
+  let reopened: RequestSpec | null = null
 
   const cancel = (): void => {
     const { inFlight } = get()
@@ -36,7 +44,8 @@ export function createRequests({ set, get, api }: SliceCtx): RequestsSlice {
   /** Stashes/clears the current draft and drops any in-flight request. False = needs confirmation. */
   const leaveDraft = (discard: boolean | undefined): boolean => {
     const { active, draft, saved, stash } = get()
-    if (!active && !discard && !isBlank(draft)) return false
+    const pristine = isBlank(draft) || (reopened !== null && deepEqual(draft, reopened))
+    if (!active && !discard && !pristine) return false
     const next = { ...stash }
     if (active) {
       if (saved && deepEqual(draft, saved)) delete next[active.requestId]
@@ -55,6 +64,7 @@ export function createRequests({ set, get, api }: SliceCtx): RequestsSlice {
     active: null,
     saved: null,
     stash: {},
+    draftCollectionId: null,
 
     updateDraft: (patch) => set((s) => ({ draft: { ...s.draft, ...patch } })),
     cancel,
@@ -64,18 +74,19 @@ export function createRequests({ set, get, api }: SliceCtx): RequestsSlice {
       const requestId = crypto.randomUUID()
       set({ inFlight: { requestId, startedAt: Date.now() } })
       const isCurrent = (): boolean => get().inFlight?.requestId === requestId
-      const collectionId = get().active?.collectionId
+      const collectionId = get().active?.collectionId ?? get().draftCollectionId
       // Read from state, not saved settings: a switch made ms ago counts (RF2).
       const environmentId = get().activeEnvironmentId ?? undefined
       try {
-        const outcome = await api['request:send']({
+        const { result, history } = await api['request:send']({
           requestId,
           request: get().draft,
           ...(collectionId ? { collectionId } : {}),
           ...(environmentId ? { environmentId } : {})
         })
-        // Task 5 consumes outcome.history; for now only the result is applied.
-        if (isCurrent()) set({ result: outcome.result, inFlight: null })
+        // Recorded even when stale: the request really was sent.
+        if (history) recordHistory(history)
+        if (isCurrent()) set({ result, inFlight: null })
       } catch (err) {
         if (isCurrent()) {
           const message = err instanceof Error ? err.message : String(err)
@@ -101,17 +112,41 @@ export function createRequests({ set, get, api }: SliceCtx): RequestsSlice {
       if (!hit || hit.item.kind !== 'request') return 'opened'
       if (!leaveDraft(opts?.discard)) return 'confirm-discard'
       const spec = toSpec(hit.item)
+      reopened = null
       set((s) => {
         const { [ref.requestId]: stashed, ...rest } = s.stash
         // Invariant: the stash never contains the active request.
-        return { draft: stashed ?? spec, saved: spec, active: ref, stash: rest }
+        return {
+          draft: stashed ?? spec,
+          saved: spec,
+          active: ref,
+          stash: rest,
+          draftCollectionId: null
+        }
       })
       return 'opened'
     },
 
     newRequest: (opts) => {
       if (!leaveDraft(opts?.discard)) return 'confirm-discard'
-      set({ draft: newRequestSpec(), active: null, saved: null })
+      reopened = null
+      set({ draft: newRequestSpec(), active: null, saved: null, draftCollectionId: null })
+      return 'opened'
+    },
+
+    openHistoryEntry: (id, opts) => {
+      const entry = get().history.find((e) => e.id === id)
+      if (!entry) return 'opened'
+      if (!leaveDraft(opts?.discard)) return 'confirm-discard'
+      const draft: RequestSpec = { ...structuredClone(entry.request), id: crypto.randomUUID() }
+      const cid = entry.collectionId
+      reopened = draft
+      set({
+        draft,
+        active: null,
+        saved: null,
+        draftCollectionId: cid && get().collections.some((c) => c.id === cid) ? cid : null
+      })
       return 'opened'
     },
 
@@ -155,7 +190,9 @@ export function createRequests({ set, get, api }: SliceCtx): RequestsSlice {
         if (!tc || !findItem(tc, spec.id)) return 'gone'
         // Only retarget the view if the user is still on the draft that was saved.
         if (get().draft.id !== draft.id) return 'saved'
+        reopened = null
         set({
+          draftCollectionId: null,
           // keep edits typed while the save was pending
           draft: { ...get().draft, id: spec.id, name: spec.name },
           saved: spec,

@@ -15,6 +15,9 @@ type Extras = Pick<
   | 'environments:delete'
   | 'settings:get'
   | 'settings:set'
+  | 'history:list'
+  | 'history:delete'
+  | 'history:clear'
 >
 
 export function noopExtras(): Extras {
@@ -34,6 +37,9 @@ export function noopExtras(): Extras {
       },
       warnings: []
     })),
-    'settings:set': vi.fn(async () => undefined)
+    'settings:set': vi.fn(async () => undefined),
+    'history:list': vi.fn(async () => ({ entries: [], warnings: [] })),
+    'history:delete': vi.fn(async () => undefined),
+    'history:clear': vi.fn(async () => undefined)
   }
 }

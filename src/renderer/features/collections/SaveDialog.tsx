@@ -40,6 +40,7 @@ function SaveForm(): React.JSX.Element {
   const [collectionId, setCollectionId] = useState(() => {
     const s = store.getState()
     const sorted = [...s.collections].sort(byName)
+    // The active request's collection, else a history draft's (draftCollectionId), else first.
     return selectActiveCollection(s)?.id ?? sorted[0]?.id ?? ''
   })
   const [folder, setFolder] = useState(TOP)

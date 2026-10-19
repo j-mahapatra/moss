@@ -15,7 +15,10 @@ export function createCollections(
     WorkspaceState,
     'collections' | 'createCollection' | 'updateCollection' | 'deleteCollection'
   >
-  /** Drops/renames the active draft and stash entries whose request changed or vanished. */
+  /**
+   * Drops/renames the active draft and stash entries whose request changed or vanished, and
+   * clears `draftCollectionId` once its collection is gone.
+   */
   reconcile(): void
 } {
   const locate = (cols: Collection[], requestId: string): RequestSpec | null => {
@@ -54,6 +57,9 @@ export function createCollections(
         patch.draft = { ...s.draft, name: hit.item.name }
         patch.saved = { ...s.saved, name: hit.item.name }
       }
+    }
+    if (s.draftCollectionId !== null && !cols.some((c) => c.id === s.draftCollectionId)) {
+      patch.draftCollectionId = null // its collection was deleted
     }
     if (Object.keys(patch).length > 0) set(patch)
   }

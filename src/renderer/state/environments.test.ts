@@ -36,7 +36,10 @@ function setup(
     'environments:save': vi.fn(async (e: Environment) => void envDisk.set(e.id, e)),
     'environments:delete': vi.fn(async ({ id }: { id: string }) => void envDisk.delete(id)),
     'settings:get': vi.fn(async () => ({ settings, warnings: [] })),
-    'settings:set': vi.fn((s: Settings) => Promise.resolve(void s))
+    'settings:set': vi.fn((s: Settings) => Promise.resolve(void s)),
+    'history:list': vi.fn(async () => ({ entries: [], warnings: [] })),
+    'history:delete': vi.fn(async () => undefined),
+    'history:clear': vi.fn(async () => undefined)
   }
   const store = createWorkspaceStore(api as never)
   return { api, store, envDisk }

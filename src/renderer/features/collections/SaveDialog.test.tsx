@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { act, render, screen } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { newCollection, newFolder, insertItem } from '../../../shared/collection-tree'
-import type { Collection } from '../../../shared/types'
+import { newRequestSpec, type Collection, type HistoryEntry } from '../../../shared/types'
 import { byName } from '../../state/slices/collections'
 import { noopExtras } from '../../state/test-api'
 import { createWorkspaceStore } from '../../state/workspace'
@@ -17,12 +17,13 @@ beforeAll(() => {
   Element.prototype.scrollIntoView ??= () => undefined
 })
 
-async function setup(cols: Collection[]) {
+async function setup(cols: Collection[], entries: HistoryEntry[] = []) {
   const api = {
     'request:send': vi.fn(),
     'request:cancel': vi.fn(),
     ...noopExtras(),
-    'collections:list': vi.fn(async () => ({ collections: cols, warnings: [] }))
+    'collections:list': vi.fn(async () => ({ collections: cols, warnings: [] })),
+    'history:list': vi.fn(async () => ({ entries, warnings: [] }))
   }
   const store = createWorkspaceStore(api as never)
   await store.getState().init()
@@ -177,5 +178,21 @@ describe('SaveDialog', () => {
     await user.click(await screen.findByRole('combobox', { name: 'Collection' }))
     const shown = (await screen.findAllByRole('option')).map((o) => o.textContent)
     expect(shown).toEqual([...cols].sort(byName).map((c) => c.name))
+  })
+
+  it('defaults to the collection of a draft reopened from history', async () => {
+    const [a, b] = [newCollection('A'), newCollection('B')]
+    const e: HistoryEntry = {
+      id: crypto.randomUUID(),
+      at: '2026-10-19T10:00:00.000Z',
+      request: { ...newRequestSpec(), url: 'http://b.io' },
+      status: 200,
+      durationMs: 1,
+      collectionId: b.id
+    }
+    const { store } = await setup([a, b], [e])
+    act(() => void store.getState().openHistoryEntry(e.id))
+    open(store)
+    expect(await screen.findByRole('combobox', { name: 'Collection' })).toHaveTextContent('B')
   })
 })

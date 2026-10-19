@@ -65,7 +65,10 @@ function setup(initial: Collection[] = [], opts: { hold?: boolean } = {}) {
       },
       warnings: ['settings reset']
     })),
-    'settings:set': vi.fn(async () => undefined)
+    'settings:set': vi.fn(async () => undefined),
+    'history:list': vi.fn(async () => ({ entries: [], warnings: [] })),
+    'history:delete': vi.fn(async () => undefined),
+    'history:clear': vi.fn(async () => undefined)
   }
   const store = createWorkspaceStore(api as never)
   return { api, store, disk, saves, sendPending }
