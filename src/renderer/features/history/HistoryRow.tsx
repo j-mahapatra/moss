@@ -98,8 +98,8 @@ export function HistoryRow({
         } else if (e.key === 'Delete' || e.key === 'Backspace') {
           if (e.repeat) return
           actions.remove()
-        }
-        else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) onMenuOpenChange(true)
+        } else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10'))
+          onMenuOpenChange(true)
         else return
         e.preventDefault()
       }}
