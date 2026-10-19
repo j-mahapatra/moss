@@ -3,7 +3,18 @@
 Moss is a local-first desktop API client. Build a request, send it, and read the
 response, with everything staying on your machine.
 
-**Status:** early development. Requests can be built, sent and saved into collections and folders, with collection variables and environments; every send is kept in a searchable history, and Postman v2.1 collections and cURL commands can be imported, with collections exported back to v2.1.
+**Status:** v1. Moss builds and sends HTTP requests from an isolated runner
+process, saves them into collections and folders, resolves `{{variables}}` from
+environments and collection variables, and keeps a searchable history of every
+send. It imports Postman Collection v2.1 files and curl commands and exports
+collections back to v2.1. A command palette (⌘K) and a recent-requests
+switcher (⌃Tab) cover navigation from the keyboard, and the theme follows the
+OS or can be set to light or dark. macOS builds are packaged as an unsigned
+`.dmg`.
+
+![Moss (light)](assets/moss-light.png)
+
+![Moss (dark)](assets/moss-dark.png)
 
 ## Quick start
 
@@ -14,15 +25,57 @@ npm run dev
 
 ## Scripts
 
-| Script               | What it does                                            |
-| -------------------- | ------------------------------------------------------- |
-| `npm run dev`        | Start the app with hot reload                           |
-| `npm run build`      | Typecheck, then build main, preload and renderer        |
-| `npm run typecheck`  | Typecheck the node and web projects                     |
-| `npm run lint`       | Run ESLint                                              |
-| `npm test`           | Run the Vitest unit and component tests                 |
-| `npm run e2e`        | Build the app and run the Playwright Electron tests     |
-| `npm run gen:tokens` | Regenerate `src/renderer/ui/tokens.css` from its source |
+| Script                | What it does                                            |
+| --------------------- | ------------------------------------------------------- |
+| `npm run dev`         | Start the app with hot reload                           |
+| `npm run build`       | Typecheck, then build main, preload and renderer        |
+| `npm run typecheck`   | Typecheck the node and web projects                     |
+| `npm run lint`        | Run ESLint                                              |
+| `npm test`            | Run the Vitest unit and component tests                 |
+| `npm run e2e`         | Build the app and run the Playwright Electron tests     |
+| `npm run gen:tokens`  | Regenerate `src/renderer/ui/tokens.css` from its source |
+| `npm run gen:icon`    | Regenerate the app icons from `build/icon.svg`          |
+| `npm run build:mac`   | Build the app and package an unsigned macOS `.dmg`      |
+| `npm run screenshots` | Build the app and regenerate the README screenshots     |
+
+## Command palette & shortcuts
+
+On macOS the modifier is ⌘; on Windows and Linux it is Ctrl.
+
+| Shortcut | Action                                 |
+| -------- | -------------------------------------- |
+| ⌘↵       | Send                                   |
+| ⌘S       | Save                                   |
+| ⌘N       | New request                            |
+| ⌘K       | Command palette                        |
+| ⌘B       | Toggle navigator                       |
+| ⌘L       | Focus URL                              |
+| ⌃Tab     | Recent requests (Ctrl on every system) |
+| Esc      | Cancel an in-flight request            |
+
+**Command palette.** Press ⌘K, or click the search field in the top bar. Type
+to filter, use the arrow keys to move and Enter to run the highlighted item.
+The palette finds saved requests by name and by their collection and folder
+path, switches the active environment (or turns it off), and runs commands:
+New request, Import…, and the three theme commands. Esc closes it and returns
+focus to wherever it was before. ⌘K again also closes it.
+
+**Recent requests.** Moss remembers the last 10 saved requests you opened in
+this session, most recent first (unsaved drafts aren't listed, and the list
+isn't kept across restarts). Hold Ctrl and press Tab to open the switcher on
+the previous request; keep holding Ctrl and press Tab or Shift+Tab (or the
+arrow keys) to move, then release Ctrl to open the selected one. Enter or a
+click also opens it, and Esc closes the switcher without changing anything. A
+quick Ctrl+Tab therefore flips between the two most recent requests.
+
+**Theme.** Moss follows the system appearance by default. The palette
+commands "Theme: Light" and "Theme: Dark" override it, and "Theme: Match
+system" goes back to following the OS. The choice is saved in `settings.json`
+and applies at once.
+
+While the palette, the switcher or any other dialog or menu is open, the
+global shortcuts above do nothing, and holding a key down never repeats a
+send, save or new request.
 
 ## Collections
 
@@ -126,6 +179,16 @@ integration off. It reaches the rest of the app only through a typed preload
 script that exposes seventeen channels. Main validates every payload with zod before
 acting on it. Network access happens in a separate utility process, never in
 the renderer.
+
+## Packaging
+
+`npm run build:mac` builds the app and packages it with electron-builder as an
+unsigned `.dmg` in `dist/`. Because the app isn't signed or notarized,
+Gatekeeper blocks a double-click on first launch: right-click Moss in
+Applications and choose Open, then confirm. `npm run gen:icon` regenerates
+`build/icon.png`, `build/icon.icns` and `resources/icon.png` from
+`build/icon.svg` (it needs macOS for `iconutil`). The README screenshots in
+`assets/` are regenerated with `npm run screenshots` and are not packaged.
 
 ## Developer notes
 
