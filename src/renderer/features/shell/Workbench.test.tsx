@@ -303,6 +303,28 @@ describe('shell', () => {
     expect(cols).toHaveAttribute('aria-pressed', 'true')
   })
 
+  it('has a History rail item that switches and toggles like the others', async () => {
+    const { store } = shell()
+    const user = userEvent.setup()
+    const rail = screen.getByRole('navigation', { name: 'Sidebar' })
+    expect(
+      within(rail)
+        .getAllByRole('button')
+        .map((b) => b.getAttribute('aria-label'))
+    ).toEqual(['Collections', 'Environments', 'History'])
+    const hist = within(rail).getByRole('button', { name: 'History' })
+    expect(hist).toHaveAttribute('aria-pressed', 'false')
+    await user.click(hist)
+    expect(screen.getByRole('complementary', { name: 'History' })).toBeInTheDocument()
+    expect(hist).toHaveAttribute('aria-pressed', 'true')
+    await user.click(hist)
+    expect(store.getState().navigatorCollapsed).toBe(true)
+    expect(screen.queryByRole('complementary', { name: 'History' })).toBeNull()
+    await user.click(hist)
+    expect(store.getState().navigatorCollapsed).toBe(false)
+    expect(store.getState().ui.navigatorView).toBe('history')
+  })
+
   it('shows Loading until init finishes, then the empty state', async () => {
     const { store } = shell()
     expect(screen.getByText('Loading…')).toBeInTheDocument()

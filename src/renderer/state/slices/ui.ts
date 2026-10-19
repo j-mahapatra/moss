@@ -13,7 +13,7 @@ export type UiState = {
   navigatorView: NavigatorView
 }
 
-export type NavigatorView = 'collections' | 'environments'
+export type NavigatorView = 'collections' | 'environments' | 'history'
 
 export function createUi({
   set,

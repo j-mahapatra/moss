@@ -31,6 +31,24 @@ export function EnvironmentsIcon(): React.JSX.Element {
   )
 }
 
+/** A clock face: what was sent, and when. */
+export function HistoryIcon(): React.JSX.Element {
+  return (
+    <svg {...base}>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M8 4.75V8l2.25 1.5" />
+    </svg>
+  )
+}
+
+export function TrashIcon(): React.JSX.Element {
+  return (
+    <svg {...base}>
+      <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.5 8.5h6l.5-8.5" />
+    </svg>
+  )
+}
+
 export function PlusIcon(): React.JSX.Element {
   return (
     <svg {...base}>

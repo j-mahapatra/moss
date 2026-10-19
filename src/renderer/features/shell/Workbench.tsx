@@ -1,6 +1,7 @@
 import { SplitPane } from '../../ui'
 import { useWorkspace } from '../../state/workspace-hooks'
 import { EnvironmentsPanel } from '../environments/EnvironmentsPanel'
+import { HistoryPanel } from '../history/HistoryPanel'
 import { Navigator } from '../collections/Navigator'
 import { SaveDialog } from '../collections/SaveDialog'
 import { VariablesDialog } from '../collections/VariablesDialog'
@@ -27,7 +28,9 @@ export function Workbench(): React.JSX.Element {
       <Notices />
       <div className={collapsed ? 'workbench__body workbench__body--collapsed' : 'workbench__body'}>
         <IconRail />
-        {!collapsed && (view === 'collections' ? <Navigator /> : <EnvironmentsPanel />)}
+        {!collapsed && view === 'collections' && <Navigator />}
+        {!collapsed && view === 'environments' && <EnvironmentsPanel />}
+        {!collapsed && view === 'history' && <HistoryPanel />}
         <main className="workbench__main">
           <SplitPane
             orientation={wide ? 'horizontal' : 'vertical'}
