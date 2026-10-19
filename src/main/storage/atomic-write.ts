@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { mkdir, readFile, rename, unlink, writeFile } from 'fs/promises'
+import { appendFile, mkdir, readFile, rename, unlink, writeFile } from 'fs/promises'
 import { dirname } from 'path'
 
 export type AtomicFs = {
@@ -8,20 +8,30 @@ export type AtomicFs = {
   rename: (from: string, to: string) => Promise<void>
   unlink: (path: string) => Promise<void>
   readFile: (path: string, encoding: 'utf8') => Promise<string>
+  appendFile: (path: string, data: string, encoding: 'utf8') => Promise<void>
 }
 
-export const defaultFs: AtomicFs = { mkdir, writeFile, rename, unlink, readFile }
+export const defaultFs: AtomicFs = { mkdir, writeFile, rename, unlink, readFile, appendFile }
 
 /** Writes JSON to a temp file beside `path`, then renames it into place. */
-export async function atomicWriteJson(
+export function atomicWriteJson(
   path: string,
   data: unknown,
+  fsImpl: AtomicFs = defaultFs
+): Promise<void> {
+  return atomicWriteText(path, JSON.stringify(data, null, 2) + '\n', fsImpl)
+}
+
+/** Writes text to a temp file beside `path`, then renames it into place. */
+export async function atomicWriteText(
+  path: string,
+  text: string,
   fsImpl: AtomicFs = defaultFs
 ): Promise<void> {
   await fsImpl.mkdir(dirname(path), { recursive: true })
   const tmp = `${path}.${randomUUID()}.tmp`
   try {
-    await fsImpl.writeFile(tmp, JSON.stringify(data, null, 2) + '\n', 'utf8')
+    await fsImpl.writeFile(tmp, text, 'utf8')
     await fsImpl.rename(tmp, path)
   } catch (err) {
     try {
@@ -46,5 +56,10 @@ export class WriteQueue {
       if (this.tails.get(key) === tail) this.tails.delete(key)
     })
     return result
+  }
+
+  /** Resolves once no key has pending work. Work enqueued while waiting is awaited too. */
+  async idle(): Promise<void> {
+    while (this.tails.size > 0) await Promise.all([...this.tails.values()])
   }
 }

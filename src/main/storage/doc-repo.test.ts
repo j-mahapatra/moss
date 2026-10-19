@@ -1,4 +1,14 @@
-import { mkdtemp, mkdir, readFile, readdir, rm, rename, unlink, writeFile } from 'fs/promises'
+import {
+  appendFile,
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  rename,
+  unlink,
+  writeFile
+} from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { z } from 'zod'
@@ -14,7 +24,7 @@ const UP = 'ABCDEFAB-ABCD-4BCD-8BCD-ABCDEFABCDEF'
 const Schema = z.object({ id: z.string(), name: z.string() })
 type Doc = z.infer<typeof Schema>
 const mk = (id: string, name: string): Doc => ({ id, name })
-const real = { mkdir, writeFile, unlink, rename, readFile }
+const real = { mkdir, writeFile, unlink, rename, readFile, appendFile }
 const deferred = (): { promise: Promise<void>; release: () => void } => {
   let release!: () => void
   const promise = new Promise<void>((r) => (release = r))

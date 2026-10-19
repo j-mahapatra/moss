@@ -1,4 +1,14 @@
-import { mkdtemp, mkdir, readFile, readdir, rm, rename, unlink, writeFile } from 'fs/promises'
+import {
+  appendFile,
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  rename,
+  unlink,
+  writeFile
+} from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -129,6 +139,7 @@ describe('CollectionsRepo', () => {
     await repo0.save(mk(ID1, 'Old'))
     const repo = new CollectionsRepo(dir, new WriteQueue(), {
       readFile,
+      appendFile,
       mkdir,
       writeFile,
       unlink,
@@ -142,7 +153,7 @@ describe('CollectionsRepo', () => {
   })
 
   describe('fix round 1', () => {
-    const real = { mkdir, writeFile, unlink, rename, readFile }
+    const real = { mkdir, writeFile, unlink, rename, readFile, appendFile }
     const deferred = (): { promise: Promise<void>; release: () => void } => {
       let release!: () => void
       const promise = new Promise<void>((r) => (release = r))

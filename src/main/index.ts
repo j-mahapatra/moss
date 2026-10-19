@@ -11,6 +11,8 @@ import { RunnerSupervisor, forkUtilityRunner } from './runner-supervisor'
 import { WriteQueue } from './storage/atomic-write'
 import { CollectionsRepo } from './storage/collections-repo'
 import { EnvironmentsRepo } from './storage/environments-repo'
+import { HistoryRepo } from './storage/history-repo'
+import { installQuitDrain } from './quit-drain'
 import { SettingsRepo } from './storage/settings-repo'
 import { createScopeResolver } from './scope'
 
@@ -87,6 +89,10 @@ app.whenReady().then(() => {
   const collections = new CollectionsRepo(dataDir, queue)
   const settings = new SettingsRepo(dataDir, queue)
   const environments = new EnvironmentsRepo(dataDir, queue)
+  // Task 4 wires this into IPC.
+  const history = new HistoryRepo(dataDir, queue)
+  void history
+  installQuitDrain(app, queue, { onDrained: () => supervisor.dispose() })
   const scope = createScopeResolver(collections, environments)
 
   registerIpc(ipcMain, {
@@ -106,8 +112,6 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
-
-app.on('before-quit', () => supervisor.dispose())
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits

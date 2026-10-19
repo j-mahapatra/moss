@@ -1,4 +1,14 @@
-import { mkdir, mkdtemp, readdir, readFile, rename, rm, unlink, writeFile } from 'fs/promises'
+import {
+  appendFile,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  unlink,
+  writeFile
+} from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -62,6 +72,7 @@ describe('SettingsRepo', () => {
       writeFile,
       unlink,
       readFile,
+      appendFile,
       rename: async (): Promise<void> => {
         throw new Error('EPERM')
       }
@@ -80,6 +91,7 @@ describe('SettingsRepo', () => {
       writeFile,
       unlink,
       readFile,
+      appendFile,
       rename: async (from: string, to: string): Promise<void> => {
         if (to.includes('.corrupt-')) await gate
         return rename(from, to)
@@ -100,5 +112,53 @@ describe('SettingsRepo', () => {
     await Promise.all([getting, setting])
     expect((await readdir(dir)).sort()).toEqual(['settings.corrupt-3.json', 'settings.json'])
     expect((await repo.get()).settings).toEqual(s)
+  })
+
+  describe('tmp sweep', () => {
+    const U1 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+
+    it('removes settings tmp orphans on the first get and leaves other files', async () => {
+      await writeFile(join(dir, `settings.json.${U1}.tmp`), 'x')
+      await writeFile(join(dir, 'other.json.' + U1 + '.tmp'), 'x')
+      await writeFile(join(dir, 'settings.json.notauuid.tmp'), 'x')
+      await new SettingsRepo(dir).get()
+      expect((await readdir(dir)).sort()).toEqual([
+        'other.json.' + U1 + '.tmp',
+        'settings.json.notauuid.tmp'
+      ])
+    })
+
+    it('keeps the tmp file of an in-flight write', async () => {
+      await writeFile(join(dir, `settings.json.${U1}.tmp`), 'x')
+      let release!: () => void
+      const gate = new Promise<void>((r) => (release = r))
+      let inflightTmp = ''
+      const fs = {
+        mkdir,
+        unlink,
+        readFile,
+        appendFile,
+        rename,
+        writeFile: async (p: string, data: string, enc: 'utf8'): Promise<void> => {
+          await writeFile(p, data, enc)
+          inflightTmp = p
+          await gate
+        }
+      }
+      const repo = new SettingsRepo(dir, undefined, fs)
+      const setting = repo.set({
+        schemaVersion: 1,
+        split: 0.3,
+        navigatorCollapsed: true,
+        activeEnvironmentId: null
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      const getting = repo.get()
+      await new Promise((r) => setTimeout(r, 20))
+      expect(await readdir(dir)).toContain(inflightTmp.split('/').pop())
+      release()
+      await Promise.all([setting, getting])
+      expect(await readdir(dir)).toEqual(['settings.json'])
+    })
   })
 })

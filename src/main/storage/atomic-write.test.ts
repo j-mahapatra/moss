@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, readdir, rm, unlink, writeFile } from 'fs/promises'
+import { appendFile, mkdtemp, mkdir, readFile, readdir, rm, unlink, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -29,6 +29,7 @@ describe('atomicWriteJson', () => {
     await atomicWriteJson(p, { v: 1 })
     const failing = {
       readFile,
+      appendFile,
       mkdir,
       writeFile,
       unlink,
@@ -44,6 +45,7 @@ describe('atomicWriteJson', () => {
   it('ignores ENOENT from unlink during cleanup and rethrows the original error', async () => {
     const fs = {
       readFile,
+      appendFile,
       mkdir,
       writeFile: async (): Promise<void> => {},
       unlink: async (): Promise<void> => {
@@ -106,5 +108,42 @@ describe('WriteQueue', () => {
     const b = q.run('k', async () => 'ok')
     await expect(a).rejects.toThrow('nope')
     await expect(b).resolves.toBe('ok')
+  })
+})
+
+describe('WriteQueue.idle', () => {
+  it('resolves right away when nothing is queued', async () => {
+    await expect(new WriteQueue().idle()).resolves.toBeUndefined()
+  })
+
+  it('resolves only after every key has finished, including rejected tasks', async () => {
+    const q = new WriteQueue()
+    const done: string[] = []
+    let releaseA!: () => void
+    let releaseB!: () => void
+    const a = q.run('a', async () => {
+      await new Promise<void>((r) => (releaseA = r))
+      done.push('a')
+    })
+    const b = q
+      .run('b', async () => {
+        await new Promise<void>((r) => (releaseB = r))
+        done.push('b')
+        throw new Error('nope')
+      })
+      .catch(() => undefined)
+    let idle = false
+    const waiting = q.idle().then(() => (idle = true))
+    await new Promise((r) => setTimeout(r, 5))
+    expect(idle).toBe(false)
+    releaseA()
+    await a
+    await new Promise((r) => setTimeout(r, 5))
+    expect(idle).toBe(false)
+    releaseB()
+    await waiting
+    await b
+    expect(done).toEqual(['a', 'b'])
+    expect(idle).toBe(true)
   })
 })
