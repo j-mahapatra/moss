@@ -58,6 +58,17 @@ export type ErrorKind =
   | 'unknown'
 export type RequestError = { kind: ErrorKind; message: string; detail?: string }
 export type SendResult = { ok: true; response: HttpResponse } | { ok: false; error: RequestError }
+export type HistoryEntry = {
+  id: string
+  at: string
+  request: RequestSpec
+  status: number | null
+  durationMs: number
+  errorKind?: ErrorKind
+  collectionId?: string
+  environmentId?: string
+}
+export type SendOutcome = { result: SendResult; history: HistoryEntry | null }
 export type RunOptions = { timeoutMs: number; maxRedirects: number; maxBodyBytes: number }
 export const DEFAULT_RUN_OPTIONS: RunOptions = {
   timeoutMs: 30_000,

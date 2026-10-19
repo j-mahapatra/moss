@@ -4,6 +4,7 @@ import type {
   Environment,
   ErrorKind,
   Folder,
+  HistoryEntry,
   FormField,
   HeaderList,
   HttpMethod,
@@ -17,6 +18,7 @@ import type {
   Settings,
   ResolvedBody,
   ResolvedRequest,
+  SendOutcome,
   SendResult
 } from './types'
 
@@ -152,6 +154,38 @@ export const SendResultSchema = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(false), error: RequestErrorSchema })
 ])
 
+const HistoryEntryBaseSchema = z.object({
+  id: z.uuid(),
+  at: z.iso.datetime(),
+  request: RequestSpecSchema,
+  status: z.number().nullable(),
+  durationMs: z.number().int().nonnegative(),
+  errorKind: ErrorKindSchema.optional(),
+  collectionId: z.uuid().optional(),
+  environmentId: z.uuid().optional()
+})
+
+export const HistoryEntrySchema = HistoryEntryBaseSchema.superRefine((e, ctx) => {
+  if (e.status === null && e.errorKind === undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['errorKind'],
+      message: 'errorKind is required when status is null'
+    })
+  } else if (e.status !== null && e.errorKind !== undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['errorKind'],
+      message: 'errorKind must be absent when status is set'
+    })
+  }
+})
+
+export const SendOutcomeSchema = z.object({
+  result: SendResultSchema,
+  history: HistoryEntrySchema.nullable()
+})
+
 // Compile-time guards: each schema must stay in lockstep with its type.
 export type _Checks = [
   Assert<Equal<z.infer<typeof HttpMethodSchema>, HttpMethod>>,
@@ -169,5 +203,8 @@ export type _Checks = [
   Assert<Equal<z.infer<typeof HttpResponseSchema>, HttpResponse>>,
   Assert<Equal<z.infer<typeof ErrorKindSchema>, ErrorKind>>,
   Assert<Equal<z.infer<typeof RequestErrorSchema>, RequestError>>,
-  Assert<Equal<z.infer<typeof SendResultSchema>, SendResult>>
+  Assert<Equal<z.infer<typeof SendResultSchema>, SendResult>>,
+  Assert<Equal<z.infer<typeof HistoryEntryBaseSchema>, HistoryEntry>>,
+  Assert<Equal<z.infer<typeof HistoryEntrySchema>, HistoryEntry>>,
+  Assert<Equal<z.infer<typeof SendOutcomeSchema>, SendOutcome>>
 ]

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   CollectionSchema,
+  HistoryEntrySchema,
+  SendOutcomeSchema,
   ItemSchema,
   RequestSpecSchema,
   SendResultSchema,
@@ -122,5 +124,46 @@ describe('collection schemas', () => {
     expect(
       SettingsSchema.parse({ ...DEFAULT_SETTINGS, activeEnvironmentId: id }).activeEnvironmentId
     ).toBe(id)
+  })
+})
+
+describe('HistoryEntrySchema', () => {
+  const base = {
+    id: '3f2b8c1e-4a5d-4e6f-8a7b-9c0d1e2f3a4b',
+    at: '2026-10-19T10:00:00.000Z',
+    request: newRequestSpec(),
+    status: 200,
+    durationMs: 12
+  }
+
+  it('round-trips an entry', () => {
+    const parsed = HistoryEntrySchema.parse(base)
+    expect(parsed).toEqual(base)
+    const failed = { ...base, status: null, errorKind: 'dns' }
+    expect(HistoryEntrySchema.parse(failed)).toEqual(failed)
+  })
+
+  it('rejects status null without errorKind', () => {
+    expect(HistoryEntrySchema.safeParse({ ...base, status: null }).success).toBe(false)
+  })
+
+  it('rejects a status with errorKind', () => {
+    expect(HistoryEntrySchema.safeParse({ ...base, errorKind: 'dns' }).success).toBe(false)
+  })
+
+  it('rejects a negative or fractional durationMs', () => {
+    expect(HistoryEntrySchema.safeParse({ ...base, durationMs: -1 }).success).toBe(false)
+    expect(HistoryEntrySchema.safeParse({ ...base, durationMs: 1.5 }).success).toBe(false)
+  })
+
+  it('rejects an at without a Z offset', () => {
+    expect(HistoryEntrySchema.safeParse({ ...base, at: '2026-10-19T10:00:00+02:00' }).success).toBe(
+      false
+    )
+  })
+
+  it('SendOutcomeSchema accepts a null history', () => {
+    const result: SendResult = { ok: false, error: { kind: 'dns', message: 'x' } }
+    expect(SendOutcomeSchema.safeParse({ result, history: null }).success).toBe(true)
   })
 })
