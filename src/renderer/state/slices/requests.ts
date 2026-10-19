@@ -68,13 +68,14 @@ export function createRequests({ set, get, api }: SliceCtx): RequestsSlice {
       // Read from state, not saved settings: a switch made ms ago counts (RF2).
       const environmentId = get().activeEnvironmentId ?? undefined
       try {
-        const result = await api['request:send']({
+        const outcome = await api['request:send']({
           requestId,
           request: get().draft,
           ...(collectionId ? { collectionId } : {}),
           ...(environmentId ? { environmentId } : {})
         })
-        if (isCurrent()) set({ result, inFlight: null })
+        // Task 5 consumes outcome.history; for now only the result is applied.
+        if (isCurrent()) set({ result: outcome.result, inFlight: null })
       } catch (err) {
         if (isCurrent()) {
           const message = err instanceof Error ? err.message : String(err)

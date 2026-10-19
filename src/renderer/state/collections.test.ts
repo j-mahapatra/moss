@@ -12,6 +12,7 @@ import {
   newRequestSpec,
   type Collection,
   type RequestSpec,
+  type SendOutcome,
   type SendResult
 } from '../../shared/types'
 import { newEnvironment } from '../../shared/environments'
@@ -26,7 +27,10 @@ function setup(initial: Collection[] = [], opts: { hold?: boolean } = {}) {
   const sendPending: { resolve(r: SendResult): void }[] = []
   const api = {
     'request:send': vi.fn(
-      () => new Promise<SendResult>((resolve) => sendPending.push({ resolve }))
+      () =>
+        new Promise<SendOutcome>((resolve) =>
+          sendPending.push({ resolve: (result) => resolve({ result, history: null }) })
+        )
     ),
     'request:cancel': vi.fn(async () => undefined),
     'collections:list': vi.fn(async () => ({

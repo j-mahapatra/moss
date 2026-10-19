@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { SendResult } from '../../shared/types'
+import type { SendOutcome, SendResult } from '../../shared/types'
 import { noopExtras } from './test-api'
 import { createWorkspaceStore } from './workspace'
 
@@ -30,8 +30,12 @@ function fakeApi(): {
   const pending: Pending[] = []
   const send = vi.fn(
     (input: { requestId: string }) =>
-      new Promise<SendResult>((resolve, reject) => {
-        pending.push({ requestId: input.requestId, resolve, reject })
+      new Promise<SendOutcome>((resolve, reject) => {
+        pending.push({
+          requestId: input.requestId,
+          resolve: (result) => resolve({ result, history: null }),
+          reject
+        })
       })
   )
   const cancel = vi.fn(async () => undefined)

@@ -1,10 +1,14 @@
+import { randomUUID } from 'node:crypto'
 import type { IpcMain } from 'electron'
+import type { SendOutcome } from '../shared/types'
+import { buildEntry } from './history-recorder'
 import { ipcContract } from '../shared/ipc-contract'
 import { prepareRequest } from '../shared/prepare'
 import type { VariableScope } from '../shared/variables'
 import type { RunnerSupervisor } from './runner-supervisor'
 import type { CollectionsRepo } from './storage/collections-repo'
 import type { EnvironmentsRepo } from './storage/environments-repo'
+import type { HistoryRepo } from './storage/history-repo'
 import type { SettingsRepo } from './storage/settings-repo'
 
 export interface IpcDeps {
@@ -15,11 +19,14 @@ export interface IpcDeps {
   collections: Pick<CollectionsRepo, 'list' | 'save' | 'delete'>
   settings: Pick<SettingsRepo, 'get' | 'set'>
   environments: Pick<EnvironmentsRepo, 'list' | 'save' | 'delete'>
+  history: Pick<HistoryRepo, 'list' | 'append' | 'delete' | 'clear'>
+  now?: () => number
 }
 
 // Invalid input throws a ZodError (a programming error); Electron rejects the renderer promise.
 export function registerIpc(ipcMain: Pick<IpcMain, 'handle'>, deps: IpcDeps): void {
-  ipcMain.handle('request:send', async (_event, raw) => {
+  const now = deps.now ?? Date.now
+  ipcMain.handle('request:send', async (_event, raw): Promise<SendOutcome> => {
     const { requestId, request, collectionId, environmentId } =
       ipcContract['request:send'].input.parse(raw)
     let scope: VariableScope
@@ -27,16 +34,34 @@ export function registerIpc(ipcMain: Pick<IpcMain, 'handle'>, deps: IpcDeps): vo
       scope = await deps.scope({ collectionId, environmentId })
     } catch {
       return {
-        ok: false as const,
-        error: {
-          kind: 'unknown' as const,
-          message: 'Request failed: could not load variables'
-        }
+        result: {
+          ok: false,
+          error: { kind: 'unknown', message: 'Request failed: could not load variables' }
+        },
+        history: null
       }
     }
     const prepared = prepareRequest(request, scope)
-    if (!prepared.ok) return { ok: false as const, error: prepared.error }
-    return deps.supervisor.send(requestId, prepared.request)
+    if (!prepared.ok) return { result: { ok: false, error: prepared.error }, history: null }
+    const startedAt = now()
+    const result = await deps.supervisor.send(requestId, prepared.request)
+    const endedAt = now()
+    // Record the authored spec (variables unresolved), never the prepared request.
+    const entry = buildEntry({
+      request,
+      result,
+      startedAt,
+      endedAt,
+      collectionId,
+      environmentId,
+      id: randomUUID()
+    })
+    try {
+      await deps.history.append(entry)
+    } catch {
+      return { result, history: null }
+    }
+    return { result, history: entry }
   })
 
   ipcMain.handle('request:cancel', (_event, raw) => {
@@ -89,5 +114,20 @@ export function registerIpc(ipcMain: Pick<IpcMain, 'handle'>, deps: IpcDeps): vo
   ipcMain.handle('environments:delete', async (_event, raw) => {
     const { id } = ipcContract['environments:delete'].input.parse(raw)
     await deps.environments.delete(id)
+  })
+
+  ipcMain.handle('history:list', (_event, raw) => {
+    ipcContract['history:list'].input.parse(raw)
+    return deps.history.list()
+  })
+
+  ipcMain.handle('history:delete', async (_event, raw) => {
+    const { id } = ipcContract['history:delete'].input.parse(raw)
+    await deps.history.delete(id)
+  })
+
+  ipcMain.handle('history:clear', async (_event, raw) => {
+    ipcContract['history:clear'].input.parse(raw)
+    await deps.history.clear()
   })
 }

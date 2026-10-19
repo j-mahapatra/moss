@@ -3,8 +3,9 @@ import { channels, type Channel } from './channels'
 import {
   CollectionSchema,
   EnvironmentSchema,
+  HistoryEntrySchema,
   RequestSpecSchema,
-  SendResultSchema,
+  SendOutcomeSchema,
   SettingsSchema
 } from './schemas'
 
@@ -16,7 +17,7 @@ export const SendInputSchema = z.object({
 })
 
 export const ipcContract = {
-  'request:send': { input: SendInputSchema, output: SendResultSchema },
+  'request:send': { input: SendInputSchema, output: SendOutcomeSchema },
   'request:cancel': { input: z.object({ requestId: z.uuid() }), output: z.void() },
   'dialog:pick-file': { input: z.void(), output: z.string().nullable() },
   'response:save': {
@@ -39,7 +40,13 @@ export const ipcContract = {
     output: z.object({ environments: z.array(EnvironmentSchema), warnings: z.array(z.string()) })
   },
   'environments:save': { input: EnvironmentSchema, output: z.void() },
-  'environments:delete': { input: z.object({ id: z.uuid() }), output: z.void() }
+  'environments:delete': { input: z.object({ id: z.uuid() }), output: z.void() },
+  'history:list': {
+    input: z.void(),
+    output: z.object({ entries: z.array(HistoryEntrySchema), warnings: z.array(z.string()) })
+  },
+  'history:delete': { input: z.object({ id: z.uuid() }), output: z.void() },
+  'history:clear': { input: z.void(), output: z.void() }
 } as const
 
 export { channels, type Channel }

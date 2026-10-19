@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { registerIpc } from './ipc'
 import { newRequestSpec } from '../shared/types'
 import { DEFAULT_SETTINGS } from '../shared/types'
-import type { SendResult } from '../shared/types'
+import type { HistoryEntry, SendResult, SendOutcome } from '../shared/types'
 
 type Handler = (event: unknown, input: unknown) => unknown
 
@@ -15,6 +15,7 @@ function setup(): {
   collections: Record<'list' | 'save' | 'delete', ReturnType<typeof vi.fn>>
   settings: Record<'get' | 'set', ReturnType<typeof vi.fn>>
   environments: Record<'list' | 'save' | 'delete', ReturnType<typeof vi.fn>>
+  history: Record<'list' | 'append' | 'delete' | 'clear', ReturnType<typeof vi.fn>>
 } {
   const handlers = new Map<string, Handler>()
   const ipcMain = { handle: (c: string, h: Handler): void => void handlers.set(c, h) }
@@ -39,6 +40,12 @@ function setup(): {
     get: vi.fn(async () => ({ settings: DEFAULT_SETTINGS, warnings: [] })),
     set: vi.fn(async () => undefined)
   }
+  const history = {
+    list: vi.fn(async () => ({ entries: [], warnings: ['hw'] })),
+    append: vi.fn(async () => undefined),
+    delete: vi.fn(async () => undefined),
+    clear: vi.fn(async () => undefined)
+  }
   registerIpc(ipcMain as never, {
     supervisor,
     scope,
@@ -46,7 +53,9 @@ function setup(): {
     saveFile,
     collections: collections as never,
     settings: settings as never,
-    environments: environments as never
+    environments: environments as never,
+    history: history as never,
+    now: () => 1_700_000_000_000
   })
   return {
     invoke: async (c, i) => {
@@ -60,7 +69,8 @@ function setup(): {
     scope,
     collections,
     settings,
-    environments
+    environments,
+    history
   }
 }
 const ID = '3b241101-e2bb-4255-8caf-4136c566a962'
@@ -83,9 +93,10 @@ describe('registerIpc', () => {
     const r = (await t.invoke('request:send', {
       requestId: ID,
       request: { ...newRequestSpec(), url: 'ht tp://bad' }
-    })) as SendResult
-    expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.error.kind).toBe('invalid-url')
+    })) as SendOutcome
+    expect(r.history).toBeNull()
+    expect(r.result.ok).toBe(false)
+    if (!r.result.ok) expect(r.result.error.kind).toBe('invalid-url')
     expect(t.supervisor.send).not.toHaveBeenCalled()
   })
 
@@ -155,12 +166,94 @@ describe('registerIpc', () => {
       requestId: ID,
       request: newRequestSpec(),
       collectionId: ID
-    })) as SendResult
+    })) as SendOutcome
     expect(r).toEqual({
-      ok: false,
-      error: { kind: 'unknown', message: 'Request failed: could not load variables' }
+      result: {
+        ok: false,
+        error: { kind: 'unknown', message: 'Request failed: could not load variables' }
+      },
+      history: null
     })
+    expect(t.history.append).not.toHaveBeenCalled()
     expect(t.supervisor.send).not.toHaveBeenCalled()
+  })
+
+  describe('history recording', () => {
+    const okRes = {
+      ok: true,
+      response: { status: 200, timings: { totalMs: 7 } }
+    } as unknown as SendResult
+
+    it('appends the authored request, never resolved values', async () => {
+      const t = setup()
+      t.supervisor.send.mockResolvedValueOnce(okRes)
+      t.scope.mockResolvedValueOnce(new Map([['base', 'http://secret-host']]))
+      const out = (await t.invoke('request:send', {
+        requestId: ID,
+        request: { ...newRequestSpec(), url: '{{base}}/x' },
+        collectionId: ID
+      })) as SendOutcome
+      expect(t.history.append).toHaveBeenCalledOnce()
+      const entry = t.history.append.mock.calls[0]?.[0] as HistoryEntry
+      expect(entry.request.url).toBe('{{base}}/x')
+      expect(JSON.stringify(entry)).not.toContain('secret-host')
+      expect(entry.status).toBe(200)
+      expect(entry.at).toBe(new Date(1_700_000_000_000).toISOString())
+      expect(entry.collectionId).toBe(ID)
+      expect(out).toEqual({ result: okRes, history: entry })
+    })
+
+    it('records an aborted result with errorKind aborted', async () => {
+      const t = setup()
+      t.supervisor.send.mockResolvedValueOnce({
+        ok: false,
+        error: { kind: 'aborted', message: 'Cancelled' }
+      })
+      const out = (await t.invoke('request:send', {
+        requestId: ID,
+        request: { ...newRequestSpec(), url: 'http://x.io/a' }
+      })) as SendOutcome
+      expect(out.history?.errorKind).toBe('aborted')
+      expect(out.history?.status).toBeNull()
+      expect(t.history.append).toHaveBeenCalledOnce()
+    })
+
+    it('does not record when the runner is never reached', async () => {
+      const t = setup()
+      const out = (await t.invoke('request:send', {
+        requestId: ID,
+        request: { ...newRequestSpec(), url: 'ht tp://bad' }
+      })) as SendOutcome
+      expect(out.history).toBeNull()
+      expect(t.history.append).not.toHaveBeenCalled()
+    })
+
+    it('keeps the send result when append rejects', async () => {
+      const t = setup()
+      t.supervisor.send.mockResolvedValueOnce(okRes)
+      t.history.append.mockRejectedValueOnce(new Error('EIO'))
+      const out = (await t.invoke('request:send', {
+        requestId: ID,
+        request: { ...newRequestSpec(), url: 'http://x.io/a' }
+      })) as SendOutcome
+      expect(out.result.ok).toBe(true)
+      expect(out.history).toBeNull()
+    })
+
+    it('lists, deletes and clears history', async () => {
+      const t = setup()
+      expect(await t.invoke('history:list')).toEqual({ entries: [], warnings: ['hw'] })
+      await t.invoke('history:delete', { id: ID })
+      expect(t.history.delete).toHaveBeenCalledWith(ID)
+      await t.invoke('history:clear')
+      expect(t.history.clear).toHaveBeenCalledOnce()
+    })
+
+    it('rejects history:delete with a traversal id', async () => {
+      const t = setup()
+      await expect(t.invoke('history:delete', { id: '../x' })).rejects.toThrow()
+      expect(t.history.delete).not.toHaveBeenCalled()
+    })
   })
 
   it('lists collections', async () => {

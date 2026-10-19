@@ -89,9 +89,7 @@ app.whenReady().then(() => {
   const collections = new CollectionsRepo(dataDir, queue)
   const settings = new SettingsRepo(dataDir, queue)
   const environments = new EnvironmentsRepo(dataDir, queue)
-  // Task 4 wires this into IPC.
   const history = new HistoryRepo(dataDir, queue)
-  void history
   installQuitDrain(app, queue, { onDrained: () => supervisor.dispose() })
   const scope = createScopeResolver(collections, environments)
 
@@ -102,7 +100,8 @@ app.whenReady().then(() => {
     saveFile,
     collections,
     settings,
-    environments
+    environments,
+    history
   })
   createWindow()
 

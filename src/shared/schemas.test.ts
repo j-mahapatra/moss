@@ -59,7 +59,10 @@ describe('schemas', () => {
       'settings:set',
       'environments:list',
       'environments:save',
-      'environments:delete'
+      'environments:delete',
+      'history:list',
+      'history:delete',
+      'history:clear'
     ])
     expect(Object.keys(ipcContract).sort()).toEqual([...channels].sort())
   })
