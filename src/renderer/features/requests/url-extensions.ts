@@ -16,12 +16,15 @@ import {
   type DecorationSet,
   type ViewUpdate
 } from '@codemirror/view'
+import { looksLikeCurl } from '../../../shared/import-export/curl'
 import { findVariables, type VariableScope } from '../../../shared/variables'
 import { externalChange } from './cm-setup'
 
 /** Feed the current variable scope and submit handler into the editor state. */
 export const setScope = StateEffect.define<VariableScope>()
 export const setSubmit = StateEffect.define<() => void>()
+/** Takes a pasted `curl …` command; returning true means it was handled (nothing is inserted). */
+export const setPasteHandler = StateEffect.define<((text: string) => boolean) | null>()
 
 const scopeField = StateField.define<VariableScope>({
   create: () => new Map(),
@@ -36,6 +39,25 @@ const submitField = StateField.define<() => void>({
   update: (value, tr) => {
     for (const e of tr.effects) if (e.is(setSubmit)) return e.value
     return value
+  }
+})
+
+const pasteField = StateField.define<((text: string) => boolean) | null>({
+  create: () => null,
+  update: (value, tr) => {
+    for (const e of tr.effects) if (e.is(setPasteHandler)) return e.value
+    return value
+  }
+})
+
+/** A pasted curl command goes to the paste handler; anything else pastes as usual. */
+const curlPaste = EditorView.domEventHandlers({
+  paste(event, view) {
+    const handler = view.state.field(pasteField)
+    const text = event.clipboardData?.getData('text/plain') ?? ''
+    if (!handler || !looksLikeCurl(text) || !handler(text)) return false
+    event.preventDefault()
+    return true
   }
 })
 
@@ -112,6 +134,8 @@ const variableTooltip = hoverTooltip((view, pos) => {
 export const urlExtensions: Extension[] = [
   scopeField,
   submitField,
+  pasteField,
+  curlPaste,
   singleLine,
   EditorView.contentAttributes.of({ 'data-url-input': '', spellcheck: 'false' }),
   variableMarks,

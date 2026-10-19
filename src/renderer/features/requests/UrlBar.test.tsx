@@ -3,6 +3,18 @@ import { describe, expect, it, vi } from 'vitest'
 import { UrlBar } from './UrlBar'
 import { setDoc, viewOf } from './test-utils'
 
+function paste(container: HTMLElement, text: string): Event {
+  const content = container.querySelector('.cm-content') as HTMLElement
+  const ev = new Event('paste', { bubbles: true, cancelable: true })
+  Object.defineProperty(ev, 'clipboardData', {
+    value: { getData: (type: string) => (type === 'text/plain' ? text : '') }
+  })
+  act(() => {
+    content.dispatchEvent(ev)
+  })
+  return ev
+}
+
 const noop = (): void => undefined
 
 describe('UrlBar', () => {
@@ -79,5 +91,58 @@ describe('UrlBar', () => {
     })
     expect(onSubmit).toHaveBeenCalledTimes(1)
     expect(viewOf(container, 'Request URL').state.doc.toString()).toBe('x')
+  })
+
+  it('hands a pasted curl command to onPasteCurl and leaves the doc unchanged', () => {
+    const onPasteCurl = vi.fn(() => true)
+    const onChange = vi.fn()
+    const { container } = render(
+      <UrlBar
+        value="http://old"
+        onChange={onChange}
+        onSubmit={noop}
+        onPasteCurl={onPasteCurl}
+        scope={new Map()}
+      />
+    )
+    const ev = paste(container, 'curl -X POST https://x -d a=1')
+    expect(onPasteCurl).toHaveBeenCalledWith('curl -X POST https://x -d a=1')
+    expect(ev.defaultPrevented).toBe(true)
+    expect(viewOf(container, 'Request URL').state.doc.toString()).toBe('http://old')
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('does not call onPasteCurl for text that is not a curl command', () => {
+    const onPasteCurl = vi.fn(() => true)
+    const { container } = render(
+      <UrlBar
+        value=""
+        onChange={noop}
+        onSubmit={noop}
+        onPasteCurl={onPasteCurl}
+        scope={new Map()}
+      />
+    )
+    paste(container, 'https://x/curl')
+    expect(onPasteCurl).not.toHaveBeenCalled()
+    expect(viewOf(container, 'Request URL').state.doc.toString()).toBe('https://x/curl')
+  })
+
+  it('falls back to the default single-line paste when the handler returns false', () => {
+    const onPasteCurl = vi.fn(() => false)
+    const onChange = vi.fn()
+    const { container } = render(
+      <UrlBar
+        value=""
+        onChange={onChange}
+        onSubmit={noop}
+        onPasteCurl={onPasteCurl}
+        scope={new Map()}
+      />
+    )
+    paste(container, 'curl https://x\n/y')
+    expect(onPasteCurl).toHaveBeenCalledTimes(1)
+    expect(viewOf(container, 'Request URL').state.doc.toString()).toBe('curl https://x/y')
+    expect(onChange).toHaveBeenLastCalledWith('curl https://x/y')
   })
 })

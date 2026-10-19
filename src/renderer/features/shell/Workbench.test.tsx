@@ -311,7 +311,7 @@ describe('shell', () => {
       within(rail)
         .getAllByRole('button')
         .map((b) => b.getAttribute('aria-label'))
-    ).toEqual(['Collections', 'Environments', 'History'])
+    ).toEqual(['Collections', 'Environments', 'History', 'Import'])
     const hist = within(rail).getByRole('button', { name: 'History' })
     expect(hist).toHaveAttribute('aria-pressed', 'false')
     await user.click(hist)
@@ -323,6 +323,21 @@ describe('shell', () => {
     await user.click(hist)
     expect(store.getState().navigatorCollapsed).toBe(false)
     expect(store.getState().ui.navigatorView).toBe('history')
+  })
+
+  it('has an Import rail item that toggles the import panel', async () => {
+    const { store } = shell()
+    const user = userEvent.setup()
+    const rail = screen.getByRole('navigation', { name: 'Sidebar' })
+    expect(within(rail).getAllByRole('button')).toHaveLength(4)
+    const imp = within(rail).getByRole('button', { name: 'Import' })
+    expect(imp).toHaveAttribute('aria-pressed', 'false')
+    await user.click(imp)
+    expect(screen.getByRole('complementary', { name: 'Import' })).toBeInTheDocument()
+    expect(imp).toHaveAttribute('aria-pressed', 'true')
+    await user.click(imp)
+    expect(store.getState().navigatorCollapsed).toBe(true)
+    expect(screen.queryByRole('complementary', { name: 'Import' })).toBeNull()
   })
 
   it('shows Loading until init finishes, then the empty state', async () => {

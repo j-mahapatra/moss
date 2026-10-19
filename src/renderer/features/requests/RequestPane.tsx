@@ -21,6 +21,7 @@ export function RequestPane(): React.JSX.Element {
   const [tab, setTab] = useState('params')
   const [bodyCache] = useState<BodyCache>(() => new Map())
   const submit = useCallback(() => void store.getState().send(), [store])
+  const pasteCurl = useCallback((text: string) => store.getState().applyCurlToDraft(text), [store])
 
   const onUrlChange = (next: string): void => {
     const { draft, updateDraft } = store.getState()
@@ -37,7 +38,13 @@ export function RequestPane(): React.JSX.Element {
           value={method}
           onChange={(m) => store.getState().updateDraft({ method: m })}
         />
-        <UrlBar value={url} scope={scope} onChange={onUrlChange} onSubmit={submit} />
+        <UrlBar
+          value={url}
+          scope={scope}
+          onChange={onUrlChange}
+          onSubmit={submit}
+          onPasteCurl={pasteCurl}
+        />
         {inFlight ? (
           <Button variant="danger" onClick={() => store.getState().cancel()}>
             Cancel

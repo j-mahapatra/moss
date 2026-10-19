@@ -9,6 +9,7 @@ export type ItemActions = {
   newRequest(): void
   newFolder(): void
   variables(): void
+  exportCollection(): void
   rename(): void
   duplicate(): void
   remove(): void
@@ -21,6 +22,7 @@ function menuItemsFor(kind: RowKind, a: ItemActions): MenuItem[] {
       { label: 'New request', onSelect: a.newRequest },
       { label: 'New folder', onSelect: a.newFolder },
       { label: 'Variables…', onSelect: a.variables },
+      { label: 'Export…', onSelect: a.exportCollection },
       { label: 'Rename', onSelect: a.rename },
       { separator: true },
       del
@@ -65,6 +67,7 @@ export function ItemMenu({ kind, name, open, onOpenChange, actions }: Props): Re
     newRequest: wrap(actions.newRequest, false),
     newFolder: wrap(actions.newFolder, true),
     variables: wrap(actions.variables, false),
+    exportCollection: wrap(actions.exportCollection, false),
     rename: wrap(actions.rename, true),
     duplicate: wrap(actions.duplicate, false),
     remove: wrap(actions.remove, false)

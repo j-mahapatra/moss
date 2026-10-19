@@ -176,4 +176,24 @@ describe('RequestPane', () => {
       expect(container.querySelector('.var-resolved')).toBeNull()
     })
   })
+
+  it('a curl paste in the URL bar replaces the draft method, url and body', () => {
+    const { container, store } = setup(<RequestPane />)
+    const content = container.querySelector('[data-url-input]') as HTMLElement
+    const ev = new Event('paste', { bubbles: true, cancelable: true })
+    Object.defineProperty(ev, 'clipboardData', {
+      value: { getData: (t: string) => (t === 'text/plain' ? 'curl -X POST https://x -d a=1' : '') }
+    })
+    act(() => {
+      content.dispatchEvent(ev)
+    })
+    const { draft } = store.getState()
+    expect(draft.method).toBe('POST')
+    expect(draft.url).toBe('https://x')
+    expect(draft.body).toEqual({
+      mode: 'urlencoded',
+      fields: [{ key: 'a', value: '1', enabled: true }]
+    })
+    expect(viewOf(container, 'Request URL').state.doc.toString()).toBe('https://x')
+  })
 })

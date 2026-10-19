@@ -1,6 +1,14 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type -- test helpers */
 import userEvent from '@testing-library/user-event'
-import { act, createEvent, fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  act,
+  createEvent,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within
+} from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { newCollection, newFolder, toItem } from '../../../shared/collection-tree'
 import { newRequestSpec, type Collection } from '../../../shared/types'
@@ -131,7 +139,14 @@ describe('CollectionTree', () => {
     const { user } = await setup([col])
     await openMenu(user, 'Alpha')
     expect(screen.getByRole('menu', { name: 'Actions for Alpha' })).toBeInTheDocument()
-    expect(menuItems()).toEqual(['New request', 'New folder', 'Variables…', 'Rename', 'Delete'])
+    expect(menuItems()).toEqual([
+      'New request',
+      'New folder',
+      'Variables…',
+      'Export…',
+      'Rename',
+      'Delete'
+    ])
     await user.keyboard('{Escape}')
     await openMenu(user, 'Docs')
     expect(menuItems()).toEqual(['New request', 'New folder', 'Rename', 'Duplicate', 'Delete'])
@@ -153,6 +168,23 @@ describe('CollectionTree', () => {
     await openMenu(user, 'Alpha')
     await user.click(screen.getByRole('menuitem', { name: 'Variables…' }))
     expect(store.getState().ui.variablesFor).toBe(col.id)
+  })
+
+  it('Export… saves the collection file once the menu has closed', async () => {
+    const { col } = seed()
+    const { user, api } = await setup([col])
+    let menuOpenAtCall: boolean | null = null
+    vi.mocked(api['export:save-file']).mockImplementation(async () => {
+      menuOpenAtCall = document.querySelector('[role="menu"]') !== null
+      return true
+    })
+    await openMenu(user, 'Alpha')
+    await user.click(screen.getByRole('menuitem', { name: 'Export…' }))
+    await waitFor(() => expect(api['export:save-file']).toHaveBeenCalledTimes(1))
+    expect(menuOpenAtCall).toBe(false)
+    expect(api['export:save-file']).toHaveBeenCalledWith(
+      expect.objectContaining({ suggestedName: expect.stringMatching(/Alpha/) })
+    )
   })
 
   it('New request saves an Untitled request and opens it', async () => {

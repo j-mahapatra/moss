@@ -1,0 +1,92 @@
+.import-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--moss-space-2);
+}
+
+.import-panel__drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--moss-space-2);
+  padding: var(--moss-space-4) var(--moss-space-3);
+  border: 1px dashed var(--moss-border);
+  border-radius: var(--moss-radius-md);
+  text-align: center;
+}
+
+.import-panel__drop--over {
+  border-color: var(--moss-focus);
+  background: var(--moss-accent-soft);
+  outline: 1px solid var(--moss-focus);
+  outline-offset: -1px;
+}
+
+.import-panel__label {
+  margin-top: var(--moss-space-2);
+  color: var(--moss-text-muted);
+  font-size: var(--moss-text-xs);
+  font-weight: var(--moss-weight-medium);
+}
+
+.import-panel__paste {
+  width: 100%;
+  min-height: 8rem;
+  padding: var(--moss-space-2);
+  border: 1px solid var(--moss-border);
+  border-radius: var(--moss-radius-md);
+  background: var(--moss-surface-raised);
+  color: var(--moss-text);
+  font-family: var(--moss-font-mono);
+  font-size: var(--moss-text-sm);
+  resize: vertical;
+}
+
+.import-panel__paste:focus-visible {
+  border-color: var(--moss-focus);
+  outline: 1px solid var(--moss-focus);
+  outline-offset: 0;
+}
+
+.import-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.import-panel__status:empty {
+  display: none;
+}
+
+.import-panel__done {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--moss-space-2);
+}
+
+.import-panel__message {
+  margin: 0;
+  color: var(--moss-text);
+  font-size: var(--moss-text-md);
+  overflow-wrap: anywhere;
+}
+
+.import-panel__message--danger {
+  color: var(--moss-danger);
+}
+
+.import-panel__report-title {
+  margin: var(--moss-space-3) 0 var(--moss-space-1);
+  color: var(--moss-text-muted);
+  font-size: var(--moss-text-xs);
+  font-weight: var(--moss-weight-medium);
+}
+
+.import-panel__report {
+  margin: 0;
+  padding-left: var(--moss-space-4);
+  color: var(--moss-text);
+  font-size: var(--moss-text-sm);
+  overflow-wrap: anywhere;
+}

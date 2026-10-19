@@ -1,7 +1,7 @@
 import { IconButton } from '../../ui'
 import { useWorkspace } from '../../state/workspace-hooks'
 import type { NavigatorView } from '../../state/slices/ui'
-import { CollectionsIcon, EnvironmentsIcon, HistoryIcon } from './icons'
+import { CollectionsIcon, EnvironmentsIcon, HistoryIcon, ImportIcon } from './icons'
 import './IconRail.css'
 
 export function IconRail(): React.JSX.Element {
@@ -28,6 +28,7 @@ export function IconRail(): React.JSX.Element {
       {item('collections', 'Collections', <CollectionsIcon />)}
       {item('environments', 'Environments', <EnvironmentsIcon />)}
       {item('history', 'History', <HistoryIcon />)}
+      {item('import', 'Import', <ImportIcon />)}
     </nav>
   )
 }

@@ -94,6 +94,7 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
   const updateCollection = useWorkspace((s) => s.updateCollection)
   const deleteCollection = useWorkspace((s) => s.deleteCollection)
   const openVariables = useWorkspace((s) => s.openVariables)
+  const exportCollection = useWorkspace((s) => s.exportCollection)
 
   // Collections start expanded, folders collapsed; this records user overrides.
   const [overrides, setOverrides] = useState<Record<string, boolean>>({})
@@ -161,6 +162,7 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
       })
     },
     variables: () => openVariables(row.collectionId),
+    exportCollection: () => void exportCollection(row.collectionId),
     rename: () => onRenamingChange(row.key),
     duplicate: () => {
       void updateCollection(row.collectionId, (c) => duplicateItem(c, row.id)?.collection ?? c)

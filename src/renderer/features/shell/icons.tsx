@@ -41,6 +41,16 @@ export function HistoryIcon(): React.JSX.Element {
   )
 }
 
+/** An arrow rising out of a tray: bring something in. */
+export function ImportIcon(): React.JSX.Element {
+  return (
+    <svg {...base}>
+      <path d="M8 10.5V2.5M5 5.5l3-3 3 3" />
+      <path d="M2.5 9.5v3a1 1 0 001 1h9a1 1 0 001-1v-3" />
+    </svg>
+  )
+}
+
 export function TrashIcon(): React.JSX.Element {
   return (
     <svg {...base}>
