@@ -178,6 +178,20 @@ describe('EnvironmentChip', () => {
     expect(screen.getByRole('dialog', { name: 'Environments' })).toBeInTheDocument()
   })
 
+  it('keeps the popover and edits when the chip is clicked while dirty; closes once discarded', async () => {
+    const a = env('a', [{ key: 'k', value: '1', enabled: true }])
+    const { user } = await setup([a], a.id)
+    const dialog = await openPopover(user, /Environment: a/)
+    await user.type(within(dialog).getByLabelText('Value 1'), 'x')
+    const chip = screen.getByRole('button', { name: /Environment: a/ })
+    await user.click(chip)
+    expect(screen.getByRole('dialog', { name: 'Environments' })).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Value 1')).toHaveValue('1x')
+    await user.click(within(dialog).getByRole('button', { name: 'Discard changes' }))
+    await user.click(chip)
+    expect(screen.queryByRole('dialog', { name: 'Environments' })).toBeNull()
+  })
+
   it('keeps rows typed while a save is in flight', async () => {
     const a = env('a', [{ key: 'k', value: '1', enabled: true }])
     const { user, api } = await setup([a], a.id)

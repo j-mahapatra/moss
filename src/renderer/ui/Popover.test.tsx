@@ -85,4 +85,50 @@ describe('Popover', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Env' }))
     expect(screen.queryByRole('dialog')).toBeNull()
   })
+
+  it('keeps an open popover open on trigger click while preventDismiss', async () => {
+    const user = userEvent.setup()
+    render(
+      <Popover preventDismiss trigger={<button>Env</button>} aria-label="Environments">
+        <p>Content</p>
+      </Popover>
+    )
+    const trigger = screen.getByRole('button', { name: 'Env' })
+    await user.click(trigger)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    await user.click(trigger)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('keeps a controlled popover open on trigger click while preventDismiss', async () => {
+    const user = userEvent.setup()
+    const spy = vi.fn()
+    render(
+      <Popover
+        open
+        preventDismiss
+        onOpenChange={spy}
+        trigger={<button>Env</button>}
+        aria-label="Environments"
+      >
+        <p>Content</p>
+      </Popover>
+    )
+    await user.click(screen.getByRole('button', { name: 'Env' }))
+    expect(spy).not.toHaveBeenCalledWith(false)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('closes on trigger click without preventDismiss', async () => {
+    const user = userEvent.setup()
+    render(
+      <Popover trigger={<button>Env</button>} aria-label="Environments">
+        <p>Content</p>
+      </Popover>
+    )
+    const trigger = screen.getByRole('button', { name: 'Env' })
+    await user.click(trigger)
+    await user.click(trigger)
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
 })
