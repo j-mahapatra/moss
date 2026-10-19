@@ -3,7 +3,7 @@
 Moss is a local-first desktop API client. Build a request, send it, and read the
 response, with everything staying on your machine.
 
-**Status:** early development. Requests can be built, sent and saved into collections and folders, with collection variables. Environments, history and import/export are still to come.
+**Status:** early development. Requests can be built, sent and saved into collections and folders, with collection variables and environments. History and import/export are still to come.
 
 ## Quick start
 
@@ -37,6 +37,20 @@ directory with one JSON file per collection. If a file can't be read, Moss
 moves it aside (renamed with a `.corrupt-<timestamp>.json` suffix), tells you,
 and carries on with the rest.
 
+## Environments
+
+An environment is a named set of variables, such as `dev` and `prod`, that you
+can switch between without editing your requests. Create and edit them from the
+Environments item in the left rail, then pick the active one from the chip in
+the top bar (or choose "No environment"). The active environment is
+remembered across restarts.
+
+When a request is sent, `{{name}}` is replaced using the active environment
+first, then the request's collection variables. An environment value therefore
+wins over a collection variable with the same name. Variable values are stored
+in plain text on your machine, like everything else in v1, so don't keep secrets
+you wouldn't keep in a regular file.
+
 ## Architecture
 
 ```
@@ -58,6 +72,15 @@ integration off. It reaches the rest of the app only through a typed preload
 script that exposes four channels. Main validates every payload with zod before
 acting on it. Network access happens in a separate utility process, never in
 the renderer.
+
+## Developer notes
+
+`package.json` pins `@radix-ui/react-dismissable-layer` to 1.1.11 and
+`@radix-ui/react-focus-scope` to 1.1.7 through `overrides`. This gives Dialog,
+Menu, Popover and Select a single shared layer stack; without it a Popover
+inside a modal Dialog can't be clicked. Overriding to 1.2.1 instead broke Esc
+for nested dialogs. Remove the overrides once all four packages depend on the
+same version. `src/renderer/ui/layering.test.tsx` guards this.
 
 ## Clean-room statement
 

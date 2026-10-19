@@ -8,13 +8,13 @@ export interface FixtureServer {
   close(): Promise<void>
 }
 
-export async function startServer(): Promise<FixtureServer> {
+export async function startServer(opts: { greeting?: string } = {}): Promise<FixtureServer> {
   const sockets = new Set<Socket>()
   const slowWaiters: Array<() => void> = []
   const server: Server = createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/hello') {
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ greeting: 'hi' }))
+      res.end(JSON.stringify({ greeting: opts.greeting ?? 'hi' }))
       return
     }
     if (req.url === '/slow') {
