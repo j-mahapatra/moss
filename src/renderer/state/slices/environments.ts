@@ -1,4 +1,4 @@
-import { newEnvironment } from '../../../shared/environments'
+import { duplicateEnvironment, newEnvironment } from '../../../shared/environments'
 import type { Environment } from '../../../shared/types'
 import type { WorkspaceState } from '../workspace'
 import { afterInit, errorMessage, type SliceCtx } from './ctx'
@@ -10,7 +10,11 @@ export function createEnvironments(
   addNotice: AddNotice
 ): Pick<
   WorkspaceState,
-  'environments' | 'createEnvironment' | 'updateEnvironment' | 'deleteEnvironment'
+  | 'environments'
+  | 'createEnvironment'
+  | 'duplicateEnvironmentById'
+  | 'updateEnvironment'
+  | 'deleteEnvironment'
 > {
   /** Clears the active environment (and persists that) once it no longer exists. */
   const dropStaleActive = (): void => {
@@ -34,6 +38,12 @@ export function createEnvironments(
     createEnvironment: afterInit(get, async (name: string) => {
       const e = newEnvironment(name)
       return (await queue.create(e)) ? e : null
+    }),
+    duplicateEnvironmentById: afterInit(get, async (id: string) => {
+      const source = get().environments.find((e) => e.id === id)
+      if (!source) return null
+      const copy = duplicateEnvironment(source)
+      return (await queue.create(copy)) ? copy : null
     }),
     updateEnvironment: afterInit(get, async (id: string, fn: (e: Environment) => Environment) =>
       queue.update(id, fn)

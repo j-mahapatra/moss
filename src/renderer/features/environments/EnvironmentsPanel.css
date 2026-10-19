@@ -1,0 +1,51 @@
+.env-list {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--moss-text-md);
+}
+
+.env-row {
+  display: flex;
+  align-items: center;
+  gap: var(--moss-space-2);
+  min-height: var(--moss-control-md);
+  padding: 0 var(--moss-space-1) 0 var(--moss-space-2);
+  border-radius: var(--moss-radius-sm);
+  color: var(--moss-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.env-row:hover {
+  background: var(--moss-accent-soft);
+}
+
+.env-row:focus-visible {
+  outline: 1px solid var(--moss-focus);
+  outline-offset: -1px;
+}
+
+.env-row__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.env-row .tree-row__rename {
+  flex: 1;
+  height: var(--moss-control-sm);
+  padding: 0 var(--moss-space-1);
+}
+
+.env-row__more {
+  flex: none;
+  opacity: 0;
+}
+
+.env-row:hover .env-row__more,
+.env-row:focus-within .env-row__more,
+.env-row__more[data-state='open'] {
+  opacity: 1;
+}

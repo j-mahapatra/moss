@@ -97,6 +97,19 @@ describe('environments', () => {
     expect(envDisk.size).toBe(0)
   })
 
+  it('duplicateEnvironmentById copies name and variables under a new id; unknown id is null', async () => {
+    const dev = { ...newEnvironment('Dev'), variables: [kv('a', '1')] }
+    const { store, envDisk } = setup({ envs: [dev] })
+    await store.getState().init()
+    const copy = await store.getState().duplicateEnvironmentById(dev.id)
+    expect(copy?.name).toBe('Dev copy')
+    expect(copy?.id).not.toBe(dev.id)
+    expect(copy?.variables.map((v) => v.key)).toEqual(['a'])
+    expect(envDisk.get(copy!.id)?.name).toBe('Dev copy')
+    expect(store.getState().environments.map((e) => e.name)).toEqual(['Dev', 'Dev copy'])
+    expect(await store.getState().duplicateEnvironmentById('nope')).toBeNull()
+  })
+
   it('a load failure becomes a danger notice', async () => {
     const { store, api } = setup()
     api['environments:list'].mockRejectedValueOnce(new Error('gone'))

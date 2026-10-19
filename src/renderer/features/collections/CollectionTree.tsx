@@ -204,7 +204,7 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
     }
     if (t.kind === 'collection') {
       void deleteCollection(t.id).then(restore)
-    } else {
+    } else if (t.collectionId) {
       void updateCollection(t.collectionId, (c) => removeItem(c, t.id)).then(restore)
     }
   }

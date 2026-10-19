@@ -69,6 +69,8 @@ export type WorkspaceState = {
   /** Resolves true once deleted; false if missing, already being deleted, or the delete failed. */
   deleteCollection(collectionId: string): Promise<boolean>
   createEnvironment(name: string): Promise<Environment | null>
+  /** Saves a copy named `<name> copy`; null if the source is gone or the save failed. */
+  duplicateEnvironmentById(id: string): Promise<Environment | null>
   updateEnvironment(id: string, fn: (e: Environment) => Environment): Promise<boolean>
   deleteEnvironment(id: string): Promise<boolean>
   /** Updates state at once and schedules a settings save; an unknown id is a no-op. */

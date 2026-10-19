@@ -20,6 +20,17 @@ export function CollectionsIcon(): React.JSX.Element {
   )
 }
 
+/** Two sliders on a track: values that switch between sets. */
+export function EnvironmentsIcon(): React.JSX.Element {
+  return (
+    <svg {...base}>
+      <path d="M2.5 5h11M2.5 11h11" />
+      <circle cx="10" cy="5" r="1.75" />
+      <circle cx="6" cy="11" r="1.75" />
+    </svg>
+  )
+}
+
 export function PlusIcon(): React.JSX.Element {
   return (
     <svg {...base}>

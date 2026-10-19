@@ -1,10 +1,13 @@
 import { Button, Dialog } from '../../ui'
 
 export type DeleteTarget = {
-  kind: 'collection' | 'folder' | 'request'
+  kind: 'collection' | 'folder' | 'request' | 'environment'
   id: string
-  collectionId: string
+  /** Unused for environments. */
+  collectionId?: string
   name: string
+  /** Environments only: the one requests currently use. */
+  active?: boolean
 }
 
 type Props = {
@@ -16,9 +19,11 @@ type Props = {
 export function ConfirmDeleteDialog({ target, onCancel, onConfirm }: Props): React.JSX.Element {
   // Keep the last target while the dialog animates out / for stable copy.
   const description =
-    target && target.kind !== 'request'
-      ? "This can't be undone. Everything inside it will be deleted too."
-      : "This can't be undone."
+    target?.kind === 'environment'
+      ? `This can't be undone.${target.active ? ' Requests will stop using its variables.' : ''}`
+      : target && target.kind !== 'request'
+        ? "This can't be undone. Everything inside it will be deleted too."
+        : "This can't be undone."
   return (
     <Dialog
       open={target !== null}

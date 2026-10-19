@@ -267,6 +267,42 @@ describe('shell', () => {
     expect(store.getState().navigatorCollapsed).toBe(false)
   })
 
+  it('switches panels from the rail and toggles collapse on the current view', async () => {
+    const { store } = shell()
+    const user = userEvent.setup()
+    const rail = screen.getByRole('navigation', { name: 'Sidebar' })
+    const cols = within(rail).getByRole('button', { name: 'Collections' })
+    const envs = within(rail).getByRole('button', { name: 'Environments' })
+    expect(cols).toHaveAttribute('aria-pressed', 'true')
+    expect(envs).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(envs)
+    expect(screen.getByRole('complementary', { name: 'Environments' })).toBeInTheDocument()
+    expect(screen.queryByRole('complementary', { name: 'Collections' })).toBeNull()
+    expect(cols).toHaveAttribute('aria-pressed', 'false')
+    expect(envs).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(envs)
+    expect(store.getState().navigatorCollapsed).toBe(true)
+    expect(envs).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByRole('complementary', { name: 'Environments' })).toBeNull()
+
+    // Cmd+B only toggles collapse; the view is kept.
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', metaKey: true }))
+    })
+    expect(store.getState().ui.navigatorView).toBe('environments')
+    expect(screen.getByRole('complementary', { name: 'Environments' })).toBeInTheDocument()
+
+    // Collapsed, then the other item: switches view and expands.
+    await user.click(envs)
+    expect(store.getState().navigatorCollapsed).toBe(true)
+    await user.click(cols)
+    expect(store.getState().navigatorCollapsed).toBe(false)
+    expect(screen.getByRole('complementary', { name: 'Collections' })).toBeInTheDocument()
+    expect(cols).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('shows Loading until init finishes, then the empty state', async () => {
     const { store } = shell()
     expect(screen.getByText('Loading…')).toBeInTheDocument()
