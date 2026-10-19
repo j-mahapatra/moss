@@ -16,3 +16,8 @@
 .request-pane .moss-tabs__panel {
   padding-top: var(--moss-space-3);
 }
+
+/* Send and Cancel share one width so the bar does not shift when a request starts. */
+.request-pane__send {
+  min-width: 5.5rem;
+}

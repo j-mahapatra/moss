@@ -7,6 +7,8 @@ import { defaultViewMode, mediaType, pickBodyView, type ViewMode } from '../../.
 import { formatBytes } from '../../../shared/format'
 import type { HttpResponse } from '../../../shared/types'
 import { Button } from '../../ui'
+import { errorMessage } from '../../state/slices/ctx'
+import { useWorkspaceStore } from '../../state/workspace-hooks'
 import { CodeEditor } from '../requests/CodeEditor'
 
 type Decoded = { bytes: Uint8Array; text: string }
@@ -45,9 +47,10 @@ export function BodyView({ response }: { response: HttpResponse }): React.JSX.El
   const type = mediaType(contentTypeOf(response))
   const kind = useMemo(() => pickBodyView(type, bytes), [type, bytes])
   const [choice, setChoice] = useState<{ for: HttpResponse; mode: ViewMode } | null>(null)
-  const [copied, setCopied] = useState(false)
-  const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  useEffect(() => () => clearTimeout(copyTimer.current), [])
+  const store = useWorkspaceStore()
+  const [flash, setFlash] = useState<'copied' | 'saved' | null>(null)
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => () => clearTimeout(flashTimer.current), [])
 
   const requested: ViewMode =
     choice?.for === response ? choice.mode : defaultViewMode(response.size)
@@ -75,18 +78,28 @@ export function BodyView({ response }: { response: HttpResponse }): React.JSX.El
     return ext
   }, [kind, mode, type])
 
+  const showFlash = (which: 'copied' | 'saved'): void => {
+    setFlash(which)
+    clearTimeout(flashTimer.current)
+    flashTimer.current = setTimeout(() => setFlash(null), 1500)
+  }
   const copy = (): void => {
-    void navigator.clipboard.writeText(shown).then(() => {
-      setCopied(true)
-      clearTimeout(copyTimer.current)
-      copyTimer.current = setTimeout(() => setCopied(false), 1500)
-    })
+    navigator.clipboard.writeText(shown).then(
+      () => showFlash('copied'),
+      () => store.getState().reportError("Couldn't copy the response")
+    )
   }
   const save = (): void => {
-    void window.api['response:save']({
+    window.api['response:save']({
       bodyBase64: response.bodyBase64,
       suggestedName: `response${extensionFor(type, kind)}`
-    })
+    }).then(
+      (saved) => {
+        if (saved) showFlash('saved')
+      },
+      (err: unknown) =>
+        store.getState().reportError(`Couldn't save the response: ${errorMessage(err)}`)
+    )
   }
 
   return (
@@ -114,11 +127,11 @@ export function BodyView({ response }: { response: HttpResponse }): React.JSX.El
         <span className="response-body__spacer" />
         {kind !== 'binary' ? (
           <Button variant="ghost" size="sm" onClick={copy}>
-            {copied ? 'Copied' : 'Copy'}
+            {flash === 'copied' ? 'Copied' : 'Copy'}
           </Button>
         ) : null}
         <Button variant="ghost" size="sm" onClick={save}>
-          Save
+          {flash === 'saved' ? 'Saved' : 'Save'}
         </Button>
       </div>
       {kind === 'image' ? (

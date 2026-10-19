@@ -184,6 +184,47 @@ describe('ResponsePane', () => {
     expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
   })
 
+  it('raises a danger notice when copying fails', async () => {
+    const user = userEvent.setup()
+    const { store } = mount({ ok: true, response: response() })
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
+    await user.click(screen.getByRole('button', { name: 'Copy' }))
+    await vi.waitFor(() =>
+      expect(store.getState().notices).toContainEqual(
+        expect.objectContaining({ tone: 'danger', message: "Couldn't copy the response" })
+      )
+    )
+  })
+
+  it('raises a danger notice when saving is rejected', async () => {
+    const user = userEvent.setup()
+    save.mockRejectedValueOnce(new Error('disk full'))
+    const { store } = mount({ ok: true, response: response() })
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await vi.waitFor(() =>
+      expect(store.getState().notices).toContainEqual(
+        expect.objectContaining({
+          tone: 'danger',
+          message: "Couldn't save the response: disk full"
+        })
+      )
+    )
+  })
+
+  it('shows Saved for 1.5 s after a successful save', async () => {
+    const user = userEvent.setup()
+    save.mockResolvedValueOnce(true)
+    mount({ ok: true, response: response() })
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('button', { name: 'Saved' })).toBeInTheDocument()
+    await vi.waitFor(
+      () => expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument(),
+      {
+        timeout: 2500
+      }
+    )
+  })
+
   it('saves JSON as response.json', async () => {
     const user = userEvent.setup()
     mount({ ok: true, response: response() })

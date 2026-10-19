@@ -121,6 +121,8 @@ export type WorkspaceState = {
   /** Saves pending settings now (used on unload); resolves when the in-flight save settles. */
   flushSettings(): Promise<void>
   dismissNotice(id: string): void
+  /** Raises a danger notice. */
+  reportError(message: string): void
   toggleNavigator(): void
   /** Shows a navigator panel and expands the column if it was collapsed. */
   showPanel(view: NavigatorView): void

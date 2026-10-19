@@ -5,7 +5,7 @@ export type AddNotice = (tone: Notice['tone'], message: string) => void
 
 export function createNotices({ set }: SliceCtx): {
   addNotice: AddNotice
-  slice: Pick<WorkspaceState, 'notices' | 'dismissNotice'>
+  slice: Pick<WorkspaceState, 'notices' | 'dismissNotice' | 'reportError'>
 } {
   const addNotice: AddNotice = (tone, message) =>
     set((s) =>
@@ -17,6 +17,7 @@ export function createNotices({ set }: SliceCtx): {
     addNotice,
     slice: {
       notices: [],
+      reportError: (message) => addNotice('danger', message),
       dismissNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) }))
     }
   }

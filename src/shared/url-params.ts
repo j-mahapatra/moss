@@ -47,12 +47,28 @@ export function encode(text: string): string {
   return out + encodeURIComponent(text.slice(at))
 }
 
-/** Rebuilds the query from enabled rows only; keeps the base and the `#fragment`. */
+/**
+ * Rebuilds the query from enabled rows only; keeps the base and the `#fragment`. A row that still
+ * matches (going forward) a raw `&` part of the existing query keeps that part's text verbatim, so
+ * unedited params are not re-encoded (`a+b` stays `a+b`).
+ */
 export function applyParams(url: string, params: KeyValue[]): string {
-  const { base, fragment } = splitUrl(url)
+  const { base, query: oldQuery, fragment } = splitUrl(url)
+  const raw = (oldQuery ?? '').split('&').filter((part) => part !== '')
+  const parsed = raw.map((part) => parseQuery(`?${part}`)[0])
+  let cursor = 0
   const query = params
     .filter((p) => p.enabled && (p.key !== '' || p.value !== ''))
-    .map((p) => `${encode(p.key)}=${encode(p.value)}`)
+    .map((p) => {
+      for (let i = cursor; i < raw.length; i++) {
+        const old = parsed[i]
+        if (old && old.key === p.key && old.value === p.value) {
+          cursor = i + 1
+          return raw[i] as string
+        }
+      }
+      return `${encode(p.key)}=${encode(p.value)}`
+    })
     .join('&')
   return `${base}${query ? `?${query}` : ''}${fragment}`
 }

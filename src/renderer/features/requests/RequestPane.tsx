@@ -45,15 +45,13 @@ export function RequestPane(): React.JSX.Element {
           onSubmit={submit}
           onPasteCurl={pasteCurl}
         />
-        {inFlight ? (
-          <Button variant="danger" onClick={() => store.getState().cancel()}>
-            Cancel
-          </Button>
-        ) : (
-          <Button variant="primary" onClick={submit}>
-            Send
-          </Button>
-        )}
+        <Button
+          variant={inFlight ? 'danger' : 'primary'}
+          className="request-pane__send"
+          onClick={inFlight ? () => store.getState().cancel() : submit}
+        >
+          {inFlight ? 'Cancel' : 'Send'}
+        </Button>
       </div>
       <Tabs
         value={tab}

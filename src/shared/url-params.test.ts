@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { KeyValue } from './types'
 import { applyParams, parseQuery } from './url-params'
 
 describe('parseQuery', () => {
@@ -39,5 +40,31 @@ describe('applyParams', () => {
   it('round trips', () => {
     const u = 'https://a.io/p?x=1&y=2'
     expect(applyParams(u, parseQuery(u))).toBe(u)
+  })
+  describe('preserving raw text', () => {
+    const row = (key: string, value: string, enabled = true): KeyValue => ({ key, value, enabled })
+    it('keeps unedited rows verbatim and re-encodes only the changed one', () => {
+      expect(
+        applyParams('https://x?q=a+b&c=%2C&v={{v}}', [
+          row('q', 'a+b'),
+          row('c', 'd'),
+          row('v', '{{v}}')
+        ])
+      ).toBe('https://x?q=a+b&c=d&v={{v}}')
+    })
+    it('encodes only a newly added row', () => {
+      expect(applyParams('x?q=a+b', [row('q', 'a+b'), row('n', 'x y')])).toBe('x?q=a+b&n=x%20y')
+    })
+    it('keeps remaining raw text when the first row is removed', () => {
+      expect(applyParams('x?q=a+b&c=%2C', [row('c', ',')])).toBe('x?c=%2C')
+    })
+    it('re-encodes only the row that no longer matches going forward after a reorder', () => {
+      expect(applyParams('x?a=1+2&b=3+4', [row('b', '3+4'), row('a', '1+2')])).toBe(
+        'x?b=3+4&a=1%2B2'
+      )
+    })
+    it('drops a disabled row', () => {
+      expect(applyParams('x?a=1+2&b=3', [row('a', '1+2', false), row('b', '3')])).toBe('x?b=3')
+    })
   })
 })
