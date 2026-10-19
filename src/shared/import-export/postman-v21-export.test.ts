@@ -5,14 +5,22 @@ import { describe, expect, it } from 'vitest'
 import { newCollection, newFolder, toItem } from '../collection-tree'
 import { newRequestSpec } from '../types'
 import type { Collection, FormField, Item, RequestAuth, RequestBody, RequestItem } from '../types'
-import { exportFileName, exportPostmanV21 } from './postman-v21-export'
+import { countLeftOut, exportFileName, exportPostmanV21 } from './postman-v21-export'
 import { importPostmanV21 } from './postman-v21'
 import { withoutIds } from './test-helpers'
 
 const schema: object = JSON.parse(
   readFileSync(join(__dirname, '__fixtures__/postman-collection-v2.1.0.schema.json'), 'utf8')
 )
-const validate = new Ajv({ strict: false }).compile(schema)
+// The vendored v2.1 schema's variable `type` enum predates Postman's own `secret` type, which the
+// export emits; the validator allows it and nothing else is relaxed.
+const withSecretType = JSON.parse(
+  JSON.stringify(schema).replace(
+    '"enum":["string","boolean","any","number"]',
+    '"enum":["string","boolean","any","number","secret"]'
+  )
+) as object
+const validate = new Ajv({ strict: false }).compile(withSecretType)
 
 function req(name: string, patch: Partial<RequestItem> = {}): RequestItem {
   return { ...toItem(newRequestSpec()), name, ...patch }
@@ -57,6 +65,24 @@ for (let i = 5; i >= 1; i--) {
 const combos: Item[] = bodies.flatMap((body, i) =>
   auths.map((auth, j) => req(`b${i} a${j}`, { method: 'POST', body, auth }))
 )
+
+/** The documented round-trip exception: secret values and credentials do not survive export. */
+const withoutSecrets = (c: Collection): Collection => {
+  const strip = (i: Item): Item => {
+    if (i.kind === 'folder') return { ...i, items: i.items.map(strip) }
+    const a = i.auth
+    return {
+      ...i,
+      auth:
+        a.type === 'bearer' ? { ...a, token: '' } : a.type === 'basic' ? { ...a, password: '' } : a
+    }
+  }
+  return {
+    ...c,
+    items: c.items.map(strip),
+    variables: c.variables.map((v) => (v.secret ? { ...v, value: '' } : v))
+  }
+}
 
 const cases: [string, Collection][] = [
   ['empty', newCollection('Empty')],
@@ -108,6 +134,23 @@ const cases: [string, Collection][] = [
       })
     ])
   ],
+  [
+    'secret variables and credentials',
+    {
+      ...withItems('Sec', [
+        req('r', { auth: { type: 'bearer', token: 'TOKEN-1' } }),
+        {
+          ...newFolder('f'),
+          items: [req('b', { auth: { type: 'basic', username: 'u', password: 'PW-1' } })]
+        }
+      ]),
+      variables: [
+        { key: 's', value: 'SECRET-1', enabled: true, secret: true },
+        { key: 'off', value: 'SECRET-2', enabled: false, secret: true },
+        { key: 'plain', value: 'visible', enabled: true }
+      ]
+    }
+  ],
   ['unicode name', withItems('Café ☕ API', [req('Crème ☕', { url: 'https://e.com/ü' })])]
 ]
 
@@ -122,7 +165,7 @@ describe('exportPostmanV21', () => {
   it.each(cases)('round-trips through the importer: %s', (_n, c) => {
     const r = importPostmanV21(JSON.parse(JSON.stringify(exportPostmanV21(c))))
     if (!r.ok) throw new Error(r.error)
-    expect(withoutIds(r.collection)).toEqual(withoutIds(c))
+    expect(withoutIds(r.collection)).toEqual(withoutIds(withoutSecrets(c)))
     const files = JSON.stringify(c).split('"kind":"file"').length - 1
     expect(r.report.length).toBe(files)
     for (const n of r.report) expect(n.message).toMatch(/File for form field/)
@@ -264,5 +307,68 @@ describe('exportFileName', () => {
     expect(exportFileName({ name: 'Café ☕ API' } as Collection)).toBe(
       'Caf-API.postman_collection.json'
     )
+  })
+})
+
+describe('secrets', () => {
+  const planted: Collection = {
+    ...withItems('Sec', [
+      req('r', { auth: { type: 'bearer', token: 'TOKEN-1' } }),
+      {
+        ...newFolder('f'),
+        items: [
+          {
+            ...newFolder('g'),
+            items: [req('b', { auth: { type: 'basic', username: 'alice', password: 'PW-1' } })]
+          }
+        ]
+      }
+    ]),
+    variables: [
+      { key: 's', value: 'SECRET-1', enabled: true, secret: true },
+      { key: 'off', value: 'SECRET-2', enabled: false, secret: true },
+      { key: 'empty', value: '', enabled: true, secret: true },
+      { key: 'plain', value: 'visible', enabled: true }
+    ]
+  }
+
+  it('never contains a planted secret or credential', () => {
+    const text = JSON.stringify(exportPostmanV21(planted))
+    for (const s of ['SECRET-1', 'SECRET-2', 'TOKEN-1', 'PW-1']) expect(text).not.toContain(s)
+    expect(text).toContain('alice')
+    expect(text).toContain('visible')
+  })
+
+  it('writes secret variables as empty type secret, keeping disabled', () => {
+    expect(exportPostmanV21(planted).variable).toEqual([
+      { key: 's', value: '', type: 'secret' },
+      { key: 'off', value: '', type: 'secret', disabled: true },
+      { key: 'empty', value: '', type: 'secret' },
+      { key: 'plain', value: 'visible' }
+    ])
+  })
+
+  it('blanks credentials but keeps type and username', () => {
+    const out = exportPostmanV21(planted)
+    expect(JSON.stringify(out.item[0])).toContain('"token","value":""')
+    expect(JSON.stringify(out.item[1])).toContain('"username","value":"alice"')
+  })
+
+  it('countLeftOut counts non-empty secret values and credentials at any depth', () => {
+    expect(countLeftOut(planted)).toBe(4)
+    expect(countLeftOut(newCollection('x'))).toBe(0)
+    expect(
+      countLeftOut({
+        ...withItems('e', [req('r', { auth: { type: 'bearer', token: '' } })]),
+        variables: [{ key: 'p', value: 'x', enabled: true }]
+      })
+    ).toBe(0)
+  })
+
+  it('imports type secret as a secret variable', () => {
+    const r = importPostmanV21(JSON.parse(JSON.stringify(exportPostmanV21(planted))))
+    if (!r.ok) throw new Error(r.error)
+    expect(r.collection.variables.map((v) => v.secret === true)).toEqual([true, true, true, false])
+    expect(r.collection.variables[3]).not.toHaveProperty('secret')
   })
 })

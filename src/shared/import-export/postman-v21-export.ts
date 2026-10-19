@@ -1,4 +1,12 @@
-import type { Collection, FormField, Item, KeyValue, RequestAuth, RequestBody } from '../types'
+import type {
+  Collection,
+  FormField,
+  Item,
+  KeyValue,
+  RequestAuth,
+  RequestBody,
+  Variable
+} from '../types'
 import { encode, splitUrl } from '../url-params'
 import { LANGUAGE_TYPES } from './postman-v21-parts'
 
@@ -29,7 +37,7 @@ export type PostmanV21Item =
 export type PostmanV21Collection = {
   info: { _postman_id: string; name: string; schema: string }
   item: PostmanV21Item[]
-  variable?: Row[]
+  variable?: (Row & { type?: 'secret' })[]
 }
 
 /** Replaces unpaired surrogates with U+FFFD (`toWellFormed` where available), so encoding can't throw. */
@@ -48,6 +56,12 @@ export function wellFormed(text: string): string {
   }
   return out
 }
+
+/** A collection variable; a secret one keeps its key and state but never its value. */
+const variableRow = (v: Variable): Row & { type?: 'secret' } =>
+  v.secret
+    ? { key: v.key, value: '', type: 'secret', ...(v.enabled ? {} : { disabled: true as const }) }
+    : row(v)
 
 const row = (r: KeyValue): Row =>
   r.enabled ? { key: r.key, value: r.value } : { key: r.key, value: r.value, disabled: true }
@@ -112,13 +126,13 @@ function auth(a: RequestAuth): PostmanAuth {
     case 'none':
       return { type: 'noauth' }
     case 'bearer':
-      return { type: 'bearer', bearer: [{ key: 'token', value: a.token, type: 'string' }] }
+      return { type: 'bearer', bearer: [{ key: 'token', value: '', type: 'string' }] }
     case 'basic':
       return {
         type: 'basic',
         basic: [
           { key: 'username', value: a.username, type: 'string' },
-          { key: 'password', value: a.password, type: 'string' }
+          { key: 'password', value: '', type: 'string' }
         ]
       }
   }
@@ -144,7 +158,7 @@ export function exportPostmanV21(c: Collection): PostmanV21Collection {
   return {
     info: { _postman_id: c.id, name: c.name, schema: POSTMAN_V21_SCHEMA },
     item: c.items.map(item),
-    ...(c.variables.length > 0 ? { variable: c.variables.map(row) } : {})
+    ...(c.variables.length > 0 ? { variable: c.variables.map(variableRow) } : {})
   }
 }
 
@@ -152,4 +166,19 @@ export function exportPostmanV21(c: Collection): PostmanV21Collection {
 export function exportFileName(c: Pick<Collection, 'name'>): string {
   const base = c.name.replace(/[^A-Za-z0-9_.-]+/g, '-').replace(/^[-\s]+|[-\s]+$/g, '')
   return `${base || 'collection'}.postman_collection.json`
+}
+
+function itemsLeftOut(items: Item[]): number {
+  let n = 0
+  for (const i of items) {
+    if (i.kind === 'folder') n += itemsLeftOut(i.items)
+    else if (i.auth.type === 'bearer' && i.auth.token !== '') n++
+    else if (i.auth.type === 'basic' && i.auth.password !== '') n++
+  }
+  return n
+}
+
+/** How many non-empty secret variable values and credentials `exportPostmanV21` blanks. */
+export function countLeftOut(c: Collection): number {
+  return c.variables.filter((v) => v.secret && v.value !== '').length + itemsLeftOut(c.items)
 }

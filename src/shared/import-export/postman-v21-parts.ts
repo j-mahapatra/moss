@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { FormField, KeyValue, RequestAuth, RequestBody } from '../types'
+import type { FormField, KeyValue, RequestAuth, RequestBody, Variable } from '../types'
 
 // Lenient read schemas: every field optional and untyped, unknown keys kept. They only check
 // "is this a plain object"; the mappers below coerce each field and report unusable structures.
@@ -91,6 +91,17 @@ export function keyValues(x: unknown, what: string, add: Notes): KeyValue[] {
     return []
   }
   return rows.map(toKv)
+}
+
+/** Collection variables: rows as key/values; `type: 'secret'` marks the variable secret. */
+export function variableList(x: unknown, add: Notes): Variable[] {
+  if (x === undefined || x === null) return []
+  const rows = rowList(x, 'collection variables', add)
+  if (!rows) {
+    add('Collection variables could not be read')
+    return []
+  }
+  return rows.map((r) => (r.type === 'secret' ? { ...toKv(r), secret: true } : toKv(r)))
 }
 
 /** Headers as an array of rows or a string of `Key: value` lines. */

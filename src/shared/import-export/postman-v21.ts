@@ -12,7 +12,8 @@ import {
   mapBody,
   nonEmpty,
   obj,
-  str
+  str,
+  variableList
 } from './postman-v21-parts'
 import type { Notes } from './postman-v21-parts'
 import { note } from './report'
@@ -224,7 +225,7 @@ function convert(json: unknown): CollectionImportResult {
   if (nonEmpty(info['description'])) add('Description was not imported')
   if (hasAuth(root['auth'])) add('Collection auth was not imported')
   if (hasScripts(root['event'])) add('Collection scripts were not imported')
-  collection.variables = keyValues(root['variable'], 'collection variables', add)
+  collection.variables = variableList(root['variable'], add)
 
   const items = root['item']
   if (Array.isArray(items)) collection.items = mapItems(items, '', 0, report)

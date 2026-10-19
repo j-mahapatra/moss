@@ -1,6 +1,10 @@
 import { parseCurl } from '../../../shared/import-export/curl'
 import { parseImport } from '../../../shared/import-export/detect'
-import { exportFileName, exportPostmanV21 } from '../../../shared/import-export/postman-v21-export'
+import {
+  countLeftOut,
+  exportFileName,
+  exportPostmanV21
+} from '../../../shared/import-export/postman-v21-export'
 import type { ImportReport } from '../../../shared/import-export/report'
 import type { Collection } from '../../../shared/types'
 import type { WorkspaceApi, WorkspaceState } from '../workspace'
@@ -62,7 +66,10 @@ export function createImportExport(
           suggestedName: exportFileName(c),
           text: JSON.stringify(exportPostmanV21(c), null, 2)
         })
-        return saved ? 'saved' : 'cancelled'
+        if (!saved) return 'cancelled'
+        const left = countLeftOut(c)
+        if (left > 0) addNotice('warning', `Secret values were left out of the export (${left}).`)
+        return 'saved'
       } catch (err) {
         addNotice('danger', `Couldn't export "${c.name}": ${errorMessage(err)}`)
         return 'failed'

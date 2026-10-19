@@ -177,6 +177,20 @@ describe('exportCollection', () => {
     expect(JSON.parse(input?.text ?? '')).toEqual(exportPostmanV21(col))
   })
 
+  it('warns with only a count when secrets were left out', async () => {
+    const withSecret: Collection = {
+      ...col,
+      variables: [{ key: 'k', value: 'HUNTER2', enabled: true, secret: true }]
+    }
+    const { api, store } = setup({ cols: [withSecret] })
+    await store.getState().init()
+    expect(await store.getState().exportCollection(col.id)).toBe('saved')
+    expect(messages(store.getState())).toEqual([
+      ['warning', 'Secret values were left out of the export (1).']
+    ])
+    expect(api['export:save-file'].mock.calls[0]?.[0].text).not.toContain('HUNTER2')
+  })
+
   it('a cancelled dialog gives cancelled', async () => {
     const { api, store } = setup({ cols: [col] })
     await store.getState().init()
