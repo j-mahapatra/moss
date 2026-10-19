@@ -56,6 +56,13 @@
 .env-popover__actions {
   display: flex;
   justify-content: flex-end;
+  gap: var(--moss-space-2);
+}
+
+.env-popover__hint {
+  margin: 0;
+  color: var(--moss-text-muted);
+  font-size: var(--moss-text-xs);
 }
 
 .env-popover__footer {

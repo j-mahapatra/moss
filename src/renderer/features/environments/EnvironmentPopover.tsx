@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { deepEqual } from '../../../shared/equal'
 import type { Environment, KeyValue } from '../../../shared/types'
 import { selectActiveEnvironment } from '../../state/selectors'
@@ -12,23 +12,48 @@ import './EnvironmentPopover.css'
  * store changes from elsewhere show through while the copy is clean. The parent keys this by
  * environment id, which discards the copy when the active environment changes.
  */
-function VariablesEditor({ env }: { env: Environment }): React.JSX.Element {
+function VariablesEditor({
+  env,
+  onDirtyChange
+}: {
+  env: Environment
+  onDirtyChange(dirty: boolean): void
+}): React.JSX.Element {
   const updateEnvironment = useWorkspace((s) => s.updateEnvironment)
   const [edits, setEdits] = useState<KeyValue[] | null>(null)
   const rows = edits ?? env.variables
   const dirty = edits !== null && !deepEqual(edits, env.variables)
 
+  // Report dirtiness upward so the popover can refuse to dismiss; clear it on unmount.
+  useEffect(() => {
+    onDirtyChange(dirty)
+    return () => onDirtyChange(false)
+  }, [dirty, onDirtyChange])
+
   const save = async (): Promise<void> => {
     if (edits === null) return
     const variables = edits
-    if (await updateEnvironment(env.id, (e) => ({ ...e, variables }))) setEdits(null)
+    if (await updateEnvironment(env.id, (e) => ({ ...e, variables }))) {
+      // Rows typed while the save was in flight stay as unsaved edits.
+      setEdits((cur) => (cur === variables ? null : cur))
+    }
   }
 
   return (
     <section className="env-popover__section" aria-label="Variables">
       <h3 className="env-popover__heading">Variables</h3>
       <KeyValueGrid rows={rows} onChange={setEdits} />
+      {dirty && (
+        <p role="status" className="env-popover__hint">
+          Save or discard your changes
+        </p>
+      )}
       <div className="env-popover__actions">
+        {dirty && (
+          <Button variant="ghost" size="sm" onClick={() => setEdits(null)}>
+            Discard changes
+          </Button>
+        )}
         <Button variant="primary" size="sm" disabled={!dirty} onClick={() => void save()}>
           Save
         </Button>
@@ -37,7 +62,21 @@ function VariablesEditor({ env }: { env: Environment }): React.JSX.Element {
   )
 }
 
-export function EnvironmentPopover({ onClose }: { onClose(): void }): React.JSX.Element {
+export function EnvironmentPopover({
+  onClose,
+  onDirtyChange
+}: {
+  onClose(): void
+  onDirtyChange?(dirty: boolean): void
+}): React.JSX.Element {
+  const [dirty, setDirty] = useState(false)
+  const reportDirty = useCallback(
+    (d: boolean): void => {
+      setDirty(d)
+      onDirtyChange?.(d)
+    },
+    [onDirtyChange]
+  )
   const environments = useWorkspace((s) => s.environments)
   const active = useWorkspace(selectActiveEnvironment)
   const setActiveEnvironment = useWorkspace((s) => s.setActiveEnvironment)
@@ -84,12 +123,13 @@ export function EnvironmentPopover({ onClose }: { onClose(): void }): React.JSX.
         </div>
       )}
 
-      {active && <VariablesEditor key={active.id} env={active} />}
+      {active && <VariablesEditor key={active.id} env={active} onDirtyChange={reportDirty} />}
 
       <div className="env-popover__footer">
         <Button
           variant="ghost"
           size="sm"
+          disabled={dirty}
           onClick={() => {
             onClose()
             showPanel('environments')

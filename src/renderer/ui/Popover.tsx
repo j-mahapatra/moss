@@ -9,6 +9,8 @@ export type PopoverProps = {
   'aria-label': string
   children: ReactNode
   align?: 'start' | 'end'
+  /** When true, Esc, outside clicks and focus leaving do not dismiss it. */
+  preventDismiss?: boolean
 }
 
 export function Popover({
@@ -17,7 +19,8 @@ export function Popover({
   onOpenChange,
   'aria-label': ariaLabel,
   children,
-  align = 'start'
+  align = 'start',
+  preventDismiss = false
 }: PopoverProps): React.JSX.Element {
   return (
     <RPopover.Root
@@ -31,6 +34,12 @@ export function Popover({
           aria-label={ariaLabel}
           align={align}
           sideOffset={6}
+          onEscapeKeyDown={(e) => {
+            if (preventDismiss) e.preventDefault()
+          }}
+          onInteractOutside={(e) => {
+            if (preventDismiss) e.preventDefault()
+          }}
         >
           {children}
         </RPopover.Content>

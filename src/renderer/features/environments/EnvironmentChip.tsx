@@ -9,12 +9,14 @@ import './EnvironmentChip.css'
 export function EnvironmentChip(): React.JSX.Element {
   const active = useWorkspace(selectActiveEnvironment)
   const [open, setOpen] = useState(false)
+  const [dirty, setDirty] = useState(false)
   return (
     <Popover
       aria-label="Environments"
       align="end"
       open={open}
       onOpenChange={setOpen}
+      preventDismiss={dirty}
       trigger={
         <button
           type="button"
@@ -29,7 +31,7 @@ export function EnvironmentChip(): React.JSX.Element {
         </button>
       }
     >
-      <EnvironmentPopover onClose={() => setOpen(false)} />
+      <EnvironmentPopover onClose={() => setOpen(false)} onDirtyChange={setDirty} />
     </Popover>
   )
 }

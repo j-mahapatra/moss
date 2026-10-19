@@ -152,4 +152,47 @@ describe('EnvironmentChip', () => {
     expect(store.getState().navigatorCollapsed).toBe(false)
     expect(screen.queryByRole('dialog', { name: 'Environments' })).not.toBeInTheDocument()
   })
+
+  it('blocks Esc while variables are dirty, then Discard lets Esc close', async () => {
+    const a = env('a', [{ key: 'k', value: '1', enabled: true }])
+    const { user } = await setup([a], a.id)
+    const dialog = await openPopover(user, /Environment: a/)
+    await user.type(within(dialog).getByLabelText('Value 1'), 'x')
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Save or discard your changes')
+    expect(within(dialog).getByRole('button', { name: 'Manage environments' })).toBeDisabled()
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('dialog', { name: 'Environments' })).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Discard changes' }))
+    expect(within(dialog).getByLabelText('Value 1')).toHaveValue('1')
+    expect(within(dialog).queryByRole('status')).toBeNull()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Environments' })).toBeNull()
+  })
+
+  it('blocks outside clicks while dirty', async () => {
+    const a = env('a', [{ key: 'k', value: '1', enabled: true }])
+    const { user } = await setup([a], a.id)
+    const dialog = await openPopover(user, /Environment: a/)
+    await user.type(within(dialog).getByLabelText('Value 1'), 'x')
+    await user.click(document.body)
+    expect(screen.getByRole('dialog', { name: 'Environments' })).toBeInTheDocument()
+  })
+
+  it('keeps rows typed while a save is in flight', async () => {
+    const a = env('a', [{ key: 'k', value: '1', enabled: true }])
+    const { user, api } = await setup([a], a.id)
+    let release!: () => void
+    ;(api['environments:save'] as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      () => new Promise<void>((r) => (release = r))
+    )
+    const dialog = await openPopover(user, /Environment: a/)
+    const value = within(dialog).getByLabelText('Value 1')
+    await user.type(value, 'x')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await user.type(value, 'y')
+    release()
+    await waitFor(() => expect(api['environments:save']).toHaveBeenCalledTimes(1))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(within(dialog).getByLabelText('Value 1')).toHaveValue('1xy')
+  })
 })
