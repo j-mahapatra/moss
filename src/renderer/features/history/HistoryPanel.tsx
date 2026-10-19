@@ -9,6 +9,7 @@ import './HistoryPanel.css'
 
 export function HistoryPanel(): React.JSX.Element {
   const history = useWorkspace((s) => s.history)
+  const loaded = useWorkspace((s) => s.loaded)
   const openEntry = useWorkspace((s) => s.openHistoryEntry)
   const remove = useWorkspace((s) => s.deleteHistoryEntry)
   const clear = useWorkspace((s) => s.clearHistory)
@@ -18,6 +19,7 @@ export function HistoryPanel(): React.JSX.Element {
   const [query, setQuery] = useState('')
   const [menuId, setMenuId] = useState<string | null>(null)
   const [confirmClear, setConfirmClear] = useState(false)
+  const cleared = useRef(false)
   const listRef = useRef<HTMLDivElement>(null)
   const filterRef = useRef<HTMLInputElement>(null)
 
@@ -53,7 +55,9 @@ export function HistoryPanel(): React.JSX.Element {
 
   const confirmClearHistory = (): void => {
     void clear().then((ok) => {
-      if (ok) setConfirmClear(false)
+      if (!ok) return
+      cleared.current = true
+      setConfirmClear(false)
     })
   }
 
@@ -79,7 +83,9 @@ export function HistoryPanel(): React.JSX.Element {
         />
       </div>
       <div className="navigator__body">
-        {history.length === 0 ? (
+        {!loaded ? (
+          <p className="navigator__quiet">Loading…</p>
+        ) : history.length === 0 ? (
           <p className="navigator__quiet">No requests yet</p>
         ) : filtered.length === 0 ? (
           <p className="navigator__quiet">No matches</p>
@@ -107,6 +113,13 @@ export function HistoryPanel(): React.JSX.Element {
       <Dialog
         open={confirmClear}
         onOpenChange={setConfirmClear}
+        onCloseAutoFocus={(e) => {
+          // The Clear button is disabled once history is empty, so focus the filter instead.
+          if (!cleared.current) return
+          cleared.current = false
+          e.preventDefault()
+          filterRef.current?.focus()
+        }}
         title="Clear history?"
         description="This removes every entry. It can't be undone."
         footer={

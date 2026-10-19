@@ -88,6 +88,19 @@ describe('HistoryRepo basics', () => {
     expect(await readFile(file(), 'utf8')).toBe(lines([entry(2)]))
   })
 
+  it('clear succeeds without reading the file, even when the read would fail', async () => {
+    await writeFile(file(), lines([entry(1)]))
+    const repo = new HistoryRepo(dir, new WriteQueue(), {
+      ...real,
+      readFile: async () => {
+        throw Object.assign(new Error('denied'), { code: 'EACCES' })
+      }
+    })
+    await repo.clear()
+    expect(await readFile(file(), 'utf8')).toBe('')
+    expect(await readdir(dir)).toEqual(['history.jsonl'])
+  })
+
   it('does not update the cache when a delete write fails', async () => {
     const repo0 = new HistoryRepo(dir, new WriteQueue())
     await repo0.append(entry(1))

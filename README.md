@@ -54,9 +54,11 @@ you wouldn't keep in a regular file.
 ## History
 
 Every request you send is recorded, whether it succeeds, fails or is
-cancelled. An entry holds the request as you wrote it (with `{{variables}}`
-left unresolved, so secrets from an environment are never written to disk),
-the status and how long it took. Response bodies and headers are never stored.
+cancelled. An entry holds the request, the status and how long it took.
+History stores each request as you authored it: `{{variables}}` are never
+resolved into history, but anything typed directly into a request (a pasted
+token, a basic-auth password, a form-data file path) is stored as typed.
+Response bodies and headers are never stored.
 
 Open the History item in the left rail to browse entries grouped by day,
 filter them, click one to reopen it in the editor, save it to a collection, or
@@ -70,7 +72,7 @@ folder, in a single `history.jsonl` file with one JSON entry per line.
 ```
  +-----------------+   typed IPC    +-----------------+   messages   +------------------+
  |    renderer     | <------------> |      main       | <----------> |      runner      |
- | React, sandboxed|  (4 channels)  | validate, build |              | utilityProcess,  |
+ | React, sandboxed|  (15 channels) | validate, build |              | utilityProcess,  |
  | no Node access  |                | the request     |              | undici, HTTP I/O |
  +-----------------+                +-----------------+              +------------------+
 ```
@@ -83,7 +85,7 @@ folder, in a single `history.jsonl` file with one JSON entry per line.
 
 The renderer runs with context isolation and the sandbox on, and with Node
 integration off. It reaches the rest of the app only through a typed preload
-script that exposes twelve channels. Main validates every payload with zod before
+script that exposes fifteen channels. Main validates every payload with zod before
 acting on it. Network access happens in a separate utility process, never in
 the renderer.
 

@@ -1,9 +1,8 @@
-import { join } from 'path'
+import { dirname, join } from 'path'
 import { HISTORY_CAP } from '../../shared/history'
 import { HistoryEntrySchema } from '../../shared/schemas'
 import type { HistoryEntry } from '../../shared/types'
 import { atomicWriteText, defaultFs, type AtomicFs, type WriteQueue } from './atomic-write'
-import { dirname } from 'path'
 
 const encode = (entries: HistoryEntry[]): string =>
   entries.map((e) => JSON.stringify(e) + '\n').join('')
@@ -113,7 +112,6 @@ export class HistoryRepo {
 
   async clear(): Promise<void> {
     await this.queue.run(this.path, async () => {
-      await this.ensureLoaded()
       await atomicWriteText(this.path, '', this.fsImpl)
       this.cache = []
       this.lineCount = 0

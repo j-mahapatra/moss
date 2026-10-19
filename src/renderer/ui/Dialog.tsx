@@ -9,6 +9,8 @@ export type DialogProps = {
   description?: string
   children: ReactNode
   footer?: ReactNode
+  /** Runs when focus is about to return to the trigger; `preventDefault` to place it elsewhere. */
+  onCloseAutoFocus?(event: Event): void
 }
 
 export function Dialog({
@@ -17,7 +19,8 @@ export function Dialog({
   title,
   description,
   children,
-  footer
+  footer,
+  onCloseAutoFocus
 }: DialogProps): React.JSX.Element {
   return (
     <RDialog.Root open={open} onOpenChange={onOpenChange}>
@@ -25,6 +28,7 @@ export function Dialog({
         <RDialog.Overlay className="moss-dialog__overlay" />
         <RDialog.Content
           className="moss-dialog"
+          onCloseAutoFocus={onCloseAutoFocus}
           {...(description === undefined ? { 'aria-describedby': undefined } : {})}
         >
           <RDialog.Title className="moss-dialog__title">{title}</RDialog.Title>

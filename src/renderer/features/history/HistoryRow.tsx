@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { statusLabel, type StatusTone } from '../../../shared/history'
+import { statusLabel } from '../../../shared/history'
 import { formatDuration } from '../../../shared/format'
 import type { HistoryEntry } from '../../../shared/types'
-import type { BadgeTone } from '../../ui/Badge'
 import { Badge, IconButton, Menu } from '../../ui'
 import { MoreIcon } from '../shell/icons'
 
@@ -10,15 +9,6 @@ export type HistoryRowActions = {
   open(): void
   saveToCollection(): void
   remove(): void
-}
-
-const TONES: Record<StatusTone, BadgeTone> = {
-  '2xx': '2xx',
-  '3xx': '3xx',
-  '4xx': '4xx',
-  '5xx': '5xx',
-  neutral: 'neutral',
-  danger: 'danger'
 }
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
@@ -102,8 +92,13 @@ export function HistoryRow({
       }}
       onKeyDown={(e) => {
         if (e.target !== e.currentTarget || e.metaKey || e.ctrlKey) return
-        if (e.key === 'Enter') actions.open()
-        else if (e.key === 'Delete' || e.key === 'Backspace') actions.remove()
+        if (e.key === 'Enter') {
+          if (e.repeat) return
+          actions.open()
+        } else if (e.key === 'Delete' || e.key === 'Backspace') {
+          if (e.repeat) return
+          actions.remove()
+        }
         else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) onMenuOpenChange(true)
         else return
         e.preventDefault()
@@ -117,7 +112,7 @@ export function HistoryRow({
       ) : (
         <span className="history-row__url history-row__url--empty">(no URL)</span>
       )}
-      <Badge tone={TONES[status.tone]}>{status.text}</Badge>
+      <Badge tone={status.tone}>{status.text}</Badge>
       <span className="history-row__meta">{timeFormat.format(new Date(entry.at))}</span>
       <span className="history-row__meta">{formatDuration(entry.durationMs)}</span>
       <HistoryMenu

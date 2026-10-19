@@ -11,6 +11,8 @@ export type QuitApp = {
 /**
  * On the first `before-quit`, holds the quit until queued writes finish (or the timeout),
  * runs `onDrained`, then quits for real. Later `before-quit` events pass through.
+ * The quit is held at most twice (the before-quit drain, then the will-quit hold for late
+ * writes), each bounded by `timeoutMs`, so the total wait is at most 2 x `timeoutMs`.
  */
 export function installQuitDrain(
   app: QuitApp,
@@ -28,7 +30,6 @@ export function installQuitDrain(
     void (async () => {
       let timer: ReturnType<typeof setTimeout> | undefined
       try {
-        // One budget for both waits: the second race reuses the same timeout promise.
         const timeout = new Promise<void>((resolve) => {
           timer = setTimeout(resolve, timeoutMs)
         })
@@ -41,8 +42,6 @@ export function installQuitDrain(
             // quitting must proceed even if cleanup fails
           }
         }
-        // onDrained may enqueue work (e.g. history for sends cut short by dispose).
-        await Promise.race([queue.idle(), timeout])
       } finally {
         clearTimeout(timer)
         done = true

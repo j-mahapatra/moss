@@ -213,6 +213,21 @@ describe('HistoryPanel', () => {
     await waitFor(() => expect(screen.getByText('No requests yet')).toBeInTheDocument())
     expect(api['history:clear']).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(screen.queryByText('Clear history?')).toBeNull())
+    expect(screen.getByRole('textbox', { name: 'Filter history' })).toHaveFocus()
+  })
+
+  it('ignores auto-repeated Delete and Enter, but not the first press', async () => {
+    const { api, store } = await setup([entry('x', 'http://x'), entry('y', 'http://y')])
+    act(() => row(0).focus())
+    fireEvent.keyDown(row(0), { key: 'Delete', repeat: true })
+    fireEvent.keyDown(row(0), { key: 'Backspace', repeat: true })
+    expect(api['history:delete']).not.toHaveBeenCalled()
+    fireEvent.keyDown(row(0), { key: 'Enter', repeat: true })
+    expect(store.getState().draft.url).toBe('')
+    fireEvent.keyDown(row(0), { key: 'Enter' })
+    expect(store.getState().draft.url).toBe('http://x')
+    fireEvent.keyDown(row(0), { key: 'Delete' })
+    await waitFor(() => expect(api['history:delete']).toHaveBeenCalledTimes(1))
   })
 
   it('keeps the dialog open when clearing fails', async () => {
