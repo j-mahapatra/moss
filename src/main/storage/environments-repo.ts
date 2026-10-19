@@ -25,6 +25,7 @@ export class EnvironmentsRepo {
       codec: {
         available: () => codec.available(),
         seal: (doc) => codec.sealEnvironment(doc),
+        reseal: (doc) => codec.sealEnvironment(doc, { keepSealed: true }),
         open: (doc) => codec.openEnvironment(doc)
       }
     })

@@ -20,19 +20,29 @@ export type Cipher = {
  */
 export type Opened<T> = { value: T; failed: number; plaintext: boolean }
 
+/**
+ * `keepSealed` is for re-sealing a stored document (migration, rewrites): values already
+ * `enc:v1:` are left as they are. Without it every non-empty secret is sealed, since input from
+ * the renderer is always plaintext, even a value that happens to start with `enc:v1:`.
+ */
+export type SealOptions = { keepSealed?: boolean }
+
 export type SecretCodec = {
   available(): boolean
-  sealCollection(c: Collection): Collection
+  sealCollection(c: Collection, opts?: SealOptions): Collection
   openCollection(c: Collection): Opened<Collection>
-  sealEnvironment(e: Environment): Environment
+  sealEnvironment(e: Environment, opts?: SealOptions): Environment
   openEnvironment(e: Environment): Opened<Environment>
-  sealRequest(r: RequestSpec): RequestSpec
+  sealRequest(r: RequestSpec, opts?: SealOptions): RequestSpec
   openRequest(r: RequestSpec): Opened<RequestSpec>
 }
 
 export const SEALED_PREFIX = 'enc:v1:'
 
 export const UNENCRYPTED_WARNING = 'Secrets are stored unencrypted on this system.'
+
+/** Thrown when the cipher fails to seal; deliberately carries no detail about the value. */
+export const SEAL_FAILED = "Couldn't encrypt a secret value"
 
 export const decryptWarning = (n: number): string =>
   `Couldn't decrypt ${n} saved secret(s); enter them again.`
@@ -85,10 +95,19 @@ const mapEnvironment = (e: Environment, f: MapValue): Environment => ({
  * profile without secrets never reaches the keychain.
  */
 export function createSecretCodec(cipher: Cipher): SecretCodec {
-  const seal: MapValue = (v) => {
-    if (v === '' || v.startsWith(SEALED_PREFIX) || !cipher.available()) return v
-    return SEALED_PREFIX + cipher.encrypt(v).toString('base64')
-  }
+  const sealer =
+    (opts: SealOptions = {}): MapValue =>
+    (v) => {
+      if (v === '' || (opts.keepSealed === true && v.startsWith(SEALED_PREFIX))) return v
+      if (!cipher.available()) return v
+      let sealed: Buffer
+      try {
+        sealed = cipher.encrypt(v)
+      } catch {
+        throw new Error(SEAL_FAILED)
+      }
+      return SEALED_PREFIX + sealed.toString('base64')
+    }
 
   const opener =
     <T>(map: (x: T, f: MapValue) => T) =>
@@ -113,11 +132,11 @@ export function createSecretCodec(cipher: Cipher): SecretCodec {
 
   return {
     available: () => cipher.available(),
-    sealCollection: (c) => mapCollection(c, seal),
+    sealCollection: (c, opts) => mapCollection(c, sealer(opts)),
     openCollection: opener(mapCollection),
-    sealEnvironment: (e) => mapEnvironment(e, seal),
+    sealEnvironment: (e, opts) => mapEnvironment(e, sealer(opts)),
     openEnvironment: opener(mapEnvironment),
-    sealRequest: (r) => mapRequest(r, seal),
+    sealRequest: (r, opts) => mapRequest(r, sealer(opts)),
     openRequest: opener(mapRequest<RequestSpec>)
   }
 }

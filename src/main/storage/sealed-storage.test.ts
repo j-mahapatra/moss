@@ -16,7 +16,13 @@ import { HISTORY_CAP } from '../../shared/history'
 import type { Collection, Environment, HistoryEntry, RequestSpec } from '../../shared/types'
 import { newRequestSpec } from '../../shared/types'
 import { fakeCipher } from '../secrets/fake-cipher'
-import { SEALED_PREFIX, createSecretCodec, plainCodec } from '../secrets/secret-codec'
+import {
+  SEALED_PREFIX,
+  SEAL_FAILED,
+  createSecretCodec,
+  plainCodec,
+  type Cipher
+} from '../secrets/secret-codec'
 import { WriteQueue, type AtomicFs } from './atomic-write'
 import { CollectionsRepo } from './collections-repo'
 import { EnvironmentsRepo } from './environments-repo'
@@ -338,5 +344,105 @@ describe('sealed storage: availability and laziness', () => {
     await hist.list()
     await new HistoryRepo(dir, new WriteQueue(), undefined, undefined, codec).list()
     expect(cipher.calls).toEqual({ encrypt: 0, decrypt: 0 })
+  })
+})
+
+describe('sealed storage: cipher failures and odd input', () => {
+  // Keychain denied or locked: decrypt works for nothing, encrypt throws.
+  const denied: Cipher = {
+    available: () => true,
+    encrypt: () => {
+      throw new Error('keychain denied')
+    },
+    decrypt: () => {
+      throw new Error('keychain denied')
+    }
+  }
+
+  it('a save rejects without writing plaintext or putting the secret in the error', async () => {
+    const fs = capturingFs()
+    const repo = new CollectionsRepo(dir, new WriteQueue(), fs, Date.now, createSecretCodec(denied))
+    const err = await repo.save(collection()).then(
+      () => null,
+      (e: unknown) => e
+    )
+    expect(String(err)).toBe(`Error: ${SEAL_FAILED}`)
+    expect(fs.writes).toEqual([])
+    const envs = new EnvironmentsRepo(
+      dir,
+      new WriteQueue(),
+      fs,
+      Date.now,
+      createSecretCodec(denied)
+    )
+    await expect(envs.save(environment())).rejects.toThrow(SEAL_FAILED)
+    expect(fs.writes).toEqual([])
+  })
+
+  it('a history append rejects without writing plaintext', async () => {
+    const fs = capturingFs()
+    const repo = new HistoryRepo(dir, new WriteQueue(), fs, Date.now, createSecretCodec(denied))
+    await expect(repo.append(hEntry(1))).rejects.toThrow(SEAL_FAILED)
+    await repo.append(hPlain(2))
+    for (const w of fs.writes) expect(w).not.toMatch(MARKER)
+    expect((await repo.list()).entries).toEqual([hPlain(2)])
+  })
+
+  it('history still loads when migration cannot seal, leaving the file as it was', async () => {
+    const raw = [hEntry(1), hEntry(2)].map((e) => JSON.stringify(e) + '\n').join('')
+    await writeFile(histFile(), raw)
+    const repo = new HistoryRepo(
+      dir,
+      new WriteQueue(),
+      undefined,
+      undefined,
+      createSecretCodec(denied)
+    )
+    const { entries, warnings } = await repo.list()
+    expect(warnings).toEqual([])
+    expect(entries).toEqual([hEntry(2), hEntry(1)])
+    expect(await readFile(histFile(), 'utf8')).toBe(raw)
+    await repo.delete(hEntry(1).id)
+    expect((await repo.list()).entries).toEqual([hEntry(2)])
+  })
+
+  it('a collection or environment still loads when migration cannot seal', async () => {
+    await mkdir(join(dir, 'environments'), { recursive: true })
+    const raw = JSON.stringify(environment())
+    await writeFile(envFile(), raw)
+    const repo = new EnvironmentsRepo(
+      dir,
+      new WriteQueue(),
+      undefined,
+      undefined,
+      createSecretCodec(denied)
+    )
+    expect((await repo.list()).environments).toEqual([environment()])
+    expect(await readFile(envFile(), 'utf8')).toBe(raw)
+  })
+
+  it('a typed value that starts with enc:v1: round-trips through save and append', async () => {
+    const codec = createSecretCodec(fakeCipher())
+    const odd: Collection = {
+      ...collection(),
+      items: [req(1, { type: 'bearer', token: 'enc:v1:abc' })],
+      variables: [{ key: 'k', value: 'enc:v1:xyz', enabled: true, secret: true }]
+    }
+    await new CollectionsRepo(dir, new WriteQueue(), undefined, undefined, codec).save(odd)
+    const listed = await new CollectionsRepo(
+      dir,
+      new WriteQueue(),
+      undefined,
+      undefined,
+      codec
+    ).list()
+    expect(listed).toEqual({ collections: [odd], warnings: [] })
+    const e: HistoryEntry = {
+      ...hEntry(1),
+      request: spec(1, { type: 'bearer', token: 'enc:v1:abc' })
+    }
+    await new HistoryRepo(dir, new WriteQueue(), undefined, undefined, codec).append(e)
+    const h = await new HistoryRepo(dir, new WriteQueue(), undefined, undefined, codec).list()
+    expect(h).toEqual({ entries: [e], warnings: [] })
   })
 })

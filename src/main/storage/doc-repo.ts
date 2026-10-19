@@ -11,13 +11,17 @@ const ORPHAN_TMP_RE = /^([0-9a-f-]{36}\.json)\.[0-9a-f-]{36}\.tmp$/
 /** Seals secret fields for disk and opens them on load (see SecretCodec). */
 export type DocCodec<T> = {
   available(): boolean
+  /** Seals plaintext input; every non-empty secret is sealed. */
   seal(doc: T): T
+  /** Re-seals a stored doc, leaving already-sealed values as they are. */
+  reseal(doc: T): T
   open(doc: T): Opened<T>
 }
 
 const identityCodec: DocCodec<never> = {
   available: () => false,
   seal: (doc) => doc,
+  reseal: (doc) => doc,
   open: (doc) => ({ value: doc, failed: 0, plaintext: false })
 }
 
@@ -64,9 +68,9 @@ export class DocRepo<T extends { id: string; name: string }> {
     const opened = this.codec.open(stored)
     if (opened.plaintext && this.codec.available()) {
       try {
-        await atomicWriteJson(path, this.codec.seal(stored), this.fsImpl)
+        await atomicWriteJson(path, this.codec.reseal(stored), this.fsImpl)
       } catch {
-        // best effort; migration retries on the next load
+        // best effort (a failed seal or write); migration retries on the next load
       }
     }
     return opened

@@ -3,6 +3,7 @@ import type { Collection, Environment, RequestSpec } from '../../shared/types'
 import { newRequestSpec } from '../../shared/types'
 import {
   SEALED_PREFIX,
+  SEAL_FAILED,
   createSecretCodec,
   plainCipher,
   plainCodec,
@@ -99,13 +100,21 @@ describe('createSecretCodec', () => {
     expect(c).toEqual(before)
   })
 
-  it('never double-seals a value that is already sealed', () => {
+  it('never double-seals a stored document re-sealed with keepSealed', () => {
     const cipher = fakeCipher()
     const codec = createSecretCodec(cipher)
     const once = codec.sealEnvironment(environment())
-    const twice = codec.sealEnvironment(once)
+    const twice = codec.sealEnvironment(once, { keepSealed: true })
     expect(twice).toEqual(once)
     expect(codec.openEnvironment(twice).value).toEqual(environment())
+  })
+
+  it('seals plaintext input that happens to start with enc:v1:, so it round-trips', () => {
+    const codec = createSecretCodec(fakeCipher())
+    const r = req(9, { type: 'bearer', token: 'enc:v1:abc' })
+    const sealed = codec.sealRequest(r)
+    expect(sealed.auth).not.toEqual(r.auth)
+    expect(codec.openRequest(sealed).value).toEqual(r)
   })
 
   it('reports plaintext secret fields so the caller can migrate', () => {
@@ -171,7 +180,7 @@ describe('createSecretCodec', () => {
       }
     }
     const codec = createSecretCodec(throwing)
-    expect(() => codec.sealEnvironment(environment())).toThrow()
+    expect(() => codec.sealEnvironment(environment())).toThrow(SEAL_FAILED)
     try {
       codec.sealEnvironment(environment())
     } catch (err) {

@@ -4,7 +4,12 @@ import { HistoryEntrySchema } from '../../shared/schemas'
 import type { HistoryEntry } from '../../shared/types'
 import { sweepTmp } from './tmp-sweep'
 import { atomicWriteText, defaultFs, type AtomicFs, type WriteQueue } from './atomic-write'
-import { decryptWarning, plainCodec, type SecretCodec } from '../secrets/secret-codec'
+import {
+  decryptWarning,
+  plainCodec,
+  type SealOptions,
+  type SecretCodec
+} from '../secrets/secret-codec'
 
 /** `stored` is the line as written (secrets sealed); `open` is what callers see. */
 type Cached = { stored: HistoryEntry; open: HistoryEntry }
@@ -27,8 +32,8 @@ export class HistoryRepo {
     private codec: SecretCodec = plainCodec
   ) {}
 
-  private seal(e: HistoryEntry): HistoryEntry {
-    return { ...e, request: this.codec.sealRequest(e.request) }
+  private seal(e: HistoryEntry, opts?: SealOptions): HistoryEntry {
+    return { ...e, request: this.codec.sealRequest(e.request, opts) }
   }
 
   private get path(): string {
@@ -64,17 +69,22 @@ export class HistoryRepo {
     }
     let failed = 0
     let plaintext = false
-    const kept = valid.slice(-HISTORY_CAP).map((stored): Cached => {
+    let kept = valid.slice(-HISTORY_CAP).map((stored): Cached => {
       const opened = this.codec.openRequest(stored.request)
       failed += opened.failed
       plaintext ||= opened.plaintext
-      // Sealing leaves already-sealed (including undecryptable) values as they are.
-      return {
-        stored: opened.plaintext ? this.seal(stored) : stored,
-        open: { ...stored, request: opened.value }
-      }
+      return { stored, open: { ...stored, request: opened.value } }
     })
-    const migrate = plaintext && this.codec.available()
+    let migrate = plaintext && this.codec.available()
+    if (migrate) {
+      try {
+        // keepSealed leaves already-sealed (including undecryptable) values byte-for-byte.
+        kept = kept.map((e) => ({ ...e, stored: this.seal(e.stored, { keepSealed: true }) }))
+      } catch {
+        // Can't seal (e.g. keychain denied): keep the stored lines as they are, skip migration.
+        migrate = false
+      }
+    }
     const warnings: string[] = []
     if (invalid.length > 0) {
       const name = `history.corrupt-${this.now()}.jsonl`

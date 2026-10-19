@@ -25,6 +25,7 @@ export class CollectionsRepo {
       codec: {
         available: () => codec.available(),
         seal: (doc) => codec.sealCollection(doc),
+        reseal: (doc) => codec.sealCollection(doc, { keepSealed: true }),
         open: (doc) => codec.openCollection(doc)
       }
     })
