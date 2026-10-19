@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: moss
+appId: dev.moss.desktop
+productName: Moss
 directories:
   buildResources: build
 files:
@@ -11,6 +11,7 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   - '!{docs,.superpowers,e2e,test-results,scripts}/**'
   - '!{playwright,vitest}.config.{ts,mts}'
+  - '!assets/**'
 asarUnpack:
   - resources/**
 win:
@@ -22,24 +23,17 @@ nsis:
   createDesktopShortcut: always
 mac:
   entitlementsInherit: build/entitlements.mac.plist
-  extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+  identity: null
+  target: dmg
   notarize: false
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
   target:
     - AppImage
-    - snap
     - deb
-  maintainer: electronjs.org
+  maintainer: Jagannath Mahapatra
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: generic
-  url: https://example.com/auto-updates

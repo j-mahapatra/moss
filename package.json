@@ -18,7 +18,8 @@
     "build:mac": "electron-vite build && electron-builder --mac",
     "test": "vitest run",
     "e2e": "electron-vite build && playwright test",
-    "gen:tokens": "tsx scripts/gen-tokens.ts"
+    "gen:tokens": "tsx scripts/gen-tokens.ts",
+    "gen:icon": "electron scripts/render-icon.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.1",

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Moss app icon, designed in-house. Colours copied from src/renderer/ui/tokens.css:
+       accent #17694a, surface #f8faf6, dark surface #131e18, dark accent #4cc795. -->
+  <defs>
+    <linearGradient id="field" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#17694a"/>
+      <stop offset="1" stop-color="#131e18"/>
+    </linearGradient>
+    <g id="leaf">
+      <path d="M0 0 C 40 -18 92 -18 132 0 C 92 18 40 18 0 0 Z"/>
+    </g>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#field)"/>
+  <!-- ground mound -->
+  <path d="M232 790 C 330 716 694 716 792 790 Z" fill="#4cc795" opacity="0.35"/>
+  <!-- stem -->
+  <path d="M512 772 C 500 640 536 520 512 300" fill="none" stroke="#f8faf6" stroke-width="22" stroke-linecap="round"/>
+  <!-- leaflets, alternating and shrinking toward the tip -->
+  <g fill="#f8faf6">
+    <use href="#leaf" transform="translate(508 690) rotate(-150) scale(1.45)"/>
+    <use href="#leaf" transform="translate(512 640) rotate(-30) scale(1.45)"/>
+    <use href="#leaf" transform="translate(518 572) rotate(-148) scale(1.25)"/>
+    <use href="#leaf" transform="translate(522 524) rotate(-32) scale(1.25)"/>
+  </g>
+  <g fill="#4cc795">
+    <use href="#leaf" transform="translate(521 458) rotate(-146) scale(1.05)"/>
+    <use href="#leaf" transform="translate(519 412) rotate(-34) scale(1.05)"/>
+    <use href="#leaf" transform="translate(514 354) rotate(-140) scale(0.8)"/>
+    <use href="#leaf" transform="translate(512 322) rotate(-40) scale(0.8)"/>
+  </g>
+  <!-- spore capsule at the tip -->
+  <circle cx="512" cy="286" r="26" fill="#4cc795"/>
+</svg>
