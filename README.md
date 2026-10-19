@@ -3,7 +3,7 @@
 Moss is a local-first desktop API client. Build a request, send it, and read the
 response, with everything staying on your machine.
 
-**Status:** early development. Requests can be built, sent and saved into collections and folders, with collection variables and environments. History and import/export are still to come.
+**Status:** early development. Requests can be built, sent and saved into collections and folders, with collection variables and environments, and every send is kept in a searchable history. Import/export is still to come.
 
 ## Quick start
 
@@ -50,6 +50,20 @@ first, then the request's collection variables. An environment value therefore
 wins over a collection variable with the same name. Variable values are stored
 in plain text on your machine, like everything else in v1, so don't keep secrets
 you wouldn't keep in a regular file.
+
+## History
+
+Every request you send is recorded, whether it succeeds, fails or is
+cancelled. An entry holds the request as you wrote it (with `{{variables}}`
+left unresolved, so secrets from an environment are never written to disk),
+the status and how long it took. Response bodies and headers are never stored.
+
+Open the History item in the left rail to browse entries grouped by day,
+filter them, click one to reopen it in the editor, save it to a collection, or
+delete it. "Clear history" removes everything.
+
+Moss keeps the most recent 500 entries. They live in the app's user-data
+folder, in a single `history.jsonl` file with one JSON entry per line.
 
 ## Architecture
 
