@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { newCollection, newFolder } from '../collection-tree'
 import { requestNameFromUrl } from '../request-name'
 import type { HttpMethod, Item, KeyValue, RequestItem } from '../types'
-import { applyParams, parseQuery } from '../url-params'
+import { applyParams, decode, parseQuery } from '../url-params'
 import {
   headerList,
   hasAuth,
@@ -49,7 +49,9 @@ const UrlRead = z.looseObject({
   host: open,
   port: open,
   path: open,
-  query: open
+  query: open,
+  hash: open,
+  variable: open
 })
 
 const join = (prefix: string, name: string): string =>
@@ -61,34 +63,53 @@ function segments(x: unknown, sep: string): string {
   return x.map((s) => str(obj(s)?.['value'] ?? s)).join(sep)
 }
 
+const sameRows = (a: KeyValue[], b: KeyValue[]): boolean =>
+  a.length === b.length && a.every((r, i) => r.key === b[i]?.key && r.value === b[i]?.value)
+
+/**
+ * Params for a verbatim raw url: the `query[]` rows (decoded like `parseQuery`) when their enabled
+ * subset matches the raw query, so disabled rows keep their place; otherwise the raw query
+ * followed by the disabled rows.
+ */
+function rawParams(raw: string, rows: KeyValue[]): KeyValue[] {
+  const fromRaw = parseQuery(raw)
+  const decoded = rows.map((r) => ({ ...r, key: decode(r.key), value: decode(r.value) }))
+  if (
+    sameRows(
+      decoded.filter((r) => r.enabled),
+      fromRaw
+    )
+  )
+    return decoded
+  return [...fromRaw, ...decoded.filter((r) => !r.enabled)]
+}
+
 function mapUrl(x: unknown, add: Notes): { url: string; params: KeyValue[] } {
   const parsed = UrlRead.safeParse(x)
-  if (!parsed.success) {
-    const params = parseQuery(str(x))
-    return { url: applyParams(str(x), params), params }
-  }
+  // The url text is what gets sent, so a raw url is kept verbatim; params are a decoded view.
+  if (!parsed.success) return { url: str(x), params: parseQuery(str(x)) }
   const u = parsed.data
-  let raw: string
+  if (Array.isArray(u.variable) && u.variable.length > 0) add('Path variables were not imported')
+  let rows: KeyValue[] | null = null
+  if (Array.isArray(u.query)) rows = keyValues(u.query, 'query params', add)
+  else if (u.query !== undefined && u.query !== null) add('Query params could not be read')
+
   if (u.raw !== undefined && u.raw !== null) {
-    raw = str(u.raw)
-  } else {
-    const protocol = str(u.protocol)
-    const port = str(u.port)
-    const path = segments(u.path, '/').replace(/^\//, '')
-    raw =
-      (protocol ? `${protocol}://` : '') +
-      segments(u.host, '.') +
-      (port ? `:${port}` : '') +
-      (path ? `/${path}` : '')
+    const raw = str(u.raw)
+    return { url: raw, params: rows ? rawParams(raw, rows) : parseQuery(raw) }
   }
-  let params: KeyValue[]
-  if (Array.isArray(u.query)) {
-    params = keyValues(u.query, 'query params', add)
-  } else {
-    if (u.query !== undefined && u.query !== null) add('Query params could not be read')
-    params = parseQuery(raw)
-  }
-  return { url: applyParams(raw, params), params }
+  const protocol = str(u.protocol)
+  const port = str(u.port)
+  const path = segments(u.path, '/').replace(/^\//, '')
+  const hash = str(u.hash).replace(/^#/, '')
+  const built =
+    (protocol ? `${protocol}://` : '') +
+    segments(u.host, '.') +
+    (port ? `:${port}` : '') +
+    (path ? `/${path}` : '') +
+    (hash ? `#${hash}` : '')
+  const params = rows ?? parseQuery(built)
+  return { url: applyParams(built, params), params }
 }
 
 function mapRequest(
@@ -125,6 +146,9 @@ function mapRequest(
   const headers = headerList(req.header, add)
   const body = mapBody(req.body, headers, add)
   const auth = mapAuth(req.auth, add)
+  if (Array.isArray(item.variable) && item.variable.length > 0) {
+    add('Request variables were not imported')
+  }
   if (nonEmpty(item.event)) add('Scripts were not imported')
   if (nonEmpty(item.response)) add('Examples were not imported')
   if (nonEmpty(item.protocolProfileBehavior)) add('Request settings were not imported')

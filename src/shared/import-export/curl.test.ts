@@ -48,6 +48,18 @@ describe('parseCurl', () => {
       shape({ url: 'https://x?a=1&q=a%20b&n=x%20y' }),
       []
     ],
+    [
+      'the URL is kept verbatim',
+      `curl 'https://x/p?q=a%20b&t=1+2&debug&l=a,b&e=x@y.com#h'`,
+      shape({ url: 'https://x/p?q=a%20b&t=1+2&debug&l=a,b&e=x@y.com#h' }),
+      []
+    ],
+    [
+      '-G appends data to the verbatim URL',
+      `curl -G 'https://x?e=x@y.com&t=1+2' -d a=1`,
+      shape({ url: 'https://x?e=x@y.com&t=1+2&a=1' }),
+      []
+    ],
     ['-I → HEAD', 'curl -I https://x', shape({ method: 'HEAD', url: 'https://x' }), []],
     [
       'multiple -H',
@@ -108,7 +120,7 @@ describe('parseCurl', () => {
     ],
     [
       'urlencoded parts are decoded; the form Content-Type is dropped',
-      `curl -H 'content-type: application/x-www-form-urlencoded' -d 'a=x+y&b=%41&c' https://x`,
+      `curl -H 'content-type: application/x-www-form-urlencoded' -d 'a=x+y&b=%41&c=' https://x`,
       shape({
         method: 'POST',
         url: 'https://x',
@@ -144,9 +156,49 @@ describe('parseCurl', () => {
       shape({
         method: 'POST',
         url: 'https://x',
-        body: { mode: 'urlencoded', fields: [kv('@handle', '')] }
+        body: { mode: 'raw', contentType: 'application/x-www-form-urlencoded', text: '@handle' }
       }),
       []
+    ],
+    [
+      '-d that is not form data stays raw',
+      `curl -d '{"a":1}' https://x`,
+      shape({
+        method: 'POST',
+        url: 'https://x',
+        body: { mode: 'raw', contentType: 'application/x-www-form-urlencoded', text: '{"a":1}' }
+      }),
+      []
+    ],
+    [
+      '-d with one part lacking = stays raw, keeping a form Content-Type value',
+      `curl -H 'Content-Type: application/x-www-form-urlencoded; charset=utf-8' -d 'a=1&b' https://x`,
+      shape({
+        method: 'POST',
+        url: 'https://x',
+        body: {
+          mode: 'raw',
+          contentType: 'application/x-www-form-urlencoded; charset=utf-8',
+          text: 'a=1&b'
+        }
+      }),
+      []
+    ],
+    [
+      '-F text options are stripped and reported once',
+      `curl -F 'n=v;type=text/plain' -F 'm=w;filename=a.txt;type=x/y' https://x`,
+      shape({
+        method: 'POST',
+        url: 'https://x',
+        body: {
+          mode: 'form-data',
+          fields: [
+            { kind: 'text', key: 'n', value: 'v', enabled: true },
+            { kind: 'text', key: 'm', value: 'w', enabled: true }
+          ]
+        }
+      }),
+      ['Form field options (;type=, ;filename=) were not imported']
     ],
     [
       '-F text and file fields',
@@ -286,7 +338,7 @@ describe('parseCurl', () => {
     [
       'a lone surrogate escape becomes U+FFFD',
       `curl $'https://x?q=\\uD800'`,
-      shape({ url: 'https://x?q=%EF%BF%BD' }),
+      shape({ url: 'https://x?q=\uFFFD' }),
       []
     ],
     [
@@ -316,6 +368,18 @@ describe('parseCurl', () => {
     expect(a.request.params).toEqual([kv('q', 'a b')])
     expect(a.request.name).toBe('POST /p?q=a%20b')
     expect(a.request.id).not.toBe(b.request.id)
+  })
+
+  it('decodes params from the verbatim URL like parseQuery', () => {
+    const r = parseCurl(`curl 'https://x/p?q=a%20b&t=1+2&debug&l=a,b&e=x@y.com'`)
+    if (!r.ok) throw new Error(r.error)
+    expect(r.request.params).toEqual([
+      kv('q', 'a b'),
+      kv('t', '1+2'),
+      kv('debug', ''),
+      kv('l', 'a,b'),
+      kv('e', 'x@y.com')
+    ])
   })
 
   it('keeps a non-form Content-Type alongside a raw body', () => {

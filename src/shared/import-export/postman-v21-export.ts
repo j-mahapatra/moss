@@ -1,4 +1,5 @@
 import type { Collection, FormField, Item, KeyValue, RequestAuth, RequestBody } from '../types'
+import { encode, splitUrl } from '../url-params'
 import { LANGUAGE_TYPES } from './postman-v21-parts'
 
 export const POSTMAN_V21_SCHEMA =
@@ -34,6 +35,30 @@ export type PostmanV21Collection = {
 const row = (r: KeyValue): Row =>
   r.enabled ? { key: r.key, value: r.value } : { key: r.key, value: r.value, disabled: true }
 
+/**
+ * `url.query[]` with values as they appear in the url text (still encoded): each enabled param
+ * takes the next `key=value` part of the query; disabled params, which are not in the url, are
+ * encoded. If the counts disagree every row is encoded.
+ */
+function queryRows(url: string, params: KeyValue[]): Row[] {
+  const encoded = (p: KeyValue): Row => row({ ...p, key: encode(p.key), value: encode(p.value) })
+  const query = splitUrl(url).query
+  const parts = query ? query.split('&').filter((part) => part !== '') : []
+  if (params.filter((p) => p.enabled).length !== parts.length) return params.map(encoded)
+  let next = 0
+  return params.map((p) => {
+    if (!p.enabled) return encoded(p)
+    const part = parts[next++] ?? ''
+    const eq = part.indexOf('=')
+    return eq === -1
+      ? { key: part, value: '' }
+      : { key: part.slice(0, eq), value: part.slice(eq + 1) }
+  })
+}
+
+/** Only the file name: a local path would leak the user's directory layout. */
+const baseName = (path: string): string => path.split(/[/\\]/).at(-1) ?? ''
+
 const LANGUAGE_BY_TYPE = new Map(
   Object.entries(LANGUAGE_TYPES).map(([language, type]) => [type, language])
 )
@@ -42,7 +67,7 @@ function formRow(f: FormField): FormRow {
   const off = f.enabled ? {} : { disabled: true as const }
   return f.kind === 'text'
     ? { key: f.key, value: f.value, type: 'text', ...off }
-    : { key: f.key, src: f.filePath, type: 'file', ...off }
+    : { key: f.key, src: baseName(f.filePath), type: 'file', ...off }
 }
 
 function body(b: RequestBody): PostmanBody | undefined {
@@ -87,7 +112,7 @@ function item(i: Item): PostmanV21Item {
     request: {
       method: i.method,
       header: i.headers.map(row),
-      url: { raw: i.url, query: i.params.map(row) },
+      url: { raw: i.url, query: queryRows(i.url, i.params) },
       ...(b ? { body: b } : {}),
       auth: auth(i.auth)
     }

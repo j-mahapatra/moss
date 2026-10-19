@@ -117,7 +117,7 @@ describe('importPostmanV21', () => {
     it('reads url-object queries, disabled rows and bearer auth', () => {
       const r = req(c, 'Users', 'Search users')
       expect(r.params).toEqual([kv('q', 'ann'), kv('limit', '10', false), kv('debug', '')])
-      expect(r.url).toBe('{{baseUrl}}/users?q=ann&debug=')
+      expect(r.url).toBe('{{baseUrl}}/users?q=ann&debug')
       expect(r.headers).toEqual([kv('Accept', 'application/json'), kv('X-Debug', '1', false)])
       expect(r.auth).toEqual({ type: 'bearer', token: '{{token}}' })
     })
@@ -302,7 +302,7 @@ describe('importPostmanV21', () => {
           {
             name: 'Rows',
             request: {
-              url: { raw: 'u', query: [null, { key: 1, value: false }] },
+              url: { raw: 'u?1=false', query: [null, { key: 1, value: false }] },
               header: [{ key: null }]
             }
           }
@@ -341,6 +341,98 @@ describe('importPostmanV21', () => {
         Object.create(null)
       ]
       for (const json of inputs) expect(() => importPostmanV21(json)).not.toThrow()
+    })
+  })
+
+  describe('urls', () => {
+    const RAW = 'https://x/p?q=a%20b&t=1+2&debug&l=a,b&e=x@y.com'
+    const DECODED = [
+      kv('q', 'a b'),
+      kv('t', '1+2'),
+      kv('debug', ''),
+      kv('l', 'a,b'),
+      kv('e', 'x@y.com')
+    ]
+    const one = (url: unknown, extra: object = {}): { r: RequestItem; report: ImportNote[] } => {
+      const { collection, report } = imported({
+        info: { schema: V21 },
+        item: [{ name: 'R', request: { url }, ...extra }]
+      })
+      return { r: req(collection, 'R'), report }
+    }
+
+    it('keeps a raw url verbatim without query[]', () => {
+      const { r } = one({ raw: RAW })
+      expect(r.url).toBe(RAW)
+      expect(r.params).toEqual(DECODED)
+    })
+
+    it('keeps a string url verbatim', () => {
+      const { r } = one(RAW)
+      expect(r.url).toBe(RAW)
+      expect(r.params).toEqual(DECODED)
+    })
+
+    it('keeps a raw url verbatim and decodes matching query[] rows', () => {
+      const query = [
+        { key: 'q', value: 'a%20b' },
+        { key: 't', value: '1+2' },
+        { key: 'debug', value: null },
+        { key: 'l', value: 'a,b' },
+        { key: 'e', value: 'x@y.com' }
+      ]
+      const { r, report } = one({ raw: RAW, query })
+      expect(r.url).toBe(RAW)
+      expect(r.params).toEqual(DECODED)
+      expect(report).toEqual([])
+    })
+
+    it('keeps a disabled query row in its position', () => {
+      const query = [
+        { key: 'a', value: '1' },
+        { key: 'b', value: 'x%20y', disabled: true },
+        { key: 'c', value: '3' }
+      ]
+      const { r } = one({ raw: 'https://x?a=1&c=3', query })
+      expect(r.url).toBe('https://x?a=1&c=3')
+      expect(r.params).toEqual([kv('a', '1'), kv('b', 'x y', false), kv('c', '3')])
+    })
+
+    it('trusts the raw url when query[] disagrees, keeping disabled rows after', () => {
+      const query = [
+        { key: 'z', value: '9' },
+        { key: 'd', value: '4', disabled: true }
+      ]
+      const { r } = one({ raw: 'https://x?a=1', query })
+      expect(r.url).toBe('https://x?a=1')
+      expect(r.params).toEqual([kv('a', '1'), kv('d', '4', false)])
+    })
+
+    it('adds the hash when building a url from parts', () => {
+      const { r } = one({
+        protocol: 'https',
+        host: ['x'],
+        path: ['a'],
+        query: [{ key: 'q', value: '1' }],
+        hash: 'top'
+      })
+      expect(r.url).toBe('https://x/a?q=1#top')
+    })
+
+    it('reports path variables', () => {
+      const { r, report } = one({ raw: 'https://x/:id', variable: [{ key: 'id', value: '1' }] })
+      expect(r.url).toBe('https://x/:id')
+      expect(report).toEqual([{ path: 'R', message: 'Path variables were not imported' }])
+    })
+
+    it('reports request variables', () => {
+      const { report } = one('https://x', { variable: [{ key: 'v', value: '1' }] })
+      expect(report).toEqual([{ path: 'R', message: 'Request variables were not imported' }])
+    })
+
+    it('ignores empty variable arrays', () => {
+      const { report } = one({ raw: 'https://x', variable: [] }, { variable: [] })
+      expect(report).toEqual([])
     })
   })
 

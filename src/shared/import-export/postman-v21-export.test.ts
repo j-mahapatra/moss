@@ -94,6 +94,20 @@ const cases: [string, Collection][] = [
       })
     ])
   ],
+  [
+    'encoded query text',
+    withItems('Encoded', [
+      req('e', {
+        url: 'https://e.com/p?q=a%20b&t=1+2&debug',
+        params: [
+          { key: 'q', value: 'a b', enabled: true },
+          { key: 'off', value: 'x y', enabled: false },
+          { key: 't', value: '1+2', enabled: true },
+          { key: 'debug', value: '', enabled: true }
+        ]
+      })
+    ])
+  ],
   ['unicode name', withItems('Café ☕ API', [req('Crème ☕', { url: 'https://e.com/ü' })])]
 ]
 
@@ -130,9 +144,68 @@ describe('exportPostmanV21', () => {
     const r = (out.item[0] as { request: { body: unknown; auth: unknown } }).request
     expect(r.body).toEqual({
       mode: 'formdata',
-      formdata: [{ key: 'f', src: '/x/y', type: 'file', disabled: true }]
+      formdata: [{ key: 'f', src: 'y', type: 'file', disabled: true }]
     })
     expect(r.auth).toEqual({ type: 'noauth' })
+  })
+
+  const query = (r: Partial<RequestItem>): unknown =>
+    (
+      exportPostmanV21(withItems('S', [req('r', r)])).item[0] as {
+        request: { url: { query: unknown } }
+      }
+    ).request.url.query
+
+  it('emits query values as they appear in the raw url', () => {
+    expect(
+      query({
+        url: 'https://e.com/p?q=a%20b&t=1+2&debug&l=a,b&e=x@y.com',
+        params: [
+          { key: 'q', value: 'a b', enabled: true },
+          { key: 'off', value: 'x y', enabled: false },
+          { key: 't', value: '1+2', enabled: true },
+          { key: 'debug', value: '', enabled: true },
+          { key: 'l', value: 'a,b', enabled: true },
+          { key: 'e', value: 'x@y.com', enabled: true }
+        ]
+      })
+    ).toEqual([
+      { key: 'q', value: 'a%20b' },
+      { key: 'off', value: 'x%20y', disabled: true },
+      { key: 't', value: '1+2' },
+      { key: 'debug', value: '' },
+      { key: 'l', value: 'a,b' },
+      { key: 'e', value: 'x@y.com' }
+    ])
+  })
+
+  it('encodes every query row when params and raw parts disagree in number', () => {
+    expect(
+      query({
+        url: 'https://e.com/p?q=a%20b',
+        params: [
+          { key: 'q', value: 'a b', enabled: true },
+          { key: 'n', value: '{{v}} w', enabled: true }
+        ]
+      })
+    ).toEqual([
+      { key: 'q', value: 'a%20b' },
+      { key: 'n', value: '{{v}}%20w' }
+    ])
+  })
+
+  it('exports only the file name of form-data files', () => {
+    const fields: FormField[] = [
+      { kind: 'file', key: 'a', filePath: '/Users/me/secret/a.png', enabled: true },
+      { kind: 'file', key: 'b', filePath: 'C:\\Users\\me\\b.txt', enabled: true }
+    ]
+    const c = withItems('S', [req('r', { method: 'POST', body: { mode: 'form-data', fields } })])
+    const r = exportPostmanV21(c).item[0] as unknown as { request: { body: { formdata: unknown } } }
+    expect(r.request.body.formdata).toEqual([
+      { key: 'a', src: 'a.png', type: 'file' },
+      { key: 'b', src: 'b.txt', type: 'file' }
+    ])
+    expect(JSON.stringify(exportPostmanV21(c))).not.toContain('secret')
   })
 
   it('maps unknown raw content types to text and omits body for none', () => {

@@ -44,7 +44,7 @@
               { "key": "X-Debug", "value": "1", "disabled": true }
             ],
             "url": {
-              "raw": "{{baseUrl}}/users?q=ann&limit=10&debug",
+              "raw": "{{baseUrl}}/users?q=ann&debug",
               "host": ["{{baseUrl}}"],
               "path": ["users"],
               "query": [

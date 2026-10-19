@@ -1,7 +1,7 @@
 import { requestNameFromUrl } from '../request-name'
 import { newRequestSpec } from '../types'
 import type { FormField, HttpMethod, KeyValue, RequestAuth, RequestBody } from '../types'
-import { applyParams, parseQuery } from '../url-params'
+import { parseQuery } from '../url-params'
 import { note } from './report'
 import type { CurlResult, ImportReport } from './report'
 import { ARG_FLAGS, LONG, NO_VALUE, SHORT } from './curl-options'
@@ -104,7 +104,10 @@ function apply(s: State, opt: Opt, flag: string, value: string): string | null {
       } else if (content.startsWith('<')) {
         add(`File data (${content}) was not imported`)
       } else {
-        s.form.push({ kind: 'text', key, value: content, enabled: true })
+        const options = /;(type|filename)=/.exec(content)
+        if (options) add('Form field options (;type=, ;filename=) were not imported')
+        const text = options ? content.slice(0, options.index) : content
+        s.form.push({ kind: 'text', key, value: text, enabled: true })
       }
       break
     }
@@ -210,15 +213,19 @@ function buildBody(s: State): RequestBody {
     return { mode: 'raw', contentType, text: encodedParts(s, false).join('&') }
   }
   s.headers = s.headers.filter((h) => !(isContentType(h) && isForm(h.value)))
-  const fields = s.data
-    .flatMap((d) => d.split('&'))
-    .filter((part) => part !== '')
-    .map((part) => {
-      const eq = part.indexOf('=')
-      return eq === -1
-        ? kv(decodeForm(part), '')
-        : kv(decodeForm(part.slice(0, eq)), decodeForm(part.slice(eq + 1)))
-    })
+  const parts = s.data.flatMap((d) => d.split('&')).filter((part) => part !== '')
+  if (!parts.every((part) => part.includes('='))) {
+    // Not form data (e.g. JSON sent with -d): keep the text exactly as curl would send it.
+    return {
+      mode: 'raw',
+      contentType: contentType ?? FORM_TYPE,
+      text: encodedParts(s, false).join('&')
+    }
+  }
+  const fields = parts.map((part) => {
+    const eq = part.indexOf('=')
+    return kv(decodeForm(part.slice(0, eq)), decodeForm(part.slice(eq + 1)))
+  })
   return { mode: 'urlencoded', fields: [...fields, ...s.encoded] }
 }
 
@@ -278,13 +285,14 @@ function parse(text: string): CurlResult {
   const hasPayload = s.form.length > 0 || s.data.length > 0 || s.encoded.length > 0
   const method: HttpMethod =
     s.method ?? (s.head ? 'HEAD' : s.get ? 'GET' : hasPayload ? 'POST' : 'GET')
-  const rawUrl =
+  // The URL text is what gets sent, so it is kept verbatim; params are only a decoded view of it.
+  const url =
     s.get && s.form.length === 0 && (s.data.length > 0 || s.encoded.length > 0)
       ? appendQuery(s.url, encodedParts(s, true))
       : s.url
+  encodeURIComponent(url) // Rejects lone surrogates (caught by the backstop in parseCurl).
   const body = buildBody(s)
-  const params = parseQuery(rawUrl)
-  const url = applyParams(rawUrl, params)
+  const params = parseQuery(url)
 
   return {
     ok: true,

@@ -3,7 +3,7 @@ import { findVariables } from './variables'
 
 // Operates on the raw string on purpose: `new URL` would mangle `{{vars}}` and scheme-less URLs.
 
-function splitUrl(url: string): { base: string; query: string | null; fragment: string } {
+export function splitUrl(url: string): { base: string; query: string | null; fragment: string } {
   const hash = url.indexOf('#')
   const fragment = hash === -1 ? '' : url.slice(hash)
   const rest = hash === -1 ? url : url.slice(0, hash)
@@ -12,7 +12,8 @@ function splitUrl(url: string): { base: string; query: string | null; fragment: 
   return { base: rest.slice(0, q), query: rest.slice(q + 1), fragment }
 }
 
-function decode(text: string): string {
+/** `decodeURIComponent`, or the text unchanged if its escapes are malformed. */
+export function decode(text: string): string {
   try {
     return decodeURIComponent(text)
   } catch {
@@ -36,7 +37,7 @@ export function parseQuery(url: string): KeyValue[] {
 }
 
 /** `encodeURIComponent` everywhere except inside `{{…}}` spans, which stay verbatim. */
-function encode(text: string): string {
+export function encode(text: string): string {
   let out = ''
   let at = 0
   for (const v of findVariables(text)) {
