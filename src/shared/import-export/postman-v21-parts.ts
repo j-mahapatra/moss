@@ -90,7 +90,7 @@ export function headerList(x: unknown, add: Notes): KeyValue[] {
     })
 }
 
-const LANGUAGE_TYPES: Record<string, string> = {
+export const LANGUAGE_TYPES: Record<string, string> = {
   json: 'application/json',
   xml: 'application/xml',
   html: 'text/html',
