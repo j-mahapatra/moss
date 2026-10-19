@@ -66,5 +66,9 @@
     "typescript": "5.9.3",
     "vite": "8.3.4",
     "vitest": "5.0.5"
+  },
+  "overrides": {
+    "@radix-ui/react-dismissable-layer": "1.1.11",
+    "@radix-ui/react-focus-scope": "1.1.7"
   }
 }

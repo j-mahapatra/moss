@@ -2,9 +2,10 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Dialog } from './Dialog'
 import { Menu } from './Menu'
+import { Popover } from './Popover'
 import { staticTokens } from './tokens'
 
 const css = (name: string): string => readFileSync(resolve(__dirname, name), 'utf8')
@@ -43,5 +44,27 @@ describe('layering', () => {
     const dialog = screen.getByRole('dialog', { hidden: true })
     expect(dialog).toHaveClass('moss-dialog')
     expect(dialog).not.toContainElement(menu)
+  })
+
+  it('closes only the Popover on Esc when opened inside a Dialog', async () => {
+    const user = userEvent.setup()
+    const onOpenChange = vi.fn()
+    render(
+      <Dialog open onOpenChange={onOpenChange} title="T">
+        <Popover trigger={<button>Open</button>} aria-label="Pop">
+          <button>Inside</button>
+        </Popover>
+      </Dialog>
+    )
+    await user.click(screen.getByRole('button', { name: 'Open' }))
+    expect(screen.getByRole('dialog', { name: 'Pop' })).toBeInTheDocument()
+    // Needs one shared DismissableLayer/FocusScope stack (see package.json overrides).
+    await user.click(screen.getByRole('button', { name: 'Inside' }))
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: 'Pop' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Pop' })).toBeNull()
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: 'T' })).toBeInTheDocument()
   })
 })
