@@ -1,5 +1,6 @@
 export { Badge, type BadgeProps, type BadgeTone } from './Badge'
 export { Button, type ButtonProps, type ButtonVariant } from './Button'
+export { CommandPalette, type CommandPaletteProps } from './CommandPalette'
 export { Dialog, type DialogProps } from './Dialog'
 export { contrastRatio } from './contrast'
 export { IconButton, type IconButtonProps } from './IconButton'

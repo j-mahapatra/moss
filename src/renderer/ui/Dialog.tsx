@@ -1,11 +1,16 @@
 import * as RDialog from '@radix-ui/react-dialog'
 import type { ReactNode } from 'react'
+import { cx } from './cx'
 import './Dialog.css'
 
 export type DialogProps = {
   open: boolean
   onOpenChange(open: boolean): void
   title: string
+  /** Keep the title as the accessible name but hide it visually. */
+  titleHidden?: boolean
+  /** Extra class on the dialog surface, for layout variants. */
+  className?: string
   description?: string
   children: ReactNode
   footer?: ReactNode
@@ -17,6 +22,8 @@ export function Dialog({
   open,
   onOpenChange,
   title,
+  titleHidden = false,
+  className,
   description,
   children,
   footer,
@@ -27,11 +34,15 @@ export function Dialog({
       <RDialog.Portal>
         <RDialog.Overlay className="moss-dialog__overlay" />
         <RDialog.Content
-          className="moss-dialog"
+          className={cx('moss-dialog', className)}
           onCloseAutoFocus={onCloseAutoFocus}
           {...(description === undefined ? { 'aria-describedby': undefined } : {})}
         >
-          <RDialog.Title className="moss-dialog__title">{title}</RDialog.Title>
+          <RDialog.Title
+            className={cx('moss-dialog__title', titleHidden && 'moss-visually-hidden')}
+          >
+            {title}
+          </RDialog.Title>
           {description !== undefined && (
             <RDialog.Description className="moss-dialog__description">
               {description}

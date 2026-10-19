@@ -19,7 +19,11 @@ const requiredPairs: [TokenName, TokenName][] = [
   ['status-4xx', 'notice-warning-bg'],
   ['danger', 'notice-danger-bg'],
   ['danger', 'surface'],
-  ['text-muted', 'accent-soft']
+  ['text-muted', 'accent-soft'],
+  ['text', 'accent-soft'],
+  ['text-muted', 'surface-raised'],
+  ['accent', 'surface-raised'],
+  ['accent', 'accent-soft']
 ]
 
 describe('contrastRatio', () => {
