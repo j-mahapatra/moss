@@ -67,12 +67,48 @@ delete it. "Clear history" removes everything.
 Moss keeps the most recent 500 entries. They live in the app's user-data
 folder, in a single `history.jsonl` file with one JSON entry per line.
 
+## Import & export
+
+Moss reads two formats:
+
+- **Collection v2.1 JSON** (the public Postman Collection format). Open the
+  Import item in the left rail, then drop a file, choose one with "Open file…",
+  or paste the JSON. Files up to 10 MB are accepted.
+- **curl commands.** Paste one into the Import panel to open it as a new,
+  unsaved request, or paste it straight into the URL bar to replace the current
+  request's method, URL, headers, body and auth (its name and place in a
+  collection are kept).
+
+A collection is exported as Collection v2.1 JSON from its row menu in the
+navigator ("Export…").
+
+Anything Moss can't represent is left out and reported, never silently dropped:
+scripts, examples, descriptions, folder-level auth and variables, unsupported
+auth or body types, and curl options Moss doesn't use. The Import panel lists
+each one under "Not carried over"; a curl paste in the URL bar shows them as a
+single notice.
+
+Every imported collection, folder and request gets a fresh id; ids in the
+file are not reused.
+
+Form-data file paths are never imported. A file field keeps its key and on/off
+state, but you have to choose the file again before the request can be sent.
+Otherwise opening a collection someone else wrote could make Send upload any
+local file they named, such as an SSH key.
+
+A collection survives export and import unchanged, with these exceptions:
+
+- ids are regenerated;
+- form-data file paths are cleared, as above;
+- a raw body whose content type isn't JSON, XML, HTML, JavaScript or plain text,
+  and that has no `Content-Type` header, comes back as `text/plain`.
+
 ## Architecture
 
 ```
  +-----------------+   typed IPC    +-----------------+   messages   +------------------+
  |    renderer     | <------------> |      main       | <----------> |      runner      |
- | React, sandboxed|  (15 channels) | validate, build |              | utilityProcess,  |
+ | React, sandboxed|  (17 channels) | validate, build |              | utilityProcess,  |
  | no Node access  |                | the request     |              | undici, HTTP I/O |
  +-----------------+                +-----------------+              +------------------+
 ```
@@ -85,7 +121,7 @@ folder, in a single `history.jsonl` file with one JSON entry per line.
 
 The renderer runs with context isolation and the sandbox on, and with Node
 integration off. It reaches the rest of the app only through a typed preload
-script that exposes fifteen channels. Main validates every payload with zod before
+script that exposes seventeen channels. Main validates every payload with zod before
 acting on it. Network access happens in a separate utility process, never in
 the renderer.
 
@@ -101,3 +137,8 @@ same version. `src/renderer/ui/layering.test.tsx` guards this.
 ## Clean-room statement
 
 Moss is an independent project. It contains no Postman code or assets and interoperates only via the public Postman Collection v2.1 format.
+
+The test suite includes the official Collection v2.1 JSON schema
+(`src/shared/import-export/__fixtures__/postman-collection-v2.1.0.schema.json`,
+from the postmanlabs/schemas repository, Apache-2.0; see the `NOTICE.md` beside
+it). It is a test fixture only and is not bundled into the app.
