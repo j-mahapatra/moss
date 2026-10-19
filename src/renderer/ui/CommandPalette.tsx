@@ -85,6 +85,8 @@ function PaletteBody({
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    // Keys that pick or commit an IME candidate belong to the composition, not the palette.
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault()
       if (flat.length === 0) return

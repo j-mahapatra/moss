@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it, vi, type Mock } from 'vitest'
@@ -169,5 +169,25 @@ describe('CommandPalette', () => {
     expect(input).toHaveValue('')
     expect(screen.getAllByRole('option')).toHaveLength(4)
     expect(activeOption()).toBe(screen.getAllByRole('option')[0])
+  })
+
+  it('ignores Enter while an IME composition is in progress', () => {
+    const items = makeItems()
+    const onOpenChange = vi.fn<(open: boolean) => void>()
+    render(<Harness items={items} onOpenChange={onOpenChange} />)
+    const input = screen.getByRole('combobox')
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 })
+    for (const i of items) expect(i.run).not.toHaveBeenCalled()
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('ignores arrow keys while an IME composition is in progress', () => {
+    render(<Harness items={makeItems()} />)
+    const input = screen.getByRole('combobox')
+    fireEvent.keyDown(input, { key: 'ArrowDown', isComposing: true })
+    fireEvent.keyDown(input, { key: 'ArrowDown', keyCode: 229 })
+    expect(activeOption()).toHaveAttribute('data-label', 'GET user')
   })
 })
