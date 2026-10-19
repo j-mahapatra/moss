@@ -1,0 +1,132 @@
+{
+  "info": {
+    "_postman_id": "6f1c2a8e-3b4d-4e5f-9a0b-1c2d3e4f5a6b",
+    "name": "Everything",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://api.example.com" },
+    { "key": "retries", "value": 3 },
+    { "key": "old", "value": "x", "disabled": true },
+    { "key": "empty" }
+  ],
+  "item": [
+    {
+      "id": "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+      "name": "Users",
+      "item": [
+        {
+          "name": "Admin",
+          "item": [
+            {
+              "id": "1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e",
+              "name": "Delete user",
+              "request": {
+                "method": "delete",
+                "url": "{{baseUrl}}/users/{{userId}}",
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    { "key": "username", "value": "admin", "type": "string" },
+                    { "key": "password", "value": "s3cret", "type": "string" }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search users",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Debug", "value": "1", "disabled": true }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users?q=ann&limit=10&debug",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"],
+              "query": [
+                { "key": "q", "value": "ann" },
+                { "key": "limit", "value": "10", "disabled": true },
+                { "key": "debug", "value": null }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create note",
+      "request": {
+        "method": "POST",
+        "header": "Content-Type: application/vnd.moss+xml\nX-Trace: abc",
+        "body": {
+          "mode": "raw",
+          "raw": "<note/>",
+          "options": { "raw": { "language": "xml" } }
+        },
+        "url": {
+          "protocol": "https",
+          "host": ["api", "example", "com"],
+          "port": "8443",
+          "path": ["notes"]
+        }
+      }
+    },
+    {
+      "name": "Echo text",
+      "request": {
+        "method": "PUT",
+        "body": { "mode": "raw", "raw": "hello" },
+        "url": "https://api.example.com/echo?x=1"
+      }
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "user", "value": "ann" },
+            { "key": "remember", "value": "yes", "disabled": true }
+          ]
+        },
+        "url": "{{baseUrl}}/login"
+      }
+    },
+    {
+      "name": "Upload",
+      "request": {
+        "method": "PATCH",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "title", "value": "Report", "type": "text" },
+            { "key": "draft", "value": "true", "type": "text", "disabled": true }
+          ]
+        },
+        "url": "{{baseUrl}}/upload"
+      }
+    },
+    { "name": "", "request": "https://api.example.com/health" },
+    {
+      "name": "Ping",
+      "request": {
+        "method": "HEAD",
+        "url": "https://api.example.com/ping",
+        "auth": { "type": "noauth" }
+      }
+    },
+    {
+      "name": "Preflight",
+      "request": { "method": "OPTIONS", "url": "https://api.example.com/ping" }
+    }
+  ]
+}

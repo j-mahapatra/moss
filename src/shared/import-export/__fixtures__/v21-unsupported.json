@@ -1,0 +1,86 @@
+{
+  "info": {
+    "name": "Unsupported",
+    "description": "Top-level documentation",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [{ "key": "key", "value": "X-Api-Key" }]
+  },
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["console.log(1)"] } }
+  ],
+  "item": [
+    {
+      "name": "Secured",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "folder-token" }] },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('ok')"] } }],
+      "variable": [{ "key": "v", "value": "1" }],
+      "item": [
+        {
+          "name": "OAuth call",
+          "request": {
+            "method": "GET",
+            "url": "https://x.example/o",
+            "auth": {
+              "type": "oauth2",
+              "oauth2": [{ "key": "grant_type", "value": "client_credentials" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "With scripts",
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('a')"] } }],
+      "request": {
+        "method": "GET",
+        "url": "https://x.example/s",
+        "description": "Explains the endpoint"
+      },
+      "response": [{ "name": "200 OK", "code": 200, "body": "{}" }],
+      "protocolProfileBehavior": { "disableBodyPruning": true }
+    },
+    {
+      "name": "GraphQL",
+      "request": {
+        "method": "POST",
+        "url": "https://x.example/gql",
+        "body": { "mode": "graphql", "graphql": { "query": "{ a }", "variables": "" } }
+      }
+    },
+    {
+      "name": "Binary",
+      "request": {
+        "method": "POST",
+        "url": "https://x.example/bin",
+        "body": { "mode": "file", "file": { "src": "/tmp/a.bin" } }
+      }
+    },
+    {
+      "name": "Form with file",
+      "request": {
+        "method": "POST",
+        "url": "https://x.example/f",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "name", "value": "a", "type": "text" },
+            { "key": "avatar", "type": "file", "src": "/Users/someone/.ssh/id_ed25519" }
+          ]
+        }
+      }
+    },
+    { "name": "Copy", "request": { "method": "COPY", "url": "https://x.example/c" } },
+    {
+      "name": "Disabled body",
+      "request": {
+        "method": "POST",
+        "url": "https://x.example/d",
+        "body": { "mode": "raw", "raw": "x", "disabled": true }
+      }
+    },
+    { "name": "Mystery" }
+  ]
+}
