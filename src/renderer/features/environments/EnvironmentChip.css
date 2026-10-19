@@ -1,0 +1,36 @@
+.env-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--moss-space-2);
+  max-width: 220px;
+  padding: var(--moss-space-1) var(--moss-space-3);
+  border: 1px solid var(--moss-border);
+  border-radius: var(--moss-radius-pill);
+  background: var(--moss-surface);
+  color: var(--moss-text);
+  font: inherit;
+  font-size: var(--moss-text-sm);
+  cursor: pointer;
+}
+
+.env-chip:hover {
+  background: var(--moss-surface-raised);
+}
+
+.env-chip__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--moss-radius-pill);
+  background: var(--moss-text-muted);
+}
+
+.env-chip__dot--active {
+  background: var(--moss-accent);
+}
+
+.env-chip__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -7,7 +7,7 @@ import { byName } from './slices/doc-queue'
 import { createEnvironments } from './slices/environments'
 import { createNotices } from './slices/notices'
 import { createRequests } from './slices/requests'
-import { createUi, type ConfirmDiscard, type UiState } from './slices/ui'
+import { createUi, type ConfirmDiscard, type NavigatorView, type UiState } from './slices/ui'
 import { createSettings, SPLIT_DEFAULT } from './slices/settings'
 
 export { SPLIT_DEFAULT }
@@ -77,6 +77,8 @@ export type WorkspaceState = {
   flushSettings(): Promise<void>
   dismissNotice(id: string): void
   toggleNavigator(): void
+  /** Shows a navigator panel and expands the column if it was collapsed. */
+  showPanel(view: NavigatorView): void
   openSaveDialog(open: boolean): void
   openVariables(collectionId: string | null): void
   setConfirmDiscard(v: ConfirmDiscard): void

@@ -1,0 +1,64 @@
+.env-popover {
+  display: flex;
+  flex-direction: column;
+  gap: var(--moss-space-3);
+  width: 320px;
+  max-width: 100%;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.env-popover__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--moss-space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.env-popover__legend {
+  padding: 0;
+  margin-bottom: var(--moss-space-1);
+  color: var(--moss-text-muted);
+  font-size: var(--moss-text-xs);
+  font-weight: var(--moss-weight-bold);
+}
+
+.env-popover__option {
+  display: flex;
+  align-items: center;
+  gap: var(--moss-space-2);
+  padding: var(--moss-space-1) var(--moss-space-2);
+  border-radius: var(--moss-radius-sm);
+  cursor: pointer;
+}
+
+.env-popover__option:hover {
+  background: var(--moss-surface);
+}
+
+.env-popover__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--moss-space-2);
+  padding-top: var(--moss-space-3);
+  border-top: 1px solid var(--moss-border);
+}
+
+.env-popover__heading {
+  margin: 0;
+  color: var(--moss-text-muted);
+  font-size: var(--moss-text-xs);
+  font-weight: var(--moss-weight-bold);
+}
+
+.env-popover__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.env-popover__footer {
+  padding-top: var(--moss-space-2);
+  border-top: 1px solid var(--moss-border);
+}

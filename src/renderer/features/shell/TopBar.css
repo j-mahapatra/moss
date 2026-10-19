@@ -1,6 +1,7 @@
 .topbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: var(--moss-space-2) var(--moss-space-4);
   border-bottom: 1px solid var(--moss-border);
   background: var(--moss-surface);
