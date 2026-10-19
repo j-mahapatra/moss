@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type {
   Collection,
+  Environment,
   ErrorKind,
   Folder,
   FormField,
@@ -82,10 +83,18 @@ export const CollectionSchema = z.object({
   schemaVersion: z.literal(1)
 })
 
+export const EnvironmentSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  variables: z.array(KeyValueSchema),
+  schemaVersion: z.literal(1)
+})
+
 export const SettingsSchema = z.object({
   schemaVersion: z.literal(1),
   split: z.number().min(0.2).max(0.8),
-  navigatorCollapsed: z.boolean()
+  navigatorCollapsed: z.boolean(),
+  activeEnvironmentId: z.uuid().nullable().default(null)
 })
 
 const HeaderListSchema = z.array(z.tuple([z.string(), z.string()]))
@@ -152,7 +161,8 @@ export type _Checks = [
   Assert<Equal<z.infer<typeof RequestAuthSchema>, RequestAuth>>,
   Assert<Equal<z.infer<typeof RequestSpecSchema>, RequestSpec>>,
   Assert<Equal<z.infer<typeof CollectionSchema>, Collection>>,
-  Assert<Equal<z.infer<typeof SettingsSchema>, Settings>>,
+  Assert<Equal<z.infer<typeof EnvironmentSchema>, Environment>>,
+  Assert<Equal<z.output<typeof SettingsSchema>, Settings>>,
   Assert<Equal<z.infer<typeof HeaderListSchema>, HeaderList>>,
   Assert<Equal<z.infer<typeof ResolvedBodySchema>, ResolvedBody>>,
   Assert<Equal<z.infer<typeof ResolvedRequestSchema>, ResolvedRequest>>,

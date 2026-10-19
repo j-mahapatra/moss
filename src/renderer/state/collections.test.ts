@@ -49,7 +49,12 @@ function setup(initial: Collection[] = [], opts: { hold?: boolean } = {}) {
     }),
     'collections:delete': vi.fn(async ({ id }: { id: string }) => void disk.delete(id)),
     'settings:get': vi.fn(async () => ({
-      settings: { schemaVersion: 1 as const, split: 0.3, navigatorCollapsed: true },
+      settings: {
+        schemaVersion: 1 as const,
+        split: 0.3,
+        navigatorCollapsed: true,
+        activeEnvironmentId: null as string | null
+      },
       warnings: ['settings reset']
     })),
     'settings:set': vi.fn(async () => undefined)
@@ -469,7 +474,32 @@ describe('settings', () => {
     expect(api['settings:set']).toHaveBeenCalledWith({
       schemaVersion: 1,
       split: 0.6,
-      navigatorCollapsed: false
+      navigatorCollapsed: false,
+      activeEnvironmentId: null as string | null
+    })
+  })
+
+  it('carries the loaded activeEnvironmentId through every save', async () => {
+    vi.useFakeTimers()
+    const { store, api } = setup()
+    const id = crypto.randomUUID()
+    api['settings:get'].mockResolvedValueOnce({
+      settings: {
+        schemaVersion: 1 as const,
+        split: 0.3,
+        navigatorCollapsed: false,
+        activeEnvironmentId: id
+      },
+      warnings: []
+    })
+    await store.getState().init()
+    store.getState().setSplit(0.4)
+    await vi.advanceTimersByTimeAsync(300)
+    expect(api['settings:set']).toHaveBeenCalledWith({
+      schemaVersion: 1,
+      split: 0.4,
+      navigatorCollapsed: false,
+      activeEnvironmentId: id
     })
   })
 

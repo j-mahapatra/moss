@@ -88,9 +88,16 @@ export type Collection = {
   variables: KeyValue[]
   schemaVersion: 1
 }
-export type Settings = { schemaVersion: 1; split: number; navigatorCollapsed: boolean }
+export type Environment = { id: string; name: string; variables: KeyValue[]; schemaVersion: 1 }
+export type Settings = {
+  schemaVersion: 1
+  split: number
+  navigatorCollapsed: boolean
+  activeEnvironmentId: string | null
+}
 export const DEFAULT_SETTINGS: Settings = {
   schemaVersion: 1,
   split: 0.5,
-  navigatorCollapsed: false
+  navigatorCollapsed: false,
+  activeEnvironmentId: null
 }

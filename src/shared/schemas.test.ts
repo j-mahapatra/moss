@@ -106,4 +106,18 @@ describe('collection schemas', () => {
     expect(SettingsSchema.safeParse({ ...DEFAULT_SETTINGS, split: 0.9 }).success).toBe(false)
     expect(SettingsSchema.safeParse({ ...DEFAULT_SETTINGS, split: 0.1 }).success).toBe(false)
   })
+
+  it('defaults activeEnvironmentId to null and rejects a non-UUID', () => {
+    expect(
+      SettingsSchema.parse({ schemaVersion: 1, split: 0.5, navigatorCollapsed: false })
+        .activeEnvironmentId
+    ).toBeNull()
+    expect(
+      SettingsSchema.safeParse({ ...DEFAULT_SETTINGS, activeEnvironmentId: 'x' }).success
+    ).toBe(false)
+    const id = crypto.randomUUID()
+    expect(
+      SettingsSchema.parse({ ...DEFAULT_SETTINGS, activeEnvironmentId: id }).activeEnvironmentId
+    ).toBe(id)
+  })
 })

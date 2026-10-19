@@ -13,7 +13,12 @@ export function noopExtras(): Extras {
     'collections:save': vi.fn(async () => undefined),
     'collections:delete': vi.fn(async () => undefined),
     'settings:get': vi.fn(async () => ({
-      settings: { schemaVersion: 1 as const, split: 0.5, navigatorCollapsed: false },
+      settings: {
+        schemaVersion: 1 as const,
+        split: 0.5,
+        navigatorCollapsed: false,
+        activeEnvironmentId: null
+      },
       warnings: []
     })),
     'settings:set': vi.fn(async () => undefined)

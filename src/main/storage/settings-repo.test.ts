@@ -19,7 +19,12 @@ describe('SettingsRepo', () => {
   })
 
   it('round-trips set -> get', async () => {
-    const s = { schemaVersion: 1 as const, split: 0.3, navigatorCollapsed: true }
+    const s = {
+      schemaVersion: 1 as const,
+      split: 0.3,
+      navigatorCollapsed: true,
+      activeEnvironmentId: null
+    }
     await new SettingsRepo(dir).set(s)
     expect(await new SettingsRepo(dir).get()).toEqual({ settings: s, warnings: [] })
   })
@@ -74,7 +79,12 @@ describe('SettingsRepo', () => {
     const repo = new SettingsRepo(dir, undefined, fs, () => 3)
     const getting = repo.get()
     await new Promise((r) => setTimeout(r, 20))
-    const s = { schemaVersion: 1 as const, split: 0.4, navigatorCollapsed: true }
+    const s = {
+      schemaVersion: 1 as const,
+      split: 0.4,
+      navigatorCollapsed: true,
+      activeEnvironmentId: null
+    }
     const setting = repo.set(s)
     await new Promise((r) => setTimeout(r, 20))
     release()

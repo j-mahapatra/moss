@@ -17,6 +17,8 @@ export function createSettings(
   applySettings(s: Settings): void
   slice: Pick<WorkspaceState, 'split' | 'navigatorCollapsed' | 'setSplit' | 'toggleNavigator'>
 } {
+  // Task 4 replaces this with real store state; until then it is carried through unchanged.
+  let activeEnvironmentId: string | null = null
   let timer: ReturnType<typeof setTimeout> | undefined
 
   // Debounced: only the last split/collapsed values within 300 ms are written.
@@ -25,15 +27,19 @@ export function createSettings(
     timer = setTimeout(() => {
       const { split, navigatorCollapsed } = get()
       Promise.resolve()
-        .then(() => api['settings:set']({ schemaVersion: 1, split, navigatorCollapsed }))
+        .then(() =>
+          api['settings:set']({ schemaVersion: 1, split, navigatorCollapsed, activeEnvironmentId })
+        )
         .catch(() => addNotice('warning', "Couldn't save settings."))
     }, SAVE_DELAY_MS)
   }
 
   return {
     // Used by init; deliberately does not schedule a save.
-    applySettings: (s) =>
-      set({ split: clampSplit(s.split), navigatorCollapsed: s.navigatorCollapsed }),
+    applySettings: (s) => {
+      activeEnvironmentId = s.activeEnvironmentId
+      set({ split: clampSplit(s.split), navigatorCollapsed: s.navigatorCollapsed })
+    },
     slice: {
       split: SPLIT_DEFAULT,
       navigatorCollapsed: false,
