@@ -17,7 +17,10 @@ type State = {
   head: boolean
   url?: string
   headers: KeyValue[]
-  auth: RequestAuth
+  /** From `-u`; the last one wins. */
+  basic?: RequestAuth
+  /** From an `Authorization: Bearer` header; the last one wins, and it beats `-u`. */
+  bearer?: string
   data: string[]
   json: boolean
   encoded: KeyValue[]
@@ -53,7 +56,7 @@ function apply(s: State, opt: Opt, flag: string, value: string): string | null {
       const v = value.slice(colon + 1).trimStart()
       const bearer = /^bearer\s+(.*)$/is.exec(v)
       if (name.toLowerCase() === 'authorization' && bearer) {
-        s.auth = { type: 'bearer', token: bearer[1] ?? '' }
+        s.bearer = bearer[1] ?? ''
       } else {
         s.headers.push(kv(name, v))
       }
@@ -71,7 +74,7 @@ function apply(s: State, opt: Opt, flag: string, value: string): string | null {
       break
     case 'user': {
       const colon = value.indexOf(':')
-      s.auth =
+      s.basic =
         colon === -1
           ? { type: 'basic', username: value, password: '' }
           : { type: 'basic', username: value.slice(0, colon), password: value.slice(colon + 1) }
@@ -84,11 +87,15 @@ function apply(s: State, opt: Opt, flag: string, value: string): string | null {
     case 'data-raw':
       s.data.push(value)
       break
-    case 'json':
+    case 'json': {
       s.json = true
+      // curl appends a --json part to the data so far with no `&` in between.
+      const last = s.data.length - 1
       if (value.startsWith('@')) add(`File data (${value}) was not imported`)
+      else if (last >= 0) s.data[last] += value
       else s.data.push(value)
       break
+    }
     case 'data-urlencode':
       if (eq > 0) s.encoded.push(kv(value.slice(0, eq), value.slice(eq + 1)))
       else add(`Unsupported --data-urlencode value "${value}"`)
@@ -211,8 +218,20 @@ function buildBody(s: State): RequestBody {
     return { mode: 'form-data', fields: s.form }
   }
   if (!hasData || s.get) return { mode: 'none' }
+  if (s.head) {
+    s.report.push(note('', '--data ignored with --head'))
+    return { mode: 'none' }
+  }
   const isContentType = (h: KeyValue): boolean => h.key.toLowerCase() === 'content-type'
   const contentType = s.headers.filter(isContentType).at(-1)?.value
+  if (s.json) {
+    // --json data is sent as given whatever the Content-Type says, so it is never form fields.
+    return {
+      mode: 'raw',
+      contentType: contentType ?? 'application/json',
+      text: encodedParts(s, false).join('&')
+    }
+  }
   const isForm = (v: string): boolean => (v.split(';')[0] ?? '').trim().toLowerCase() === FORM_TYPE
   if (contentType !== undefined && !isForm(contentType)) {
     return { mode: 'raw', contentType, text: encodedParts(s, false).join('&') }
@@ -273,7 +292,6 @@ function parse(text: string): CurlResult {
     get: false,
     head: false,
     headers: [],
-    auth: { type: 'none' },
     data: [],
     json: false,
     encoded: [],
@@ -298,6 +316,11 @@ function parse(text: string): CurlResult {
   encodeURIComponent(url) // Rejects lone surrogates (caught by the backstop in parseCurl).
   const body = buildBody(s)
   const params = parseQuery(url)
+  if (s.bearer !== undefined && s.basic) {
+    s.report.push(note('', 'Both -u and a Bearer header were given; using the Bearer header'))
+  }
+  const auth: RequestAuth =
+    s.bearer !== undefined ? { type: 'bearer', token: s.bearer } : (s.basic ?? { type: 'none' })
 
   return {
     ok: true,
@@ -309,7 +332,7 @@ function parse(text: string): CurlResult {
       params,
       headers: s.headers,
       body,
-      auth: s.auth
+      auth
     },
     report: dedupe(s.report)
   }

@@ -104,12 +104,12 @@ export function variableList(x: unknown, add: Notes): Variable[] {
   return rows.map((r) => (r.type === 'secret' ? { ...toKv(r), secret: true } : toKv(r)))
 }
 
-/** Headers as an array of rows or a string of `Key: value` lines. */
+/** Headers as an array of rows or a string of `Key: value` lines (blank and bare `//` lines skipped). */
 export function headerList(x: unknown, add: Notes): KeyValue[] {
   if (typeof x !== 'string') return keyValues(x, 'headers', add)
   return x
     .split(/\r?\n/)
-    .filter((line) => line.trim() !== '')
+    .filter((line) => !/^\s*(\/\/\s*)?$/.test(line))
     .map((line) => {
       // A `//` prefix is how the string form marks a disabled header.
       const off = /^\s*\/\//.test(line)
@@ -131,7 +131,10 @@ export const LANGUAGE_TYPES: Record<string, string> = {
 }
 
 function rawContentType(options: unknown, headers: KeyValue[], add: Notes): string {
-  const header = headers.find((h) => h.enabled && h.key.toLowerCase() === 'content-type')
+  // An empty Content-Type value says nothing, so the raw language decides.
+  const header = headers.find(
+    (h) => h.enabled && h.key.toLowerCase() === 'content-type' && h.value.trim() !== ''
+  )
   if (header) return header.value
   const language = obj(obj(options)?.['raw'])?.['language']
   if (language === undefined || language === null || language === '') return 'text/plain'

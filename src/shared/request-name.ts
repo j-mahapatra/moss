@@ -15,3 +15,15 @@ function pathOf(url: string): string {
 export function requestNameFromUrl(method: HttpMethod, url: string): string {
   return `${method} ${pathOf(url)}`
 }
+
+const HTTP_METHODS: readonly string[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
+
+export const isHttpMethod = (method: string): method is HttpMethod => HTTP_METHODS.includes(method)
+
+/**
+ * Name for a request that has none: `requestNameFromUrl` for a method Moss sends, otherwise
+ * `${method} ${url}` with the url verbatim (used in reports for requests that were skipped).
+ */
+export function unnamedRequestName(method: string, url: string): string {
+  return isHttpMethod(method) ? requestNameFromUrl(method, url) : `${method} ${url}`
+}

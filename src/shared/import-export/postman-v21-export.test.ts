@@ -1,11 +1,11 @@
 import Ajv from 'ajv-draft-04'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { newCollection, newFolder, toItem } from '../collection-tree'
 import { newRequestSpec } from '../types'
 import type { Collection, FormField, Item, RequestAuth, RequestBody, RequestItem } from '../types'
-import { countLeftOut, exportFileName, exportPostmanV21 } from './postman-v21-export'
+import { countLeftOut, exportFileName, exportPostmanV21, wellFormed } from './postman-v21-export'
 import { importPostmanV21 } from './postman-v21'
 import { withoutIds } from './test-helpers'
 
@@ -18,6 +18,19 @@ function req(name: string, patch: Partial<RequestItem> = {}): RequestItem {
   return { ...toItem(newRequestSpec()), name, ...patch }
 }
 const withItems = (name: string, items: Item[]): Collection => ({ ...newCollection(name), items })
+
+/** Form-data file fields anywhere in the tree. */
+const fileFields = (items: Item[]): number =>
+  items.reduce(
+    (n, i) =>
+      n +
+      (i.kind === 'folder'
+        ? fileFields(i.items)
+        : i.body.mode === 'form-data'
+          ? i.body.fields.filter((f) => f.kind === 'file').length
+          : 0),
+    0
+  )
 
 const bodies: RequestBody[] = [
   { mode: 'none' },
@@ -161,7 +174,7 @@ describe('exportPostmanV21', () => {
     const r = importPostmanV21(JSON.parse(JSON.stringify(exportPostmanV21(c))))
     if (!r.ok) throw new Error(r.error)
     expect(withoutIds(r.collection)).toEqual(withoutIds(withoutSecrets(c)))
-    const files = JSON.stringify(c).split('"kind":"file"').length - 1
+    const files = fileFields(c.items)
     expect(r.report.length).toBe(files)
     for (const n of r.report) expect(n.message).toMatch(/File for form field/)
   })
@@ -295,13 +308,9 @@ describe('exportPostmanV21', () => {
 
 describe('exportFileName', () => {
   it('sanitizes the name', () => {
-    expect(exportFileName({ name: 'My API / v2' } as Collection)).toBe(
-      'My-API-v2.postman_collection.json'
-    )
-    expect(exportFileName({ name: '///' } as Collection)).toBe('collection.postman_collection.json')
-    expect(exportFileName({ name: 'Café ☕ API' } as Collection)).toBe(
-      'Caf-API.postman_collection.json'
-    )
+    expect(exportFileName({ name: 'My API / v2' })).toBe('My-API-v2.postman_collection.json')
+    expect(exportFileName({ name: '///' })).toBe('collection.postman_collection.json')
+    expect(exportFileName({ name: 'Café ☕ API' })).toBe('Caf-API.postman_collection.json')
   })
 })
 
@@ -386,5 +395,33 @@ describe('secrets', () => {
     if (!r.ok) throw new Error(r.error)
     expect(r.collection.variables.map((v) => v.secret === true)).toEqual([true, true, false, false])
     expect(r.collection.variables[3]).not.toHaveProperty('secret')
+  })
+})
+
+describe('wellFormed', () => {
+  const native = Object.getOwnPropertyDescriptor(String.prototype, 'toWellFormed')
+  afterEach(() => {
+    if (native) Object.defineProperty(String.prototype, 'toWellFormed', native)
+  })
+  const samples = [
+    'plain',
+    'a\uD800b',
+    '\uDC00x',
+    'end\uD800',
+    '\uD83D\uDE00 ok',
+    '\uDE00\uD83D',
+    ''
+  ]
+
+  it('without String.prototype.toWellFormed, replaces lone surrogates like the native method', () => {
+    const expected = samples.map((t) => t.toWellFormed())
+    Object.defineProperty(String.prototype, 'toWellFormed', {
+      value: undefined,
+      configurable: true
+    })
+    expect(typeof ''.toWellFormed).toBe('undefined')
+    expect(samples.map(wellFormed)).toEqual(expected)
+    expect(wellFormed('a\uD800b')).toBe('a\uFFFDb')
+    expect(wellFormed('\uD83D\uDE00')).toBe('\uD83D\uDE00')
   })
 })

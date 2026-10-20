@@ -491,6 +491,41 @@ describe('importPostmanV21', () => {
       ])
     })
 
+    it('skips a bare // line in string headers', () => {
+      const { collection } = run({
+        name: 'R',
+        request: { url: 'https://x', header: 'A: 1\n//\n  //  \nB: 2' }
+      })
+      expect(req(collection, 'R').headers).toEqual([kv('A', '1'), kv('B', '2')])
+    })
+
+    it('an empty Content-Type header does not override the raw language', () => {
+      const { collection } = run({
+        name: 'R',
+        request: {
+          method: 'POST',
+          url: 'https://x',
+          header: [{ key: 'Content-Type', value: '' }],
+          body: { mode: 'raw', raw: '{}', options: { raw: { language: 'json' } } }
+        }
+      })
+      expect(req(collection, 'R').body).toEqual({
+        mode: 'raw',
+        contentType: 'application/json',
+        text: '{}'
+      })
+    })
+
+    it('names an unnamed skipped request by its method and whole url', () => {
+      const { report } = run({ request: { method: 'trace', url: 'https://x.io/a?b=1' } })
+      expect(report).toEqual([
+        {
+          path: 'TRACE https://x.io/a?b=1',
+          message: "Method TRACE isn't supported; request skipped"
+        }
+      ])
+    })
+
     it('reports a request on a folder item', () => {
       const { collection, report } = run({
         name: 'F',

@@ -1,6 +1,16 @@
+import { execFileSync } from 'node:child_process'
+import { mkdtemp, open, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { IMPORT_MAX_BYTES, IMPORT_TOO_LARGE } from '../shared/import-export/report'
-import { IMPORT_FILTERS, readImportFile, type ImportFs, type ImportHandle } from './import-files'
+import {
+  IMPORT_FILTERS,
+  importOpenFlags,
+  readImportFile,
+  type ImportFs,
+  type ImportHandle
+} from './import-files'
 
 type Fake = {
   fs: ImportFs
@@ -116,6 +126,39 @@ describe('readImportFile', () => {
   it('reads a real file with the default fs', async () => {
     const r = await readImportFile(new URL('./import-files.ts', import.meta.url).pathname)
     expect(r.ok && r.name).toBe('import-files.ts')
+  })
+})
+
+describe('importOpenFlags', () => {
+  it('opens read-only and non-blocking when the platform defines O_NONBLOCK', () => {
+    expect(importOpenFlags({ O_RDONLY: 0, O_NONBLOCK: 4 })).toBe(4)
+  })
+
+  it('falls back to read-only where O_NONBLOCK is undefined', () => {
+    expect(importOpenFlags({ O_RDONLY: 0 })).toBe(0)
+  })
+})
+
+describe.skipIf(process.platform === 'win32')('readImportFile on a FIFO', () => {
+  it('rejects it as not a file instead of hanging on open', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'moss-fifo-'))
+    const fifo = join(dir, 'pipe.json')
+    try {
+      execFileSync('mkfifo', [fifo])
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const timedOut = new Promise<'timeout'>((r) => (timer = setTimeout(() => r('timeout'), 2000)))
+      const read = readImportFile(fifo)
+      const r = await Promise.race([read, timedOut])
+      clearTimeout(timer)
+      if (r === 'timeout') {
+        // Unblock the stuck open so the worker can exit, then fail.
+        await (await open(fifo, 'w')).close()
+        await read
+      }
+      expect(r).toEqual({ ok: false, error: 'Not a file' })
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })
 

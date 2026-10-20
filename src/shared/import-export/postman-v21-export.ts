@@ -160,9 +160,12 @@ export function exportPostmanV21(c: Collection): PostmanV21Collection {
   }
 }
 
-/** Collection name with each run of characters outside [A-Za-z0-9_.-] replaced by `-`, plus extension. */
+/**
+ * The collection name with each run of characters outside `[A-Za-z0-9_.-]` replaced by `-` and
+ * leading or trailing `-` trimmed (`collection` if nothing is left), plus the extension.
+ */
 export function exportFileName(c: Pick<Collection, 'name'>): string {
-  const base = c.name.replace(/[^A-Za-z0-9_.-]+/g, '-').replace(/^[-\s]+|[-\s]+$/g, '')
+  const base = c.name.replace(/[^A-Za-z0-9_.-]+/g, '-').replace(/^-+|-+$/g, '')
   return `${base || 'collection'}.postman_collection.json`
 }
 

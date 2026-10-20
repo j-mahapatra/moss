@@ -349,6 +349,53 @@ describe('parseCurl', () => {
       ['File data (@body.json) was not imported']
     ],
     [
+      '-I with data ignores the data',
+      `curl -I -d 'a=1' https://x`,
+      shape({ method: 'HEAD', url: 'https://x' }),
+      ['--data ignored with --head']
+    ],
+    [
+      '-u and a Bearer header: the header wins',
+      `curl -H 'Authorization: Bearer abc' -u user:pw https://x`,
+      shape({ url: 'https://x', auth: { type: 'bearer', token: 'abc' } }),
+      ['Both -u and a Bearer header were given; using the Bearer header']
+    ],
+    [
+      'a Bearer header then -u: the header still wins',
+      `curl -u user:pw -H 'Authorization: Bearer abc' https://x`,
+      shape({ url: 'https://x', auth: { type: 'bearer', token: 'abc' } }),
+      ['Both -u and a Bearer header were given; using the Bearer header']
+    ],
+    [
+      '--json with an urlencoded Content-Type stays a raw JSON body',
+      `curl -H 'Content-Type: application/x-www-form-urlencoded' --json '{"a":"b=c"}' https://x`,
+      shape({
+        method: 'POST',
+        url: 'https://x',
+        headers: [
+          kv('Content-Type', 'application/x-www-form-urlencoded'),
+          kv('Accept', 'application/json')
+        ],
+        body: {
+          mode: 'raw',
+          contentType: 'application/x-www-form-urlencoded',
+          text: '{"a":"b=c"}'
+        }
+      }),
+      []
+    ],
+    [
+      'repeated --json parts are joined with no separator',
+      `curl --json '{"a":' --json '1}' https://x`,
+      shape({
+        method: 'POST',
+        url: 'https://x',
+        headers: [kv('Content-Type', 'application/json'), kv('Accept', 'application/json')],
+        body: { mode: 'raw', contentType: 'application/json', text: '{"a":1}' }
+      }),
+      []
+    ],
+    [
       '--max-redirs consumes its argument',
       'curl --max-redirs 3 https://x -K cfg --form-string a=b',
       shape({ url: 'https://x' }),

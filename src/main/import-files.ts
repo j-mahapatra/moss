@@ -1,3 +1,4 @@
+import { constants } from 'fs'
 import { open } from 'fs/promises'
 import { basename } from 'path'
 import { IMPORT_MAX_BYTES, IMPORT_TOO_LARGE } from '../shared/import-export/report'
@@ -25,7 +26,15 @@ export const IMPORT_FILTERS = [
   { name: 'All Files', extensions: ['*'] }
 ]
 
-const nodeFs: ImportFs = { open: (p) => open(p, 'r') }
+/**
+ * Read-only, plus `O_NONBLOCK` where the platform has it: opening a FIFO then returns at once
+ * and the `isFile` check rejects it, instead of the open waiting for a writer forever.
+ */
+export function importOpenFlags(c: { O_RDONLY: number; O_NONBLOCK?: number } = constants): number {
+  return c.O_RDONLY | (c.O_NONBLOCK ?? 0)
+}
+
+const nodeFs: ImportFs = { open: (p) => open(p, importOpenFlags()) }
 const CHUNK = 64 * 1024
 
 /** Reads at most IMPORT_MAX_BYTES + 1 bytes, so a file that grows can't be read without bound. */

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { newCollection, newFolder } from '../collection-tree'
-import { requestNameFromUrl } from '../request-name'
-import type { HttpMethod, Item, KeyValue, RequestItem } from '../types'
+import { isHttpMethod, unnamedRequestName } from '../request-name'
+import type { Item, KeyValue, RequestItem } from '../types'
 import { applyParams, decode, parseQuery } from '../url-params'
 import {
   headerList,
@@ -22,7 +22,6 @@ import type { CollectionImportResult, ImportReport } from './report'
 const NOT_V21 = 'Not a Postman v2.1 collection'
 const V20 = "Postman v2.0 collections aren't supported; re-export as v2.1"
 const MAX_DEPTH = 32
-const METHODS: readonly string[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
 
 // Lenient read schemas (see postman-v21-parts.ts): shape only, every field optional.
 const open = z.unknown().optional()
@@ -137,16 +136,16 @@ function mapRequest(
       ? 'GET'
       : str(req.method).toUpperCase()
   const { url, params } = mapUrl(req.url, add)
-  if (!METHODS.includes(method)) {
+  if (!isHttpMethod(method)) {
     report.push(
       note(
-        join(prefix, name || `${method} ${url}`),
+        join(prefix, name || unnamedRequestName(method, url)),
         `Method ${method} isn't supported; request skipped`
       )
     )
     return null
   }
-  const m = method as HttpMethod
+  const m = method
   const headers = headerList(req.header, add)
   const body = mapBody(req.body, headers, add)
   const auth = mapAuth(req.auth, add)
@@ -157,7 +156,7 @@ function mapRequest(
   if (nonEmpty(item.response)) add('Examples were not imported')
   if (nonEmpty(item.protocolProfileBehavior)) add('Request settings were not imported')
   if (nonEmpty(req.description) || nonEmpty(item.description)) add('Description was not imported')
-  const finalName = name || requestNameFromUrl(m, url)
+  const finalName = name || unnamedRequestName(m, url)
   const path = join(prefix, finalName)
   for (const message of messages) report.push(note(path, message))
   return {

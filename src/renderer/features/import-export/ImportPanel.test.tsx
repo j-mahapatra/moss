@@ -174,13 +174,12 @@ describe('ImportPanel', () => {
     expect(zone()).not.toHaveClass('import-panel__drop--over')
   })
 
-  it('ignores drags that are not carrying files', () => {
-    return setup().then(() => {
-      fireEvent.dragOver(zone(), { dataTransfer: { files: [], types: ['text/plain'] } })
-      expect(zone()).not.toHaveClass('import-panel__drop--over')
-      fireEvent.drop(zone(), { dataTransfer: { files: [], types: ['text/plain'] } })
-      expect(status()).toBeEmptyDOMElement()
-    })
+  it('ignores drags that are not carrying files', async () => {
+    await setup()
+    fireEvent.dragOver(zone(), { dataTransfer: { files: [], types: ['text/plain'] } })
+    expect(zone()).not.toHaveClass('import-panel__drop--over')
+    fireEvent.drop(zone(), { dataTransfer: { files: [], types: ['text/plain'] } })
+    expect(status()).toBeEmptyDOMElement()
   })
 
   it('keeps the highlight while the drag moves between children of the zone', async () => {
@@ -224,6 +223,17 @@ describe('ImportPanel', () => {
     expect(read).not.toHaveBeenCalled()
     expect(importText).not.toHaveBeenCalled()
     expect(store.getState().collections).toEqual([])
+  })
+
+  it('says only the first file was used when the first of several is too large', async () => {
+    const { store } = await setup()
+    const importText = vi.spyOn(store.getState(), 'importText')
+    const big = fileOf('{}')
+    Object.defineProperty(big, 'size', { value: IMPORT_MAX_BYTES + 1 })
+    fireEvent.drop(zone(), { dataTransfer: { files: [big, fileOf(V21, 'second.json')] } })
+    expect(await within(status()).findByText(IMPORT_TOO_LARGE)).toBeInTheDocument()
+    expect(within(status()).getByText('Only the first file was imported')).toBeInTheDocument()
+    expect(importText).not.toHaveBeenCalled()
   })
 
   it('Open file… imports the picked file; cancelling changes nothing', async () => {
