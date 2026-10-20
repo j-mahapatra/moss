@@ -20,7 +20,14 @@ function VariablesEditor({
   onDirtyChange(dirty: boolean): void
 }): React.JSX.Element {
   const updateEnvironment = useWorkspace((s) => s.updateEnvironment)
-  const [edits, setEdits] = useState<Variable[] | null>(null)
+  // `saves` counts saves that left no edits behind; it keys the grid, so each such save remounts
+  // it and masks every secret again. (The store keeps the saved array itself, so the grid alone
+  // can't tell a save from its own edit.)
+  const [{ edits, saves }, setDraft] = useState<{ edits: Variable[] | null; saves: number }>({
+    edits: null,
+    saves: 0
+  })
+  const setEdits = (next: Variable[] | null): void => setDraft((d) => ({ ...d, edits: next }))
   const rows = edits ?? env.variables
   const dirty = edits !== null && !deepEqual(edits, env.variables)
 
@@ -35,14 +42,14 @@ function VariablesEditor({
     const variables = edits
     if (await updateEnvironment(env.id, (e) => ({ ...e, variables }))) {
       // Rows typed while the save was in flight stay as unsaved edits.
-      setEdits((cur) => (cur === variables ? null : cur))
+      setDraft((d) => (d.edits === variables ? { edits: null, saves: d.saves + 1 } : d))
     }
   }
 
   return (
     <section className="env-popover__section" aria-label="Variables">
       <h3 className="env-popover__heading">Variables</h3>
-      <KeyValueGrid rows={rows} onChange={setEdits} secretColumn />
+      <KeyValueGrid key={saves} rows={rows} onChange={setEdits} secretColumn />
       {dirty && (
         <p role="status" className="env-popover__hint">
           Save or discard your changes

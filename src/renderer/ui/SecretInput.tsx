@@ -5,7 +5,15 @@ import { Input } from './Input'
 import './SecretInput.css'
 
 export type SecretInputProps = {
+  /**
+   * The secret. The field is uncontrolled (see below), so it resyncs whenever this differs from
+   * what it shows: a change from outside (discard, reload) replaces the typed text.
+   */
   value: string
+  /**
+   * Called with every edit. The caller must accept the value verbatim and pass it straight back
+   * as `value`; trimming or otherwise rewriting it would overwrite the field mid-typing.
+   */
   onChange(value: string): void
   /** Accessible name of the input; the toggle reads "Show <label>" / "Hide <label>". */
   label: string

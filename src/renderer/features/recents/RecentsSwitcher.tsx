@@ -53,7 +53,10 @@ function SwitcherBody({ onClose }: { onClose(): void }): React.JSX.Element {
   })
   const found = entries.findIndex((e) => e.ref.requestId === selected.requestId)
   const index = found >= 0 ? found : Math.min(selected.index, entries.length - 1)
-  // The selected request vanished: the row now in its place becomes the selection.
+  // The selected request vanished: the row now in its place becomes the selection. Setting
+  // state during render makes React re-run this render at once with the new selection; that
+  // pass finds the anchored request in `entries`, so `anchor` is undefined and it settles after
+  // one re-render. With no entries, `anchor` is undefined to begin with.
   const anchor = found < 0 ? entries[index]?.ref.requestId : undefined
   if (anchor !== undefined) setSelected({ requestId: anchor, index })
   const baseId = useId()

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -190,6 +190,29 @@ describe('KeyValueGrid', () => {
       )
       expect(screen.getByLabelText('Value 1')).toHaveValue('other')
       expect(screen.getByLabelText('Value 1')).toHaveAttribute('type', 'password')
+    })
+
+    it('keeps focus in the value field when its row is toggled while it has focus', () => {
+      render(<Stateful initial={rows} onChange={vi.fn()} secretColumn />)
+      const plain = screen.getByLabelText('Value 2') as HTMLInputElement
+      plain.focus()
+      plain.setSelectionRange(1, 3)
+      // fireEvent: a click that, like a shortcut or a non-focusing button, leaves focus in place.
+      fireEvent.click(screen.getByRole('button', { name: 'Mark row secret' }))
+      const masked = screen.getByLabelText('Value 2') as HTMLInputElement
+      expect(masked).toHaveAttribute('type', 'password')
+      expect(masked).toHaveFocus()
+      expect([masked.selectionStart, masked.selectionEnd]).toEqual([1, 3])
+      fireEvent.click(screen.getByRole('button', { name: 'Mark row secret' }))
+      expect(screen.getByLabelText('Value 2')).not.toHaveAttribute('type', 'password')
+      expect(screen.getByLabelText('Value 2')).toHaveFocus()
+    })
+
+    it('leaves focus alone when the value field did not have it', async () => {
+      render(<Stateful initial={rows} onChange={vi.fn()} secretColumn />)
+      const lock = screen.getByRole('button', { name: 'Mark row secret' })
+      await userEvent.click(lock)
+      expect(lock).toHaveFocus()
     })
 
     it('stays revealed across its own edits', async () => {

@@ -124,6 +124,24 @@ describe('EnvironmentsPanel', () => {
     expect(store.getState().environments[0]!.variables.map((v) => v.key)).toEqual(['host'])
   })
 
+  it('a failed Edit variables save reports a notice itself and keeps the dialog open', async () => {
+    // KeyValueDialog raises no notice of its own; its callers report failures.
+    const a = env('alpha')
+    const { api, store, user } = await setup([a])
+    api['environments:save'].mockRejectedValueOnce(new Error('disk full'))
+    await pick(user, 'alpha', 'Edit variables…')
+    const dialog = await screen.findByRole('dialog', { name: 'Variables · alpha' })
+    await user.type(within(dialog).getByRole('textbox', { name: 'Key 1' }), 'host')
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(store.getState().notices.map((n) => [n.tone, n.message])).toEqual([
+        ['danger', `Couldn't save "alpha": disk full`]
+      ])
+    )
+    expect(screen.getByRole('dialog', { name: 'Variables · alpha' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled()
+  })
+
   it('Edit variables offers the secret toggle; Save persists secret: true', async () => {
     const a = env('alpha', [kv('host', 'h')])
     const { store, user } = await setup([a])

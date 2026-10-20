@@ -69,6 +69,22 @@ describe('VariablesDialog', () => {
     ])
   })
 
+  it('a failed save reports a notice itself and keeps the dialog open', async () => {
+    // KeyValueDialog raises no notice of its own; its callers report failures.
+    const user = userEvent.setup()
+    const { store, api } = await setup(newCollection('Shop'))
+    api['collections:save'].mockRejectedValueOnce(new Error('disk full'))
+    await user.type(await screen.findByLabelText('Key 1'), 'x')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await vi.waitFor(() =>
+      expect(store.getState().notices.map((n) => [n.tone, n.message])).toEqual([
+        ['danger', `Couldn't save "Shop": disk full`]
+      ])
+    )
+    expect(screen.getByRole('dialog', { name: 'Variables · Shop' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+  })
+
   it('opens saved secret variables masked', async () => {
     const col = {
       ...newCollection('Shop'),

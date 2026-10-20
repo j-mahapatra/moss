@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { Variable } from '../../shared/types'
 import { LockIcon } from './icons'
 import { cx } from './cx'
@@ -10,6 +10,11 @@ import './KeyValueGrid.css'
 /** Rows are KeyValue; `secret` is only read and written when `secretColumn` is set. */
 export type KeyValueGridProps = {
   rows: Variable[]
+  /**
+   * Receives the next rows. The parent must store this exact array and pass it back as `rows`:
+   * the grid recognises its own edits by identity, so a cloned or rebuilt array reads as an
+   * outside change and re-masks every revealed secret.
+   */
   onChange(rows: Variable[]): void
   keyPlaceholder?: string
   valuePlaceholder?: string
@@ -46,6 +51,24 @@ export function KeyValueGrid({
     if (rows !== emitted) generation += 1
     setSeen({ rows, generation })
   }
+  // Toggling a row's secret flag swaps its value input for another component. If that input had
+  // focus, the replacement takes it (and the selection) over on the next render, which `emit`
+  // always causes; the request is consumed there whether or not the parent took the change.
+  const root = useRef<HTMLDivElement>(null)
+  const refocus = useRef<{ label: string; start: number | null; end: number | null } | null>(null)
+  useLayoutEffect(() => {
+    const target = refocus.current
+    if (!target) return
+    refocus.current = null
+    const input = root.current?.querySelector<HTMLInputElement>(
+      `input[aria-label="${target.label}"]`
+    )
+    if (!input) return
+    input.focus()
+    if (target.start !== null && target.end !== null) {
+      input.setSelectionRange(target.start, target.end)
+    }
+  })
   const emit = (next: Variable[]): void => {
     setEmitted(next)
     onChange(next)
@@ -61,7 +84,15 @@ export function KeyValueGrid({
     setSeen((s) => ({ ...s, generation: s.generation + 1 }))
     emit(rows.filter((_, i) => i !== index))
   }
-  const toggleSecret = (index: number): void =>
+  const toggleSecret = (index: number): void => {
+    const label = `Value ${index + 1}`
+    const active = document.activeElement
+    refocus.current =
+      active instanceof HTMLInputElement &&
+      active.getAttribute('aria-label') === label &&
+      root.current?.contains(active)
+        ? { label, start: active.selectionStart, end: active.selectionEnd }
+        : null
     emit(
       rows.map((row, i) => {
         if (i !== index) return row
@@ -72,6 +103,7 @@ export function KeyValueGrid({
         return rest
       })
     )
+  }
 
   const all: (Variable & { trailing: boolean })[] = [
     ...rows.map((row) => ({ ...row, trailing: false })),
@@ -79,7 +111,7 @@ export function KeyValueGrid({
   ]
 
   return (
-    <div className={cx('moss-kv', secretColumn && 'moss-kv--secret')}>
+    <div ref={root} className={cx('moss-kv', secretColumn && 'moss-kv--secret')}>
       {all.map((row, index) => {
         const n = index + 1
         // Index keys keep the focused input mounted when the trailing row becomes a real row.

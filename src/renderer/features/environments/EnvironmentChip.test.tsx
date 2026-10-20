@@ -131,6 +131,21 @@ describe('EnvironmentChip', () => {
     expect(within(dialog).getByLabelText('Value 2')).toHaveAttribute('type', 'password')
   })
 
+  it('masks every secret again after a successful Save', async () => {
+    const a = env('a', [{ key: 'k', value: 'secret-one', enabled: true, secret: true }])
+    const { user, api } = await setup([a], a.id)
+    const dialog = await openPopover(user, /Environment: a/)
+    await user.click(within(dialog).getByRole('button', { name: 'Show Value 1' }))
+    await user.type(within(dialog).getByLabelText('Value 1'), '-x')
+    expect(within(dialog).getByLabelText('Value 1')).toHaveAttribute('type', 'text')
+    const save = within(dialog).getByRole('button', { name: 'Save' })
+    await user.click(save)
+    await waitFor(() => expect(save).toBeDisabled())
+    expect(api['environments:save']).toHaveBeenCalledTimes(1)
+    expect(within(dialog).getByLabelText('Value 1')).toHaveValue('secret-one-x')
+    expect(within(dialog).getByLabelText('Value 1')).toHaveAttribute('type', 'password')
+  })
+
   it('marks a variable secret from the popover and saves the flag', async () => {
     const prod = env('prod', [{ key: 'host', value: 'a', enabled: true }])
     const { user, api } = await setup([prod], prod.id)

@@ -209,6 +209,23 @@ describe('exportCollection', () => {
     ])
   })
 
+  it('a cancelled or failed export of a collection with secrets raises no left-out notice', async () => {
+    const withSecret: Collection = {
+      ...col,
+      variables: [{ key: 'k', value: 'HUNTER2', enabled: true, secret: true }]
+    }
+    const { api, store } = setup({ cols: [withSecret] })
+    await store.getState().init()
+    api['export:save-file'].mockResolvedValueOnce(false)
+    expect(await store.getState().exportCollection(col.id)).toBe('cancelled')
+    expect(store.getState().notices).toEqual([])
+    api['export:save-file'].mockRejectedValueOnce(new Error('EACCES'))
+    expect(await store.getState().exportCollection(col.id)).toBe('failed')
+    expect(messages(store.getState())).toEqual([
+      ['danger', `Couldn't export "My API / v2": EACCES`]
+    ])
+  })
+
   it('waits for init, so a collection that is still loading can be exported', async () => {
     const col = newCollection('Late')
     const { api, store } = setup({ cols: [col] })

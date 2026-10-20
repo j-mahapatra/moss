@@ -9,7 +9,11 @@ export type KeyValueDialogProps = {
   open: boolean
   /** The saved rows. Each open edits a fresh copy; Cancel discards it. */
   rows: Variable[]
-  /** Persists the edited rows. The dialog closes when it resolves true. */
+  /**
+   * Persists the edited rows. The dialog closes when it resolves true; on false or a rejection
+   * it stays open with Save enabled again. The dialog shows no error itself, so the caller must
+   * report the failure (the store's update actions raise a danger notice).
+   */
   onSave(rows: Variable[]): Promise<boolean>
   onOpenChange(open: boolean): void
   keyPlaceholder: string
