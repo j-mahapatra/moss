@@ -16,6 +16,7 @@
     "postinstall": "install-electron && electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:mac": "electron-vite build && electron-builder --mac",
+    "dist:mac": "node scripts/dist-mac.mjs",
     "test": "vitest run",
     "e2e": "electron-vite build && playwright test",
     "gen:tokens": "tsx scripts/gen-tokens.ts",

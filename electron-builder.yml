@@ -21,13 +21,20 @@ nsis:
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+afterPack: build/after-pack.cjs
 mac:
   entitlementsInherit: build/entitlements.mac.plist
+  hardenedRuntime: true
+  # Unsigned by default; `npm run dist:mac` overrides both when signing env vars are set.
   identity: null
-  target: dmg
   notarize: false
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${productName}-${version}-${arch}.${ext}
 linux:
   target:
     - AppImage

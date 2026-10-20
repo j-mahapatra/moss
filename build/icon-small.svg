@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Moss app icon, small-size variant for the 16 and 32 px iconset entries (designed
+       in-house). Same tile and colours as icon.svg; the sprig has a thicker stem, two
+       pairs of larger leaflets and no ground mound so it stays legible at 16 px. -->
+  <defs>
+    <linearGradient id="field" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#17694a"/>
+      <stop offset="1" stop-color="#131e18"/>
+    </linearGradient>
+    <g id="leaf">
+      <path d="M0 0 C 40 -20 92 -20 132 0 C 92 20 40 20 0 0 Z"/>
+    </g>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#field)"/>
+  <!-- stem -->
+  <path d="M512 806 C 504 660 524 520 512 330" fill="none" stroke="#f8faf6" stroke-width="64" stroke-linecap="round"/>
+  <!-- leaflets: one pale pair low, one accent pair high -->
+  <g fill="#f8faf6">
+    <use href="#leaf" transform="translate(510 668) rotate(-148) scale(2.2)"/>
+    <use href="#leaf" transform="translate(514 640) rotate(-32) scale(2.2)"/>
+  </g>
+  <g fill="#4cc795">
+    <use href="#leaf" transform="translate(516 486) rotate(-142) scale(1.75)"/>
+    <use href="#leaf" transform="translate(516 462) rotate(-38) scale(1.75)"/>
+  </g>
+  <!-- spore capsule at the tip -->
+  <circle cx="512" cy="300" r="62" fill="#4cc795"/>
+</svg>

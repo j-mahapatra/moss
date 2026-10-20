@@ -8,7 +8,7 @@ export default defineConfig({
         test: {
           name: 'node',
           environment: 'node',
-          include: ['src/{shared,main,runner}/**/*.test.ts']
+          include: ['src/{shared,main,runner}/**/*.test.ts', 'scripts/**/*.test.ts']
         }
       },
       {

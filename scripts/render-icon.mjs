@@ -1,6 +1,8 @@
-// Renders build/icon.svg into the app's raster icons. Run with `npm run gen:icon`
+// Renders the app icon SVGs into raster icons. Run with `npm run gen:icon`
 // (`electron scripts/render-icon.mjs`); it needs macOS for `iconutil`.
-// Writes build/icon.png (1024²), resources/icon.png (512²) and build/icon.icns.
+// build/icon.svg gives build/icon.png (1024²), resources/icon.png (512²) and the large
+// build/icon.icns entries; build/icon-small.svg, a simplified sprig, gives the 16 and 32 px
+// entries (16, 16@2x, 32, 32@2x) so the icon stays legible at those sizes.
 /* eslint-disable @typescript-eslint/explicit-function-return-type -- plain JS: Electron runs this file directly, so it can't carry type annotations */
 import { app, BrowserWindow } from 'electron'
 import { execFileSync } from 'node:child_process'
@@ -9,16 +11,20 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '..')
-const svgPath = join(root, 'build/icon.svg')
+const fullSvg = join(root, 'build/icon.svg')
+const smallSvg = join(root, 'build/icon-small.svg')
 
-// The 10 standard iconset entries: [file name, pixel size].
-const ICONSET = [16, 32, 128, 256, 512].flatMap((size) => [
-  [`icon_${size}x${size}.png`, size],
-  [`icon_${size}x${size}@2x.png`, size * 2]
-])
+// The 10 standard iconset entries: [file name, pixel size, source SVG].
+const ICONSET = [16, 32, 128, 256, 512].flatMap((size) => {
+  const svg = size <= 32 ? smallSvg : fullSvg
+  return [
+    [`icon_${size}x${size}.png`, size, svg],
+    [`icon_${size}x${size}@2x.png`, size * 2, svg]
+  ]
+})
 
 // Draws the SVG onto a canvas at each size inside the page and returns PNG data URLs.
-async function rasterise(win, sizes) {
+async function rasterise(win, svgPath, sizes) {
   const svg = readFileSync(svgPath, 'utf8')
   const src = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
   return win.webContents.executeJavaScript(`(async () => {
@@ -53,12 +59,15 @@ async function main() {
   })
   await win.loadURL('data:text/html,<!doctype html><title>icon</title>')
 
-  const sizes = [...new Set([1024, 512, ...ICONSET.map(([, size]) => size)])]
-  const pngs = await rasterise(win, sizes)
+  const sizesFor = (svg) => ICONSET.filter((entry) => entry[2] === svg).map(([, size]) => size)
+  const pngs = {
+    [fullSvg]: await rasterise(win, fullSvg, [...new Set([1024, 512, ...sizesFor(fullSvg)])]),
+    [smallSvg]: await rasterise(win, smallSvg, [...new Set(sizesFor(smallSvg))])
+  }
   win.destroy()
 
   const write = (file, size) => {
-    writeFileSync(file, pngBuffer(pngs[size]))
+    writeFileSync(file, pngBuffer(pngs[fullSvg][size]))
     console.log(`Wrote ${file} (${size}x${size})`)
   }
   write(join(root, 'build/icon.png'), 1024)
@@ -68,7 +77,9 @@ async function main() {
   try {
     const iconset = join(scratch, 'icon.iconset')
     mkdirSync(iconset)
-    for (const [name, size] of ICONSET) writeFileSync(join(iconset, name), pngBuffer(pngs[size]))
+    for (const [name, size, svg] of ICONSET) {
+      writeFileSync(join(iconset, name), pngBuffer(pngs[svg][size]))
+    }
     const icns = join(root, 'build/icon.icns')
     execFileSync('iconutil', ['-c', 'icns', iconset, '-o', icns])
     console.log(`Wrote ${icns}`)
