@@ -10,7 +10,7 @@
 
 .topbar__wordmark {
   flex: none;
-  color: var(--moss-accent-text);
+  color: var(--moss-accent);
   font-size: var(--moss-text-lg);
   font-weight: var(--moss-weight-bold);
 }

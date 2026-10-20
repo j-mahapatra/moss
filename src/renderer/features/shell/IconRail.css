@@ -10,5 +10,5 @@
 
 .icon-rail__button[aria-pressed='true'] {
   background: var(--moss-accent-soft);
-  color: var(--moss-accent-text);
+  color: var(--moss-accent);
 }

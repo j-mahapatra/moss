@@ -16,6 +16,11 @@ export const mossTheme = EditorView.theme({
   '.cm-scroller': { fontFamily: 'var(--moss-font-mono)', lineHeight: 'var(--moss-leading-normal)' },
   '.cm-content': { caretColor: 'var(--moss-text)', padding: '6px var(--moss-space-2)' },
   '.cm-cursor': { borderLeftColor: 'var(--moss-text)' },
+  '.cm-gutters': {
+    backgroundColor: 'var(--moss-surface-raised)',
+    color: 'var(--moss-text-muted)',
+    borderRight: '1px solid var(--moss-border)'
+  },
   '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground':
     { backgroundColor: 'var(--moss-accent-soft)' },
   '.cm-tooltip': {
