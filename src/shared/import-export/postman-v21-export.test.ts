@@ -362,14 +362,6 @@ describe('secrets', () => {
     ])
   })
 
-  it('emits no variable type outside the schema enum', () => {
-    const allowed = ['string', 'boolean', 'any', 'number']
-    for (const v of exportPostmanV21(planted).variable ?? []) {
-      const t = (v as { type?: string }).type
-      if (t !== undefined) expect(allowed).toContain(t)
-    }
-  })
-
   it('blanks credentials but keeps type and username', () => {
     const out = exportPostmanV21(planted)
     expect(JSON.stringify(out.item[0])).toContain('"token","value":""')

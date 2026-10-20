@@ -31,12 +31,36 @@ function fold(text: string): string[] {
 }
 
 /**
- * One matchable unit of the text: a code point with any combining marks after it. `folded` is
+ * One matchable unit of the text: a code point with any combining marks after it, or a run of
+ * conjoining Hangul jamo that makes up one syllable. `folded` is
  * usually one code point, but can be more (ß → s s); a match consumes all of it at once.
  */
 type Unit = { folded: string[]; offset: number; length: number; wordStart: boolean }
 
 const COMBINING = /\p{M}/u
+
+/** Conjoining Hangul jamo: leading consonants (L), vowels (V) and trailing consonants (T). */
+const JAMO_L = /[\u1100-\u115F\uA960-\uA97F]/u
+const JAMO_V = /[\u1160-\u11A7\uD7B0-\uD7CA]/u
+const JAMO_T = /[\u11A8-\u11FF\uD7CB-\uD7FF]/u
+
+/** A precomposed Hangul syllable, and whether it has no trailing consonant (an LV syllable). */
+function syllable(ch: string): 'LV' | 'LVT' | null {
+  const cp = ch.codePointAt(0) ?? 0
+  if (cp < 0xac00 || cp > 0xd7a3) return null
+  return (cp - 0xac00) % 28 === 0 ? 'LV' : 'LVT'
+}
+
+/**
+ * Whether `ch` continues the unit ending in `last`, like a combining mark: a jamo that belongs
+ * to the same syllable (L+L, L/V/LV + V, V/T/LV/LVT + T), so NFC can compose the whole unit.
+ */
+function joinsSyllable(last: string, ch: string): boolean {
+  if (JAMO_L.test(ch)) return JAMO_L.test(last)
+  if (JAMO_V.test(ch)) return JAMO_L.test(last) || JAMO_V.test(last) || syllable(last) === 'LV'
+  if (JAMO_T.test(ch)) return JAMO_V.test(last) || JAMO_T.test(last) || syllable(last) !== null
+  return false
+}
 
 function units(text: string): Unit[] {
   const out: Unit[] = []
@@ -55,12 +79,14 @@ function units(text: string): Unit[] {
     previous = Array.from(unit).pop()
     unit = ''
   }
+  let last = ''
   for (const ch of text) {
-    if (unit !== '' && COMBINING.test(ch)) unit += ch
+    if (unit !== '' && (COMBINING.test(ch) || joinsSyllable(last, ch))) unit += ch
     else {
       flush()
       unit = ch
     }
+    last = ch
   }
   flush()
   return out
@@ -85,10 +111,14 @@ function maySubsequence(q: string[], t: Unit[]): boolean {
   return false
 }
 
+/** Counts the score tables `fuzzyMatch` has built, so tests can see the early exit. */
+export const scoreTables = { built: 0 }
+
 /**
  * Case-insensitive subsequence match of `query` in `text`, by code point. Both sides are folded
  * with NFC and lowercase, `İ` → `i` and `ß` → `ss`; a text `ß` is then matched by two query
- * chars, and its range covers the one code point. A combining mark goes with the char before it.
+ * chars, and its range covers the one code point. A combining mark goes with the char before it,
+ * and conjoining jamo group by syllable, so decomposed Hangul text matches a precomposed query.
  *
  * Each matched query char scores +1, +5 more at a word start (index 0 or after a space or one
  * of `/ - _ . { :`) and +3 more when it directly follows the previous match. Among all
@@ -104,6 +134,7 @@ export function fuzzyMatch(query: string, text: string): FuzzyMatch | null {
   const m = q.length
   const n = t.length
   if (!maySubsequence(q, t)) return null
+  scoreTables.built++
 
   // best[i][j]: top score with q[0..i] matched and the last unit placed at t[j]; -Infinity if
   // impossible. from[i][j]: where the previous unit sits in that placement. topScore[i][j] and

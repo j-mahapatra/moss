@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
-import { fuzzyMatch, rankItems, type PaletteItem } from './fuzzy'
+import { describe, expect, it } from 'vitest'
+import { fuzzyMatch, rankItems, scoreTables, type PaletteItem } from './fuzzy'
 
 type Row = {
   name: string
@@ -117,6 +117,41 @@ const rows: Row[] = [
     score: 10,
     ranges: [[0, 3]]
   },
+  {
+    name: 'unicode: a precomposed Hangul query matches decomposed conjoining jamo',
+    query: '한',
+    text: '\u1112\u1161\u11AB\u1100\u1173\u11AF',
+    score: 6,
+    ranges: [[0, 3]]
+  },
+  {
+    name: 'unicode: each decomposed Hangul syllable is its own unit',
+    query: '글',
+    text: '\u1112\u1161\u11AB\u1100\u1173\u11AF',
+    score: 1,
+    ranges: [[3, 6]]
+  },
+  {
+    name: 'unicode: a decomposed Hangul word matches as two adjacent syllables',
+    query: '한글',
+    text: '\u1112\u1161\u11AB\u1100\u1173\u11AF',
+    score: 10,
+    ranges: [[0, 6]]
+  },
+  {
+    name: 'unicode: a leading jamo starts a new unit after a non-Hangul char',
+    query: 'a한',
+    text: 'a\u1112\u1161\u11AB',
+    score: 10,
+    ranges: [[0, 4]]
+  },
+  {
+    name: 'unicode: extended-block jamo (A960, D7B0) group like the basic ones',
+    query: '\uA960\uD7B0',
+    text: 'x \uA960\uD7B0',
+    score: 7,
+    ranges: [[2, 4]]
+  },
   { name: 'every char present but out of order', query: 'resu', text: 'users', score: null }
 ]
 
@@ -139,17 +174,12 @@ describe('fuzzyMatch', () => {
   })
 
   it('exits early on a long non-match, before building any score table', () => {
-    // Each DP row is allocated with Array#fill; the subsequence pre-check allocates none.
-    const fill = vi.spyOn(Array.prototype, 'fill')
-    try {
-      expect(fuzzyMatch(`${'a'.repeat(999)}z`, 'ab'.repeat(50_000))).toBeNull()
-      expect(fill).not.toHaveBeenCalled()
-      // Control: a query that passes the pre-check does build the table.
-      expect(fuzzyMatch('ab', 'xab')).not.toBeNull()
-      expect(fill).toHaveBeenCalled()
-    } finally {
-      fill.mockRestore()
-    }
+    const before = scoreTables.built
+    expect(fuzzyMatch(`${'a'.repeat(999)}z`, 'ab'.repeat(50_000))).toBeNull()
+    expect(scoreTables.built).toBe(before)
+    // Control: a query that passes the pre-check does build the table.
+    expect(fuzzyMatch('ab', 'xab')).not.toBeNull()
+    expect(scoreTables.built).toBe(before + 1)
   })
 
   it('is deterministic', () => {
