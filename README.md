@@ -297,7 +297,8 @@ and the script's credential checks have been run. Smoke-test a signed build
 `npm run gen:icon` regenerates
 `build/icon.png`, `build/icon.icns` and `resources/icon.png` from
 `build/icon.svg` (it needs macOS for `iconutil`). The README screenshots in
-`assets/` are regenerated with `npm run screenshots` and are not packaged.
+`assets/` are captures of the running app; `npm run screenshots` renders demo-data
+versions instead (it overwrites them). Neither is packaged.
 
 ## Developer notes
 
