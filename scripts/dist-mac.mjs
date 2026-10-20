@@ -3,7 +3,8 @@
 // Signing is opt-in through the environment:
 // - Neither CSC_LINK nor CSC_NAME set: builds unsigned, exactly like `npm run build:mac`.
 // - CSC_LINK (a .p12 path, URL or base64) or CSC_NAME (a Developer ID Application identity
-//   in the login keychain) set: signs with hardened runtime and notarizes. That needs
+//   in the login keychain) set: signs with hardened runtime and notarizes, failing if the
+//   identity can't be found. That needs
 //   notarization credentials, either APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID
 //   or APPLE_API_KEY (path to the .p8) + APPLE_API_KEY_ID + APPLE_API_ISSUER. If they are
 //   incomplete the script exits 1 before building anything. After a signed build, every
@@ -31,9 +32,10 @@ export function planBuild(env) {
   const has = (name) => typeof env[name] === 'string' && env[name] !== ''
   if (!has('CSC_LINK') && !has('CSC_NAME')) return { kind: 'unsigned' }
 
-  // Same precedence as electron-builder: once any Apple ID variable is set it uses that
-  // method (and fails if it is incomplete), otherwise the API key method.
-  const appleIdStarted = APPLE_ID_VARS.some(has)
+  // Same precedence as electron-builder 26 (MacTargetHelper.getNotarizeOptions): APPLE_ID or
+  // APPLE_APP_SPECIFIC_PASSWORD selects the Apple ID method, which then also needs
+  // APPLE_TEAM_ID; APPLE_TEAM_ID alone selects nothing. Otherwise the API key method.
+  const appleIdStarted = has('APPLE_ID') || has('APPLE_APP_SPECIFIC_PASSWORD')
   const apiKeyStarted = API_KEY_VARS.some(has)
   let missing = null
   if (appleIdStarted) {
@@ -59,10 +61,12 @@ export function planBuild(env) {
 
   // An empty identity overrides the config's `identity: null` and leaves electron-builder to
   // find the Developer ID Application certificate itself (the one CSC_LINK imports).
+  // forceCodeSigning makes electron-builder fail when that identity can't be found, instead of
+  // quietly building unsigned.
   const identity = has('CSC_NAME') ? env.CSC_NAME : ''
   return {
     kind: 'signed',
-    builderArgs: [`-c.mac.identity=${identity}`, '-c.mac.notarize=true']
+    builderArgs: [`-c.mac.identity=${identity}`, '-c.mac.notarize=true', '-c.forceCodeSigning=true']
   }
 }
 

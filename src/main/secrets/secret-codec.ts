@@ -99,6 +99,8 @@ export function createSecretCodec(cipher: Cipher): SecretCodec {
     (opts: SealOptions = {}): MapValue =>
     (v) => {
       if (v === '' || (opts.keepSealed === true && v.startsWith(SEALED_PREFIX))) return v
+      // Accepted edge case: in plain/unavailable mode a typed value that begins with `enc:v1:`
+      // is stored as typed, so the next load treats it as sealed and it opens as ''.
       if (!cipher.available()) return v
       let sealed: Buffer
       try {

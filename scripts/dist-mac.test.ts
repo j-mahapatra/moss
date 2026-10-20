@@ -40,8 +40,19 @@ describe('planBuild', () => {
   })
 
   it('follows electron-builder precedence: a partial Apple ID set wins over a full API key set', () => {
-    const plan = planBuild({ CSC_NAME: 'dummy', APPLE_TEAM_ID: 'TEAM123456', ...API_KEY })
-    expect(plan.message).toContain('Missing: APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD.')
+    const plan = planBuild({ CSC_NAME: 'dummy', APPLE_APP_SPECIFIC_PASSWORD: 'x', ...API_KEY })
+    expect(plan.message).toContain('Missing: APPLE_ID, APPLE_TEAM_ID.')
+  })
+
+  it('does not start the Apple ID method on APPLE_TEAM_ID alone', () => {
+    expect(planBuild({ CSC_NAME: 'dummy', APPLE_TEAM_ID: 'TEAM123456', ...API_KEY })).toEqual({
+      kind: 'signed',
+      builderArgs: ['-c.mac.identity=dummy', '-c.mac.notarize=true', '-c.forceCodeSigning=true']
+    })
+    const plan = planBuild({ CSC_NAME: 'dummy', APPLE_TEAM_ID: 'TEAM123456' })
+    expect(plan.message).toContain(
+      'Missing: APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID (or APPLE_API_KEY, APPLE_API_KEY_ID, APPLE_API_ISSUER).'
+    )
   })
 
   it('never echoes credential values in the message', () => {
@@ -56,14 +67,18 @@ describe('planBuild', () => {
   it('signs with the named identity and notarizes when everything is present', () => {
     expect(planBuild({ CSC_NAME: 'Jane Doe (TEAM123456)', ...APPLE_ID })).toEqual({
       kind: 'signed',
-      builderArgs: ['-c.mac.identity=Jane Doe (TEAM123456)', '-c.mac.notarize=true']
+      builderArgs: [
+        '-c.mac.identity=Jane Doe (TEAM123456)',
+        '-c.mac.notarize=true',
+        '-c.forceCodeSigning=true'
+      ]
     })
   })
 
   it('leaves identity discovery to electron-builder when only CSC_LINK is set', () => {
     expect(planBuild({ CSC_LINK: '/certs/id.p12', ...API_KEY })).toEqual({
       kind: 'signed',
-      builderArgs: ['-c.mac.identity=', '-c.mac.notarize=true']
+      builderArgs: ['-c.mac.identity=', '-c.mac.notarize=true', '-c.forceCodeSigning=true']
     })
   })
 })

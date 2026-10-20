@@ -161,7 +161,8 @@ A collection survives export and import unchanged, with these exceptions:
 
 - ids are regenerated;
 - form-data file paths are cleared, as above;
-- secret variable values and auth tokens and passwords are left out (see
+- secret variable values and auth tokens and passwords are left out, unless a
+  token or password is only `{{variable}}` references (see
   [Secrets](#secrets)), and a secret variable comes back as an ordinary one;
 - a raw body whose content type isn't JSON, XML, HTML, JavaScript or plain text,
   and that has no `Content-Type` header, comes back as `text/plain`.
@@ -214,7 +215,9 @@ value is left as it is until you save that item again.
 **Exports leave secrets out.** A collection exported as v2.1 keeps each secret
 variable's key with an empty value, and blanks auth tokens and passwords (the
 auth type and the Basic auth username are kept). Moss then reports "Secret
-values were left out of the export (N)." The exported variable carries no
+values were left out of the export (N)." A token or password written only as
+`{{variable}}` references is kept as written and not counted; the variable's
+own value follows the secret-variable rule. The exported variable carries no
 secret marker, because the official v2.1 schema has no secret variable type.
 When importing, a v2.1 variable with `"type": "secret"` is imported as secret.
 
@@ -245,8 +248,10 @@ the renderer.
 `npm run build:mac` builds the app and packages it with electron-builder as two
 unsigned disk images in `dist/`: `Moss-<version>-arm64.dmg` for Apple silicon
 and `Moss-<version>-x64.dmg` for Intel. Because the app isn't signed or
-notarized, Gatekeeper blocks a double-click on first launch: right-click Moss
-in Applications and choose Open, then confirm. An unsigned or rebuilt app may
+notarized, Gatekeeper blocks the first launch. After that blocked launch, open
+System Settings > Privacy & Security and click Open Anyway, then confirm. If a
+downloaded copy is reported as damaged, clear its quarantine flag with
+`xattr -dr com.apple.quarantine /Applications/Moss.app`. An unsigned or rebuilt app may
 also show the keychain prompt described under [Secrets](#secrets) the first
 time a secret is saved or read.
 
@@ -270,11 +275,13 @@ the environment provides a signing identity:
 - **Notarization credentials**, required whenever an identity is set: either
   `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID`, or
   `APPLE_API_KEY` (the path to the `.p8` key file), `APPLE_API_KEY_ID` and
-  `APPLE_API_ISSUER`. If any `APPLE_ID` variable is set, that set is used and
-  must be complete. When the chosen set is incomplete, the script names the
+  `APPLE_API_ISSUER`. If `APPLE_ID` or `APPLE_APP_SPECIFIC_PASSWORD` is set,
+  the Apple ID set is used and must be complete (`APPLE_TEAM_ID` alone doesn't
+  select it). When the chosen set is incomplete, the script names the
   missing variables and exits before building anything.
 
-A signed build first deletes any `dist/mac*` folders, then signs with the
+A signed build first deletes any `dist/mac*` folders, fails if the identity
+can't be found instead of falling back to an unsigned build, then signs with the
 hardened runtime and `build/entitlements.mac.plist` (`allow-jit` and
 `allow-unsigned-executable-memory` only) and notarizes the app inside each
 image (the disk images themselves are not notarized or stapled). Afterwards
