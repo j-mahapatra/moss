@@ -128,7 +128,7 @@ describe('EnvironmentsPanel', () => {
     // KeyValueDialog raises no notice of its own; its callers report failures.
     const a = env('alpha')
     const { api, store, user } = await setup([a])
-    api['environments:save'].mockRejectedValueOnce(new Error('disk full'))
+    vi.mocked(api['environments:save']).mockRejectedValueOnce(new Error('disk full'))
     await pick(user, 'alpha', 'Edit variables…')
     const dialog = await screen.findByRole('dialog', { name: 'Variables · alpha' })
     await user.type(within(dialog).getByRole('textbox', { name: 'Key 1' }), 'host')

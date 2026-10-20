@@ -73,7 +73,7 @@ describe('VariablesDialog', () => {
     // KeyValueDialog raises no notice of its own; its callers report failures.
     const user = userEvent.setup()
     const { store, api } = await setup(newCollection('Shop'))
-    api['collections:save'].mockRejectedValueOnce(new Error('disk full'))
+    vi.mocked(api['collections:save']).mockRejectedValueOnce(new Error('disk full'))
     await user.type(await screen.findByLabelText('Key 1'), 'x')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await vi.waitFor(() =>
