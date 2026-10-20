@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { builtApps, planBuild, planVerify, verifyFailure } from './dist-mac.mjs'
+import { builtApps, planBuild, planClean, planVerify, verifyFailure } from './dist-mac.mjs'
 
 const APPLE_ID = {
   APPLE_ID: 'dev@example.com',
@@ -78,6 +78,21 @@ describe('builtApps', () => {
         (p: string) => has.has(p)
       )
     ).toEqual(['/r/dist/mac/Moss.app', '/r/dist/mac-arm64/Moss.app'])
+  })
+})
+
+describe('planClean', () => {
+  const names = ['mac', 'mac-arm64', 'machine-notes', 'linux-unpacked', 'Moss-1.0.0-x64.dmg']
+
+  it('deletes every dist/mac* folder before a signed build', () => {
+    expect(planClean({ kind: 'signed', builderArgs: [] }, '/r/dist', names)).toEqual([
+      '/r/dist/mac',
+      '/r/dist/mac-arm64'
+    ])
+  })
+
+  it('deletes nothing before an unsigned build', () => {
+    expect(planClean({ kind: 'unsigned' }, '/r/dist', names)).toEqual([])
   })
 })
 

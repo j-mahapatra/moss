@@ -8,10 +8,12 @@
 //   or APPLE_API_KEY (path to the .p8) + APPLE_API_KEY_ID + APPLE_API_ISSUER. If they are
 //   incomplete the script exits 1 before building anything. After a signed build, every
 //   dist/mac*/Moss.app is checked with codesign and spctl, and the script exits 1 if any check
-//   fails, so a build that silently came out unsigned is caught here.
+//   fails, so a build that silently came out unsigned is caught here. A signed build first
+//   deletes every dist/mac* folder, so a stale unsigned app from an earlier build can't fail
+//   that check.
 /* eslint-disable @typescript-eslint/explicit-function-return-type -- plain JS: Node runs this file directly, so it can't carry type annotations */
 import { spawnSync } from 'node:child_process'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, rmSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -64,15 +66,28 @@ export function planBuild(env) {
   }
 }
 
+/** electron-builder's per-arch app folders: mac, mac-arm64, mac-universal, ... */
+const isMacDir = (name) => /^mac(-|$)/.test(name)
+
 /**
  * The built apps: `<distDir>/<dir>/Moss.app` for each `mac*` entry of `names` (mac, mac-arm64,
  * mac-universal, ...) where `exists` finds one. Pure apart from `exists`, so it can be tested.
  */
 export function builtApps(distDir, names, exists) {
   return names
-    .filter((name) => /^mac(-|$)/.test(name))
+    .filter(isMacDir)
     .map((name) => join(distDir, name, 'Moss.app'))
     .filter((app) => exists(app))
+}
+
+/**
+ * The folders to delete before building: every `<distDir>/mac*` entry of `names` for a signed
+ * build, so only freshly built apps are verified afterwards; nothing for an unsigned build.
+ * Pure, so it can be tested.
+ */
+export function planClean(plan, distDir, names) {
+  if (plan.kind !== 'signed') return []
+  return names.filter(isMacDir).map((name) => join(distDir, name))
 }
 
 /**
@@ -105,9 +120,16 @@ export function verifyFailure(check, status) {
   )
 }
 
+const distDir = resolve(import.meta.dirname, '..', 'dist')
+const distNames = () => (existsSync(distDir) ? readdirSync(distDir) : [])
+
+function clean(plan) {
+  for (const dir of planClean(plan, distDir, distNames()))
+    rmSync(dir, { recursive: true, force: true })
+}
+
 function verify(plan) {
-  const distDir = resolve(import.meta.dirname, '..', 'dist')
-  const names = existsSync(distDir) ? readdirSync(distDir) : []
+  const names = distNames()
   const checks = planVerify(plan, builtApps(distDir, names, existsSync))
   if (checks.kind === 'skip') return
   if (checks.kind === 'error') {
@@ -141,6 +163,7 @@ function main() {
     process.exit(1)
   }
   if (plan.kind === 'unsigned') console.log(UNSIGNED_MESSAGE)
+  clean(plan)
   run('electron-vite', ['build'])
   run('electron-builder', ['--mac', ...(plan.kind === 'signed' ? plan.builderArgs : [])])
   verify(plan)
