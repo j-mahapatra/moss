@@ -69,9 +69,11 @@ function collectionJson(opts: { script?: boolean } = {}): string {
   })
 }
 
-/** Waits until /echo has stayed untouched for a short while, so a late send would be seen. */
-async function expectNothingSent(): Promise<void> {
-  const since = Date.now()
+/**
+ * Waits until /echo has stayed untouched for 300 ms counted from `since` (when Send was
+ * triggered), so a late send would be seen.
+ */
+async function expectNothingSent(since: number): Promise<void> {
   await expect
     .poll(
       () =>
@@ -213,9 +215,10 @@ test('a curl file field imports without its path and blocks Send', async () => {
   await expect(page.getByText('/etc/hosts')).toHaveCount(0)
 
   await page.locator('[data-url-input]').focus()
+  const sentAt = Date.now()
   await page.keyboard.press('ControlOrMeta+Enter')
   await expect(page.locator('[data-response-error] h2')).toHaveText(
     'Choose a file for form field "f"'
   )
-  await expectNothingSent()
+  await expectNothingSent(sentAt)
 })

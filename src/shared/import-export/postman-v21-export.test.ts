@@ -78,7 +78,8 @@ const combos: Item[] = bodies.flatMap((body, i) =>
  * except credentials made only of `{{variable}}` references.
  */
 const withoutSecrets = (c: Collection): Collection => {
-  const keep = (v: string): string => (/^\s*(\{\{[^{}]+\}\}\s*)+$/.test(v) ? v : '')
+  // The reference pattern is findVariables' own (src/shared/variables.ts), repeated with spaces.
+  const keep = (v: string): string => (/^\s*(\{\{\s*[^{}\s][^{}]*?\s*\}\}\s*)+$/.test(v) ? v : '')
   const strip = (i: Item): Item => {
     if (i.kind === 'folder') return { ...i, items: i.items.map(strip) }
     const a = i.auth

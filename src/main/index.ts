@@ -11,7 +11,7 @@ import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { createWindowOptions } from './window-options'
-import { withParent } from './dialog-parent'
+import { focusedDialog } from './dialog-parent'
 import { isAllowedNavigation } from './navigation'
 import { registerIpc } from './ipc'
 import { IMPORT_FILTERS, readImportFile, type ImportFileResult } from './import-files'
@@ -35,10 +35,11 @@ const supervisor = new RunnerSupervisor(forkUtilityRunner)
 
 // Dialogs attach to the focused window when there is one. The dialog functions are looked up at
 // each call (e2e replaces them on the `dialog` object).
-const showOpenDialog = (options: OpenDialogOptions): Promise<OpenDialogReturnValue> =>
-  withParent(BrowserWindow.getFocusedWindow(), dialog.showOpenDialog.bind(dialog), options)
-const showSaveDialog = (options: SaveDialogOptions): Promise<SaveDialogReturnValue> =>
-  withParent(BrowserWindow.getFocusedWindow(), dialog.showSaveDialog.bind(dialog), options)
+const focused = (): BrowserWindow | null => BrowserWindow.getFocusedWindow()
+const showOpenDialog: (options: OpenDialogOptions) => Promise<OpenDialogReturnValue> =
+  focusedDialog(focused, () => dialog.showOpenDialog.bind(dialog))
+const showSaveDialog: (options: SaveDialogOptions) => Promise<SaveDialogReturnValue> =
+  focusedDialog(focused, () => dialog.showSaveDialog.bind(dialog))
 
 async function pickFile(): Promise<string | null> {
   const r = await showOpenDialog({ properties: ['openFile'] })

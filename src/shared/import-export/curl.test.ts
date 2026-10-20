@@ -355,6 +355,12 @@ describe('parseCurl', () => {
       ['--data ignored with --head']
     ],
     [
+      '-X POST with -I keeps POST but still drops the data',
+      `curl -X POST -I -d a=1 https://x`,
+      shape({ method: 'POST', url: 'https://x' }),
+      ['--data ignored with --head']
+    ],
+    [
       'a Bearer header then -u: the header still wins',
       `curl -H 'Authorization: Bearer abc' -u user:pw https://x`,
       shape({ url: 'https://x', auth: { type: 'bearer', token: 'abc' } }),
