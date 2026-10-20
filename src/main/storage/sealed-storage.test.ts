@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { HISTORY_CAP } from '../../shared/history'
 import type { Collection, Environment, HistoryEntry, RequestSpec } from '../../shared/types'
 import { newRequestSpec } from '../../shared/types'
-import { fakeCipher } from '../secrets/fake-cipher'
+import { fakeCipher } from '../secrets/fake-cipher.test-helpers'
 import {
   SEALED_PREFIX,
   SEAL_FAILED,
@@ -290,6 +290,66 @@ describe('sealed storage: undecryptable values', () => {
     const disk = await readFile(envFile(), 'utf8')
     expect(disk).not.toMatch(MARKER)
     expect(JSON.parse(disk).variables[0].value).toBe(BAD)
+  })
+
+  it('get() on a cold cache opens an undecryptable doc as empty without rewriting it', async () => {
+    await mkdir(join(dir, 'environments'), { recursive: true })
+    const raw = JSON.stringify({
+      ...environment(),
+      variables: [{ key: 'k', value: BAD, enabled: true, secret: true }]
+    })
+    await writeFile(envFile(), raw)
+    const fs = capturingFs()
+    const repo = new EnvironmentsRepo(
+      dir,
+      new WriteQueue(),
+      fs,
+      Date.now,
+      createSecretCodec(fakeCipher())
+    )
+    expect(await repo.get(ID(200))).toMatchObject({ variables: [{ key: 'k', value: '' }] })
+    expect(fs.writes).toEqual([])
+    expect(await readFile(envFile(), 'utf8')).toBe(raw)
+  })
+
+  it('keeps undecryptable history ciphertext byte-for-byte through compaction and delete()', async () => {
+    const badEntry = (n: number): HistoryEntry => ({
+      ...hEntry(n),
+      request: { ...hEntry(n).request, auth: { type: 'bearer', token: `${BAD}${n}` } }
+    })
+    const codec = createSecretCodec(fakeCipher())
+    // Over cap, so loading compacts (rewrites) the file; the undecryptable entries are in the kept tail.
+    const lines = Array.from({ length: HISTORY_CAP + 5 }, (_, i) =>
+      i === HISTORY_CAP || i === HISTORY_CAP + 2 ? badEntry(i + 1) : hPlain(i + 1)
+    )
+    await writeFile(histFile(), lines.map((e) => JSON.stringify(e) + '\n').join(''))
+    const fs = capturingFs()
+    const repo = new HistoryRepo(dir, new WriteQueue(), fs, Date.now, codec)
+    const bad = [badEntry(HISTORY_CAP + 1), badEntry(HISTORY_CAP + 3)]
+    const onDisk = async (): Promise<HistoryEntry[]> =>
+      (await readFile(histFile(), 'utf8'))
+        .split('\n')
+        .filter((l) => l !== '')
+        .map((l) => JSON.parse(l) as HistoryEntry)
+    const storedBad = async (): Promise<HistoryEntry[]> =>
+      (await onDisk()).filter((e) => e.request.auth.type === 'bearer')
+
+    const { entries, warnings } = await repo.list()
+    expect(warnings).toEqual([DECRYPT_WARNING(2)])
+    expect(entries).toHaveLength(HISTORY_CAP)
+    expect(fs.writes).toHaveLength(2) // one atomic write: tmp file + rename
+    expect(await storedBad()).toEqual(bad)
+
+    await repo.append(hEntry(9001))
+    await repo.delete(hPlain(HISTORY_CAP + 2).id)
+    expect(fs.writes).toHaveLength(5) // + the append + one atomic rewrite
+    const after = await onDisk()
+    expect(after).toHaveLength(HISTORY_CAP)
+    expect(after.filter((e) => e.request.auth.type === 'bearer').slice(0, 2)).toEqual(bad)
+
+    await repo.delete(bad[0]?.id ?? '')
+    expect((await storedBad()).slice(0, 1)).toEqual([bad[1]])
+    expect(await readFile(histFile(), 'utf8')).not.toMatch(MARKER)
   })
 
   it('quarantines an invalid file and history line with their original bytes', async () => {

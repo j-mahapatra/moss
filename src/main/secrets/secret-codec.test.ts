@@ -10,7 +10,7 @@ import {
   storageNotices,
   type Cipher
 } from './secret-codec'
-import { fakeCipher } from './fake-cipher'
+import { fakeCipher } from './fake-cipher.test-helpers'
 
 const ID = (n: number): string => `3f2b8c1e-4a5d-4e6f-8a7b-${n.toString(16).padStart(12, '0')}`
 const req = (n: number, auth: RequestSpec['auth']): RequestSpec & { kind: 'request' } => ({
