@@ -2,11 +2,10 @@
 // unsealed. Sealing and opening with a real cipher are covered by the unit tests.
 import { expect, test, type Page } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { newRequestSpec } from '../src/shared/types'
 import { launchApp, tearDown, type LaunchedApp } from './fixtures/app'
+import { makeTempDirs, readTextWhenJson, stubSaveDialog } from './fixtures/files'
 import { seedUserData } from './fixtures/seed'
 import { startServer, type FixtureServer } from './fixtures/server'
 
@@ -32,14 +31,9 @@ test.afterAll(async () => {
 test.beforeEach(async () => {
   dir = ''
   files = ''
-  dir = await mkdtemp(join(tmpdir(), 'moss-e2e-'))
-  try {
-    files = await mkdtemp(join(tmpdir(), 'moss-e2e-files-'))
-  } catch (err) {
-    await rm(dir, { recursive: true, force: true })
-    dir = ''
-    throw err
-  }
+  const [userData, exports] = await makeTempDirs('moss-e2e-', 'moss-e2e-files-')
+  dir = userData
+  files = exports
   server.received.length = 0
   allErrors.length = 0
 })
@@ -150,9 +144,7 @@ test('an exported collection leaves out its bearer token and says so', async () 
   })
   const page = await launch()
   const out = join(files, 'export.json')
-  await current!.app.evaluate(({ dialog }, p) => {
-    Object.assign(dialog, { showSaveDialog: async () => ({ canceled: false, filePath: p }) })
-  }, out)
+  await stubSaveDialog(current!.app, out)
 
   const row = page
     .getByRole('tree', { name: 'Collections' })
@@ -165,18 +157,7 @@ test('an exported collection leaves out its bearer token and says so', async () 
     .click()
 
   await expect(page.getByText('Secret values were left out of the export (1).')).toBeVisible()
-  let text = ''
-  await expect
-    .poll(async () => {
-      try {
-        text = await readFile(out, 'utf8')
-        JSON.parse(text)
-        return true
-      } catch {
-        return false
-      }
-    })
-    .toBe(true)
+  const text = await readTextWhenJson(out)
   expect(text).not.toContain(TOKEN)
   const exported = JSON.parse(text) as {
     item: Array<{ name: string; request: { auth?: { type: string } } }>

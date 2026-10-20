@@ -195,8 +195,9 @@ profile with no secrets never touches it. macOS can ask "Moss wants to use your
 confidential information stored in 'Moss Safe Storage'" the first time a
 secret is saved or read, and again after an unsigned app is rebuilt, because
 the keychain recognises an app without a stable signature only by that exact
-build. Choose Always Allow. If you deny
-access, saved secrets can't be decrypted and open empty, with a notice.
+build. Choose Always Allow. If you deny access, saved secrets can't be
+decrypted and open empty, with a notice, and saving a secret fails with
+"Couldn't encrypt a secret value"; nothing is written in plain text instead.
 
 **When encryption isn't available.** On Linux without a keyring, secrets are
 stored in plain text, and Moss says so once per session: "Secrets are stored
@@ -275,7 +276,8 @@ the environment provides a signing identity:
 
 A signed build first deletes any `dist/mac*` folders, then signs with the
 hardened runtime and `build/entitlements.mac.plist` (`allow-jit` and
-`allow-unsigned-executable-memory` only) and notarizes both images. Afterwards
+`allow-unsigned-executable-memory` only) and notarizes the app inside each
+image (the disk images themselves are not notarized or stapled). Afterwards
 it checks every `dist/mac*/Moss.app` with `codesign --verify --deep --strict`
 and `spctl -a -t exec`, and exits with an error if any check fails, so a build
 that silently came out unsigned is never mistaken for a release.

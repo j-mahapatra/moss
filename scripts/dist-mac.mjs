@@ -13,7 +13,7 @@
 //   that check.
 /* eslint-disable @typescript-eslint/explicit-function-return-type -- plain JS: Node runs this file directly, so it can't carry type annotations */
 import { spawnSync } from 'node:child_process'
-import { existsSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -81,13 +81,16 @@ export function builtApps(distDir, names, exists) {
 }
 
 /**
- * The folders to delete before building: every `<distDir>/mac*` entry of `names` for a signed
- * build, so only freshly built apps are verified afterwards; nothing for an unsigned build.
- * Pure, so it can be tested.
+ * The folders to delete before building: every `<distDir>/mac*` entry of `names` that
+ * `isDirectory` confirms, for a signed build, so only freshly built apps are verified afterwards;
+ * nothing for an unsigned build. Pure apart from `isDirectory`, so it can be tested.
  */
-export function planClean(plan, distDir, names) {
+export function planClean(plan, distDir, names, isDirectory) {
   if (plan.kind !== 'signed') return []
-  return names.filter(isMacDir).map((name) => join(distDir, name))
+  return names
+    .filter(isMacDir)
+    .map((name) => join(distDir, name))
+    .filter((path) => isDirectory(path))
 }
 
 /**
@@ -124,7 +127,8 @@ const distDir = resolve(import.meta.dirname, '..', 'dist')
 const distNames = () => (existsSync(distDir) ? readdirSync(distDir) : [])
 
 function clean(plan) {
-  for (const dir of planClean(plan, distDir, distNames()))
+  const isDirectory = (path) => statSync(path, { throwIfNoEntry: false })?.isDirectory() === true
+  for (const dir of planClean(plan, distDir, distNames(), isDirectory))
     rmSync(dir, { recursive: true, force: true })
 }
 

@@ -82,17 +82,26 @@ describe('builtApps', () => {
 })
 
 describe('planClean', () => {
-  const names = ['mac', 'mac-arm64', 'machine-notes', 'linux-unpacked', 'Moss-1.0.0-x64.dmg']
+  const names = [
+    'mac',
+    'mac-arm64',
+    'mac-notes.txt',
+    'machine-notes',
+    'linux-unpacked',
+    'Moss-1.0.0-x64.dmg'
+  ]
+  const dirs = new Set(['/r/dist/mac', '/r/dist/mac-arm64', '/r/dist/machine-notes'])
+  const isDirectory = (p: string): boolean => dirs.has(p)
 
-  it('deletes every dist/mac* folder before a signed build', () => {
-    expect(planClean({ kind: 'signed', builderArgs: [] }, '/r/dist', names)).toEqual([
+  it('deletes every dist/mac* folder before a signed build, and only folders', () => {
+    expect(planClean({ kind: 'signed', builderArgs: [] }, '/r/dist', names, isDirectory)).toEqual([
       '/r/dist/mac',
       '/r/dist/mac-arm64'
     ])
   })
 
   it('deletes nothing before an unsigned build', () => {
-    expect(planClean({ kind: 'unsigned' }, '/r/dist', names)).toEqual([])
+    expect(planClean({ kind: 'unsigned' }, '/r/dist', names, isDirectory)).toEqual([])
   })
 })
 
