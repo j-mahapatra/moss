@@ -385,3 +385,24 @@ describe('registerIpc', () => {
     expect(t.saveExportFile).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('native theme', () => {
+  it('applies the saved theme on load and on every save', async () => {
+    const onTheme = vi.fn()
+    const t = setup({ onTheme })
+    t.settings.get.mockResolvedValueOnce({ settings: { ...DEFAULT_SETTINGS, theme: 'dark' }, warnings: [] })
+    await t.invoke('settings:get')
+    expect(onTheme).toHaveBeenLastCalledWith('dark')
+    await t.invoke('settings:set', { ...DEFAULT_SETTINGS, theme: 'light' })
+    expect(onTheme).toHaveBeenLastCalledWith('light')
+    expect(onTheme).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not apply a theme when the save fails', async () => {
+    const onTheme = vi.fn()
+    const t = setup({ onTheme })
+    t.settings.set.mockRejectedValueOnce(new Error('disk full'))
+    await expect(t.invoke('settings:set', { ...DEFAULT_SETTINGS, theme: 'dark' })).rejects.toThrow()
+    expect(onTheme).not.toHaveBeenCalled()
+  })
+})

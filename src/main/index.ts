@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, session } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, session } from 'electron'
 import type {
   OpenDialogOptions,
   OpenDialogReturnValue,
@@ -132,7 +132,11 @@ app.whenReady().then(() => {
     settings,
     environments,
     history,
-    startupWarnings: storageNotices(codec)
+    startupWarnings: storageNotices(codec),
+    // The title bar and native controls follow the Moss theme, not only the OS setting.
+    onTheme: (pref) => {
+      nativeTheme.themeSource = pref
+    }
   })
   createWindow()
 

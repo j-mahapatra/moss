@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { IpcMain } from 'electron'
-import type { SendOutcome } from '../shared/types'
+import type { SendOutcome, ThemePref } from '../shared/types'
 import { buildEntry } from './history-recorder'
 import { ipcContract } from '../shared/ipc-contract'
 import { prepareRequest } from '../shared/prepare'
@@ -28,6 +28,8 @@ export interface IpcDeps {
   /** One-time session warnings, added to the first successful collections:list. */
   startupWarnings?: string[]
   now?: () => number
+  /** Called with the theme preference whenever settings are loaded or saved (drives the native window theme). */
+  onTheme?: (pref: ThemePref) => void
 }
 
 export const HISTORY_WARNING = "Couldn't save this request to history."
@@ -121,13 +123,17 @@ export function registerIpc(ipcMain: Pick<IpcMain, 'handle'>, deps: IpcDeps): vo
     await deps.collections.delete(id)
   })
 
-  ipcMain.handle('settings:get', (_event, raw) => {
+  ipcMain.handle('settings:get', async (_event, raw) => {
     ipcContract['settings:get'].input.parse(raw)
-    return deps.settings.get()
+    const loaded = await deps.settings.get()
+    deps.onTheme?.(loaded.settings.theme)
+    return loaded
   })
 
   ipcMain.handle('settings:set', async (_event, raw) => {
-    await deps.settings.set(ipcContract['settings:set'].input.parse(raw))
+    const next = ipcContract['settings:set'].input.parse(raw)
+    await deps.settings.set(next)
+    deps.onTheme?.(next.theme)
   })
 
   ipcMain.handle('environments:list', (_event, raw) => {
