@@ -58,7 +58,9 @@ const bodies: RequestBody[] = [
 const auths: RequestAuth[] = [
   { type: 'none' },
   { type: 'bearer', token: 'tok' },
-  { type: 'basic', username: 'u', password: 'p' }
+  { type: 'basic', username: 'u', password: 'p' },
+  { type: 'bearer', token: '{{apiToken}}' },
+  { type: 'basic', username: 'u', password: '{{pw}}' }
 ]
 
 let deep: Item[] = [req('leaf')]
@@ -71,15 +73,23 @@ const combos: Item[] = bodies.flatMap((body, i) =>
   auths.map((auth, j) => req(`b${i} a${j}`, { method: 'POST', body, auth }))
 )
 
-/** The documented round-trip exception: secret values and credentials do not survive export. */
+/**
+ * The documented round-trip exception: secret values and credentials do not survive export,
+ * except credentials made only of `{{variable}}` references.
+ */
 const withoutSecrets = (c: Collection): Collection => {
+  const keep = (v: string): string => (/^\s*(\{\{[^{}]+\}\}\s*)+$/.test(v) ? v : '')
   const strip = (i: Item): Item => {
     if (i.kind === 'folder') return { ...i, items: i.items.map(strip) }
     const a = i.auth
     return {
       ...i,
       auth:
-        a.type === 'bearer' ? { ...a, token: '' } : a.type === 'basic' ? { ...a, password: '' } : a
+        a.type === 'bearer'
+          ? { ...a, token: keep(a.token) }
+          : a.type === 'basic'
+            ? { ...a, password: keep(a.password) }
+            : a
     }
   }
   return {
@@ -375,6 +385,32 @@ describe('secrets', () => {
         variables: [{ key: 'p', value: 'x', enabled: true }]
       })
     ).toBe(0)
+  })
+
+  it('keeps credentials made only of {{variable}} references and does not count them', () => {
+    const c = withItems('Refs', [
+      req('pure', { auth: { type: 'bearer', token: '{{apiToken}}' } }),
+      req('spaced', { auth: { type: 'basic', username: 'u', password: '  {{a}} {{b}} ' } }),
+      req('mixed', { auth: { type: 'bearer', token: 'abc{{x}}' } }),
+      req('prefixed', { auth: { type: 'basic', username: 'u', password: 'Bearer {{x}}' } })
+    ])
+    const out = exportPostmanV21(c)
+    const authOf = (n: number): unknown =>
+      (out.item[n] as { request: { auth: unknown } }).request.auth
+    expect(authOf(0)).toEqual({
+      type: 'bearer',
+      bearer: [{ key: 'token', value: '{{apiToken}}', type: 'string' }]
+    })
+    expect(authOf(1)).toEqual({
+      type: 'basic',
+      basic: [
+        { key: 'username', value: 'u', type: 'string' },
+        { key: 'password', value: '  {{a}} {{b}} ', type: 'string' }
+      ]
+    })
+    expect(JSON.stringify(authOf(2))).toContain('"token","value":""')
+    expect(JSON.stringify(authOf(3))).toContain('"password","value":""')
+    expect(countLeftOut(c)).toBe(2)
   })
 
   it('imports type secret as a secret variable', () => {

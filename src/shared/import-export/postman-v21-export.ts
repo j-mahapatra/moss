@@ -8,6 +8,7 @@ import type {
   Variable
 } from '../types'
 import { encode, splitUrl } from '../url-params'
+import { findVariables } from '../variables'
 import { LANGUAGE_TYPES } from './postman-v21-parts'
 
 export const POSTMAN_V21_SCHEMA =
@@ -119,18 +120,44 @@ function body(b: RequestBody): PostmanBody | undefined {
   }
 }
 
+/**
+ * Whether a credential is only `{{name}}` references and whitespace (at least one reference):
+ * it names a variable rather than holding the secret, so export keeps it.
+ */
+function isVariableReference(value: string): boolean {
+  const refs = findVariables(value)
+  if (refs.length === 0) return false
+  let rest = ''
+  let at = 0
+  for (const r of refs) {
+    rest += value.slice(at, r.start)
+    at = r.end
+  }
+  rest += value.slice(at)
+  return rest.trim() === ''
+}
+
+/** The credential as exported: kept when it is only variable references, otherwise blank. */
+const credential = (value: string): string => (isVariableReference(value) ? value : '')
+
+/** A credential export blanks: non-empty and not only variable references. */
+const leftOut = (value: string): boolean => value !== '' && !isVariableReference(value)
+
 function auth(a: RequestAuth): PostmanAuth {
   switch (a.type) {
     case 'none':
       return { type: 'noauth' }
     case 'bearer':
-      return { type: 'bearer', bearer: [{ key: 'token', value: '', type: 'string' }] }
+      return {
+        type: 'bearer',
+        bearer: [{ key: 'token', value: credential(a.token), type: 'string' }]
+      }
     case 'basic':
       return {
         type: 'basic',
         basic: [
           { key: 'username', value: a.username, type: 'string' },
-          { key: 'password', value: '', type: 'string' }
+          { key: 'password', value: credential(a.password), type: 'string' }
         ]
       }
   }
@@ -173,13 +200,16 @@ function itemsLeftOut(items: Item[]): number {
   let n = 0
   for (const i of items) {
     if (i.kind === 'folder') n += itemsLeftOut(i.items)
-    else if (i.auth.type === 'bearer' && i.auth.token !== '') n++
-    else if (i.auth.type === 'basic' && i.auth.password !== '') n++
+    else if (i.auth.type === 'bearer' && leftOut(i.auth.token)) n++
+    else if (i.auth.type === 'basic' && leftOut(i.auth.password)) n++
   }
   return n
 }
 
-/** How many non-empty secret variable values and credentials `exportPostmanV21` blanks. */
+/**
+ * How many non-empty secret variable values and credentials `exportPostmanV21` blanks
+ * (credentials made only of `{{variable}}` references are kept, so not counted).
+ */
 export function countLeftOut(c: Collection): number {
   return c.variables.filter((v) => v.secret && v.value !== '').length + itemsLeftOut(c.items)
 }
