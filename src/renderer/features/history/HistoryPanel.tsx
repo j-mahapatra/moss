@@ -23,13 +23,24 @@ export function HistoryPanel(): React.JSX.Element {
   const listRef = useRef<HTMLDivElement>(null)
   const filterRef = useRef<HTMLInputElement>(null)
 
-  // Re-render at the next local midnight so day labels (Today/Yesterday) stay right.
+  // Re-render at the next local midnight so day labels (Today/Yesterday) stay right. Timers
+  // don't run while the machine sleeps, so the date is also re-checked when the window returns.
   const [dayTick, setDayTick] = useState(0)
   useEffect(() => {
     const now = new Date()
     const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
-    const timer = setTimeout(() => setDayTick((n) => n + 1), midnight.getTime() - now.getTime())
-    return () => clearTimeout(timer)
+    const tick = (): void => setDayTick((n) => n + 1)
+    const recheck = (): void => {
+      if (Date.now() >= midnight.getTime()) tick()
+    }
+    const timer = setTimeout(tick, midnight.getTime() - now.getTime())
+    document.addEventListener('visibilitychange', recheck)
+    window.addEventListener('focus', recheck)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', recheck)
+      window.removeEventListener('focus', recheck)
+    }
   }, [dayTick])
 
   const filtered = useMemo(() => filterHistory(history, query), [history, query])

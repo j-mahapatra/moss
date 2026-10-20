@@ -3,10 +3,11 @@ import { join } from 'path'
 import type { z } from 'zod'
 import { atomicWriteJson, defaultFs, type AtomicFs, type WriteQueue } from './atomic-write'
 import { readJsonDir } from './json-dir'
+import { onceSwept, UUID_PATTERN } from './tmp-sweep'
 import { decryptWarning, type Opened } from '../secrets/secret-codec'
 
 const ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-const ORPHAN_TMP_RE = /^([0-9a-f-]{36}\.json)\.[0-9a-f-]{36}\.tmp$/
+const ORPHAN_TMP_RE = new RegExp(`^(${UUID_PATTERN}\\.json)\\.${UUID_PATTERN}\\.tmp$`)
 
 /** Seals secret fields for disk and opens them on load (see SecretCodec). */
 export type DocCodec<T> = {
@@ -42,7 +43,7 @@ export class DocRepo<T extends { id: string; name: string }> {
   /** One set per in-flight list(): ids saved or deleted since that list started. */
   private touchTrackers = new Set<Set<string>>()
   private dir: string
-  private swept = false
+  private sweepOnce = onceSwept(() => this.sweepTmp())
   private schema: z.ZodType<T>
   private label: string
   private queue: WriteQueue
@@ -107,10 +108,7 @@ export class DocRepo<T extends { id: string; name: string }> {
   }
 
   async list(): Promise<{ values: T[]; warnings: string[] }> {
-    if (!this.swept) {
-      this.swept = true
-      await this.sweepTmp()
-    }
+    await this.sweepOnce()
     const touched = new Set<string>()
     this.touchTrackers.add(touched)
     try {

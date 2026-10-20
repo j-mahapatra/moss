@@ -1,7 +1,21 @@
 import { readdir, unlink } from 'fs/promises'
 import { join } from 'path'
 
-const UUID = '[0-9a-f-]{36}'
+/** A lowercase 8-4-4-4-12 hex uuid, as `randomUUID()` writes it (source text for a RegExp). */
+export const UUID_PATTERN = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+
+/**
+ * Wraps a sweep so it runs on the first call only; later calls resolve at once, even while the
+ * first is still running. The flag is set before the sweep starts.
+ */
+export function onceSwept(sweep: () => Promise<void>): () => Promise<void> {
+  let swept = false
+  return async () => {
+    if (swept) return
+    swept = true
+    await sweep()
+  }
+}
 
 /**
  * Removes atomic-write orphans (`<prefix>.<uuid>.tmp`) from `dir`. Best effort.
@@ -12,7 +26,9 @@ export async function sweepTmp(
   prefix: string,
   remove: (path: string) => Promise<void> = unlink
 ): Promise<void> {
-  const re = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.${UUID}\\.tmp$`)
+  const re = new RegExp(
+    `^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.${UUID_PATTERN}\\.tmp$`
+  )
   try {
     for (const name of await readdir(dir)) {
       if (!re.test(name)) continue

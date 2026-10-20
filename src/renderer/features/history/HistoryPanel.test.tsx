@@ -90,6 +90,86 @@ describe('HistoryPanel midnight and loading', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  const mount = async (e: HistoryEntry) => {
+    const store = createWorkspaceStore({
+      'request:send': vi.fn(),
+      'request:cancel': vi.fn(),
+      ...noopExtras(),
+      'history:list': vi.fn(async () => ({ entries: [e], warnings: [] }))
+    } as never)
+    const view = render(
+      <WorkspaceProvider store={store}>
+        <HistoryPanel />
+      </WorkspaceProvider>
+    )
+    await act(async () => {
+      await store.getState().init()
+    })
+    return view
+  }
+  const dayHeading = (name: string) => screen.queryByRole('heading', { level: 3, name })
+
+  it.each(['visibilitychange', 'focus'] as const)(
+    're-checks the day on %s, so waking from sleep past midnight relabels Today',
+    async (event) => {
+      // Only Date is faked: the midnight timer is real and never fires, as during sleep.
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date(2026, 9, 19, 23, 0, 0))
+      const view = await mount(entry('a', 'http://a.test/one'))
+      expect(dayHeading('Today')).toBeInTheDocument()
+      vi.setSystemTime(new Date(2026, 9, 20, 8, 0, 0))
+      const target = event === 'focus' ? window : document
+      await act(async () => {
+        target.dispatchEvent(new Event(event))
+      })
+      expect(dayHeading('Yesterday')).toBeInTheDocument()
+      view.unmount()
+    }
+  )
+
+  it('does not re-render on focus before midnight', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 19, 23, 0, 0))
+    const view = await mount(entry('a', 'http://a.test/one'))
+    vi.setSystemTime(new Date(2026, 9, 19, 23, 30, 0))
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    expect(dayHeading('Today')).toBeInTheDocument()
+    view.unmount()
+  })
+
+  describe('on a 23-hour day (DST spring-forward)', () => {
+    const tz = process.env.TZ
+    beforeEach(() => {
+      process.env.TZ = 'America/New_York'
+    })
+    afterEach(() => {
+      if (tz === undefined) delete process.env.TZ
+      else process.env.TZ = tz
+    })
+
+    it('flips Today to Yesterday at the next local midnight, 23 h later', async () => {
+      vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] })
+      // 2026-03-08 in New York is 23 h long: 02:00 EST jumps to 03:00 EDT.
+      const start = new Date(2026, 2, 8, 0, 0, 0)
+      const next = new Date(2026, 2, 9, 0, 0, 0)
+      expect(next.getTime() - start.getTime()).toBe(23 * 3_600_000)
+      vi.setSystemTime(start)
+      const view = await mount({ ...entry('a', 'http://a.test/one'), at: start.toISOString() })
+      expect(dayHeading('Today')).toBeInTheDocument()
+      await act(async () => {
+        vi.advanceTimersByTime(23 * 3_600_000 - 1_000)
+      })
+      expect(dayHeading('Today')).toBeInTheDocument()
+      await act(async () => {
+        vi.advanceTimersByTime(1_000)
+      })
+      expect(dayHeading('Yesterday')).toBeInTheDocument()
+      view.unmount()
+    })
+  })
+
   it('shows Loading… before history has loaded', () => {
     const store = createWorkspaceStore({
       'request:send': vi.fn(),

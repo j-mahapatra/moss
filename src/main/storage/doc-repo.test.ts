@@ -149,7 +149,13 @@ describe('DocRepo', () => {
     it('removes orphan tmp files on the first list only; leaves others', async () => {
       await mkdir(tdir())
       const orphan = `${ID1}.json.${UUID_A}.tmp`
-      const keep = ['notes.txt', 'x.tmp', `${ID1}.json.abc.tmp`]
+      const keep = [
+        'notes.txt',
+        'x.tmp',
+        `${ID1}.json.abc.tmp`,
+        `${ID1}.json.${'-'.repeat(36)}.tmp`,
+        `${'-'.repeat(36)}.json.${UUID_A}.tmp`
+      ]
       await writeFile(join(tdir(), orphan), 'x')
       for (const k of keep) await writeFile(join(tdir(), k), 'x')
       const repo = make()
