@@ -152,7 +152,10 @@ export function createRequests(
     openHistoryEntry: (id, opts) => {
       const entry = get().history.find((e) => e.id === id)
       if (!entry) return 'opened'
-      if (!leaveDraft(opts?.discard)) return 'confirm-discard'
+      if (!leaveDraft(opts?.discard)) {
+        set((s) => ({ ui: { ...s.ui, confirmDiscard: { then: 'history', id } } }))
+        return 'confirm-discard'
+      }
       const draft: RequestSpec = { ...structuredClone(entry.request), id: crypto.randomUUID() }
       const cid = entry.collectionId
       reopened = draft

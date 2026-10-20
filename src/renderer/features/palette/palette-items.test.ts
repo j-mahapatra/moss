@@ -175,6 +175,19 @@ describe('buildPaletteItems', () => {
     ])
   })
 
+  it('marks Use no environment Active only while no environment is active', () => {
+    const a = actions() as unknown as PaletteActions
+    const environments = [env('e1', 'Dev')]
+    const none = buildPaletteItems(state({ environments }), a)
+    expect(none.filter((i) => i.badge === 'Active').map((i) => i.label)).toEqual([
+      'Use no environment'
+    ])
+    const dev = buildPaletteItems(state({ environments, activeEnvironmentId: 'e1' }), a)
+    expect(dev.filter((i) => i.badge === 'Active').map((i) => i.label)).toEqual([
+      'Use environment: Dev'
+    ])
+  })
+
   it('runs each command and environment item through its action', () => {
     const a = actions()
     const items = buildPaletteItems(

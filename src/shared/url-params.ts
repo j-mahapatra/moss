@@ -47,28 +47,39 @@ export function encode(text: string): string {
   return out + encodeURIComponent(text.slice(at))
 }
 
+const sameRow = (a: KeyValue | undefined, b: KeyValue): boolean =>
+  a !== undefined && a.key === b.key && a.value === b.value && a.enabled === b.enabled
+
 /**
  * Rebuilds the query from enabled rows only; keeps the base and the `#fragment`. A row that still
  * matches (going forward) a raw `&` part of the existing query keeps that part's text verbatim, so
  * unedited params are not re-encoded (`a+b` stays `a+b`).
+ *
+ * `prev` is the rows before this edit. When given, and no row was removed, only a row deep-equal
+ * to `prev[i]` may reuse a raw part, so a row just typed to equal a later part is encoded and
+ * that part keeps its own text. A removal shifts the indexes, so it relies on the cursor alone.
  */
-export function applyParams(url: string, params: KeyValue[]): string {
+export function applyParams(url: string, params: KeyValue[], prev?: KeyValue[]): string {
   const { base, query: oldQuery, fragment } = splitUrl(url)
   const raw = (oldQuery ?? '').split('&').filter((part) => part !== '')
   const parsed = raw.map((part) => parseQuery(`?${part}`)[0])
+  const checkPrev = prev !== undefined && params.length >= prev.length
   let cursor = 0
-  const query = params
-    .filter((p) => p.enabled && (p.key !== '' || p.value !== ''))
-    .map((p) => {
-      for (let i = cursor; i < raw.length; i++) {
-        const old = parsed[i]
+  const parts: string[] = []
+  params.forEach((p, i) => {
+    if (!p.enabled || (p.key === '' && p.value === '')) return
+    if (!checkPrev || sameRow(prev[i], p)) {
+      for (let j = cursor; j < raw.length; j++) {
+        const old = parsed[j]
         if (old && old.key === p.key && old.value === p.value) {
-          cursor = i + 1
-          return raw[i] as string
+          cursor = j + 1
+          parts.push(raw[j] as string)
+          return
         }
       }
-      return `${encode(p.key)}=${encode(p.value)}`
-    })
-    .join('&')
+    }
+    parts.push(`${encode(p.key)}=${encode(p.value)}`)
+  })
+  const query = parts.join('&')
   return `${base}${query ? `?${query}` : ''}${fragment}`
 }

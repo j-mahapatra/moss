@@ -157,6 +157,31 @@ describe('CommandPalette', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
+  it('scrolls the active row into view only on keyboard moves, and to the top on a new query', async () => {
+    const scrollIntoView = vi.fn()
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = scrollIntoView
+    try {
+      const user = userEvent.setup()
+      render(<Harness items={makeItems()} />)
+      expect(scrollIntoView).not.toHaveBeenCalled()
+      fireEvent.mouseMove(screen.getAllByRole('option')[2] as HTMLElement)
+      expect(activeOption()).toHaveAttribute('data-index', '2')
+      expect(scrollIntoView).not.toHaveBeenCalled()
+      await user.keyboard('{ArrowDown}')
+      expect(scrollIntoView).toHaveBeenCalledTimes(1)
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+      expect(scrollIntoView.mock.contexts[0]).toBe(activeOption())
+      const list = screen.getByRole('listbox')
+      list.scrollTop = 120
+      await user.keyboard('u')
+      expect(list.scrollTop).toBe(0)
+      expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
+
   it('resets the query and active row when reopened', async () => {
     render(<Harness items={makeItems()} />)
     // 'user' scores the same in both requests, so the label tie-break puts 'debug user' first.

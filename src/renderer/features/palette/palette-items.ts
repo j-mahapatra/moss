@@ -67,6 +67,7 @@ export function buildPaletteItems(state: PaletteState, actions: PaletteActions):
     id: 'environment:none',
     group: 'Environments',
     label: 'Use no environment',
+    ...(state.activeEnvironmentId === null ? { badge: 'Active' } : {}),
     run: () => actions.setActiveEnvironment(null)
   })
 

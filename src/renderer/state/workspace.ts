@@ -8,7 +8,8 @@ import type {
   SendResult,
   ThemePref
 } from '../../shared/types'
-import { errorMessage, type SliceCtx } from './slices/ctx'
+import { errorMessage } from './errors'
+import type { SliceCtx } from './slices/ctx'
 import { createCollections } from './slices/collections'
 import { byName } from './slices/doc-queue'
 import { createEnvironments } from './slices/environments'
@@ -87,7 +88,10 @@ export type WorkspaceState = {
   init(): Promise<void>
   openRequest(ref: RequestRef, opts?: { discard?: boolean }): 'opened' | 'confirm-discard'
   newRequest(opts?: { discard?: boolean }): 'opened' | 'confirm-discard'
-  /** Opens a copy of a history entry's request as an unsaved draft; an unknown id is a no-op. */
+  /**
+   * Opens a copy of a history entry's request as an unsaved draft; an unknown id is a no-op.
+   * On 'confirm-discard' it sets `ui.confirmDiscard` itself.
+   */
   openHistoryEntry(id: string, opts?: { discard?: boolean }): 'opened' | 'confirm-discard'
   /**
    * Opens a copy of an imported request (fresh id) as an unsaved draft, with the same leave

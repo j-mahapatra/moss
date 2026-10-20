@@ -8,7 +8,8 @@ import {
 import type { ImportReport } from '../../../shared/import-export/report'
 import type { Collection } from '../../../shared/types'
 import type { WorkspaceApi, WorkspaceState } from '../workspace'
-import { afterInit, errorMessage, type SliceCtx } from './ctx'
+import { errorMessage } from '../errors'
+import { afterInit, type SliceCtx } from './ctx'
 import type { AddNotice } from './notices'
 
 export type ImportOutcome =
@@ -58,7 +59,7 @@ export function createImportExport(
       return importText(file.text)
     },
 
-    exportCollection: async (id) => {
+    exportCollection: afterInit(get, async (id: string) => {
       const c = get().collections.find((x) => x.id === id)
       if (!c) return 'failed'
       try {
@@ -74,7 +75,7 @@ export function createImportExport(
         addNotice('danger', `Couldn't export "${c.name}": ${errorMessage(err)}`)
         return 'failed'
       }
-    },
+    }),
 
     applyCurlToDraft: (text) => {
       const parsed = parseCurl(text)

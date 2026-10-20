@@ -8,10 +8,6 @@ export type SliceCtx = {
   api: WorkspaceApi
 }
 
-export function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err)
-}
-
 /**
  * Wraps a mutating action so it runs only after `init` has applied the loaded state. Once
  * loaded it calls through synchronously, so ops keep the order the caller issued them in.

@@ -53,6 +53,9 @@ function SwitcherBody({ onClose }: { onClose(): void }): React.JSX.Element {
   })
   const found = entries.findIndex((e) => e.ref.requestId === selected.requestId)
   const index = found >= 0 ? found : Math.min(selected.index, entries.length - 1)
+  // The selected request vanished: the row now in its place becomes the selection.
+  const anchor = found < 0 ? entries[index]?.ref.requestId : undefined
+  if (anchor !== undefined) setSelected({ requestId: anchor, index })
   const baseId = useId()
   const optionId = (i: number): string => `${baseId}-option-${i}`
   const select = (i: number): void =>

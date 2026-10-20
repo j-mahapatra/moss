@@ -399,6 +399,19 @@ describe('CollectionTree', () => {
     })
   })
 
+  it('a held Enter or Delete on a row does not repeat its action', async () => {
+    const { col } = seed()
+    const { store } = await setup([col])
+    row('Top').focus()
+    fireEvent.keyDown(row('Top'), { key: 'Enter', repeat: true })
+    expect(store.getState().active).toBeNull()
+    fireEvent.keyDown(row('Top'), { key: 'Delete', repeat: true })
+    fireEvent.keyDown(row('Top'), { key: 'Backspace', repeat: true })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    fireEvent.keyDown(row('Top'), { key: 'Delete' })
+    expect(screen.getByRole('dialog', { name: 'Delete “Top”?' })).toBeInTheDocument()
+  })
+
   it('does not swallow Cmd/Ctrl+Enter on a focused row (app-level send shortcut)', async () => {
     const { col } = seed()
     await setup([col])

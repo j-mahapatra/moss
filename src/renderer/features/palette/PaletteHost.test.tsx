@@ -36,13 +36,13 @@ async function setup() {
   }
   const store = createWorkspaceStore(api as never)
   await store.getState().init()
-  render(
+  const { unmount } = render(
     <WorkspaceProvider store={store}>
       <Workbench />
     </WorkspaceProvider>
   )
   const urlEditor = document.querySelector<HTMLElement>('[data-url-input]') as HTMLElement
-  return { store, col, getUser, urlEditor }
+  return { store, col, getUser, urlEditor, unmount }
 }
 
 const palette = () => screen.queryByRole('dialog', { name: 'Command palette' })
@@ -156,8 +156,38 @@ describe('PaletteHost', () => {
     } finally {
       unsubscribe()
       theme.dispose()
+      localStorage.clear()
       delete document.documentElement.dataset.theme
     }
+  })
+
+  it('leaves focus where an action put it outside any focus trap', async () => {
+    const { store, urlEditor } = await setup()
+    const outside = document.createElement('button')
+    outside.textContent = 'Outside'
+    document.body.append(outside)
+    try {
+      // The palette's trap holds focus until it unmounts, so the action focuses on the next task,
+      // which still runs before Radix hands focus back.
+      act(() => store.setState({ setTheme: () => void setTimeout(() => outside.focus(), 0) }))
+      act(() => urlEditor.focus())
+      pressK(urlEditor)
+      await userEvent.setup().keyboard('Theme: Dark{Enter}')
+      expect(palette()).toBeNull()
+      await waitFor(() => expect(document.activeElement).toBe(outside))
+      expect(document.activeElement).not.toBe(urlEditor)
+    } finally {
+      outside.remove()
+    }
+  })
+
+  it('removes its capture-phase key listener on unmount', async () => {
+    const { store, unmount } = await setup()
+    const remove = vi.spyOn(document, 'removeEventListener')
+    unmount()
+    expect(remove).toHaveBeenCalledWith('keydown', expect.any(Function), true)
+    pressK(document.body)
+    expect(store.getState().ui.paletteOpen).toBe(false)
   })
 
   it('the top-bar search field opens the palette and gets focus back on Esc', async () => {

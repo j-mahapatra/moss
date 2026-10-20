@@ -1,5 +1,5 @@
 import { EditorView } from '@codemirror/view'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { HttpResponse, SendResult } from '../../../shared/types'
@@ -212,17 +212,84 @@ describe('ResponsePane', () => {
   })
 
   it('shows Saved for 1.5 s after a successful save', async () => {
-    const user = userEvent.setup()
+    vi.useFakeTimers()
     save.mockResolvedValueOnce(true)
     mount({ ok: true, response: response() })
-    await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(await screen.findByRole('button', { name: 'Saved' })).toBeInTheDocument()
-    await vi.waitFor(
-      () => expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument(),
-      {
-        timeout: 2500
-      }
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    })
+    expect(screen.getByRole('button', { name: 'Saved' })).toBeInTheDocument()
+    act(() => {
+      vi.advanceTimersByTime(1499)
+    })
+    expect(screen.getByRole('button', { name: 'Saved' })).toBeInTheDocument()
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
+  })
+
+  it('clears the flash timer on unmount', async () => {
+    vi.useFakeTimers()
+    save.mockResolvedValueOnce(true)
+    const set = vi.spyOn(globalThis, 'setTimeout')
+    const clear = vi.spyOn(globalThis, 'clearTimeout')
+    const { unmount } = mount({ ok: true, response: response() })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    })
+    const call = set.mock.calls.findIndex(([, ms]) => ms === 1500)
+    expect(call).toBeGreaterThanOrEqual(0)
+    const timer = set.mock.results[call]?.value as unknown
+    unmount()
+    expect(clear).toHaveBeenCalledWith(timer)
+    set.mockRestore()
+    clear.mockRestore()
+  })
+
+  it('a failed copy clears the Saved flash', async () => {
+    save.mockResolvedValueOnce(true)
+    mount({ ok: true, response: response() })
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    })
+    expect(screen.getByRole('button', { name: 'Saved' })).toBeInTheDocument()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
+    })
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Saved' })).toBeNull()
+  })
+
+  it('a failed save clears the Copied flash', async () => {
+    save.mockRejectedValueOnce(new Error('disk full'))
+    mount({ ok: true, response: response() })
+    vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
+    })
+    expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    })
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Copied' })).toBeNull()
+  })
+
+  it('catches a synchronous clipboard throw and raises the notice', async () => {
+    const { store } = mount({ ok: true, response: response() })
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(() => {
+      throw new Error('no clipboard')
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
+    })
+    expect(store.getState().notices).toContainEqual(
+      expect.objectContaining({ tone: 'danger', message: "Couldn't copy the response" })
     )
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
+    writeText.mockRestore()
   })
 
   it('saves JSON as response.json', async () => {

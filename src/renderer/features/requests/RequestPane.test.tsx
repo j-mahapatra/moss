@@ -31,6 +31,14 @@ describe('RequestPane', () => {
     expect(viewOf(container, 'Request URL').state.doc.toString()).toBe('https://a.io?x=2')
   })
 
+  it('encodes a param typed to equal a later one, which keeps its raw text', async () => {
+    const user = userEvent.setup()
+    const { container, store } = setup(<RequestPane />)
+    setDoc(viewOf(container, 'Request URL'), 'u?b=2&b=2+3')
+    await user.type(screen.getByLabelText('Value 1'), '+3')
+    expect(store.getState().draft.url).toBe('u?b=2%2B3&b=2+3')
+  })
+
   it('keeps disabled params when the URL is edited', async () => {
     const user = userEvent.setup()
     const { container, store } = setup(<RequestPane />)

@@ -90,7 +90,34 @@ const rows: Row[] = [
     text: '🌿 ok',
     score: 10,
     ranges: [[3, 5]]
-  }
+  },
+  // ß folds to ss: two query chars against one text code point, scored +1 each.
+  { name: 'unicode: ss matches ß', query: 'ss', text: 'Straße', score: 2, ranges: [[4, 5]] },
+  {
+    name: 'unicode: strasse matches Straße in one run',
+    query: 'strasse',
+    text: 'Straße',
+    score: 6 + 4 + 4 + 4 + 5 + 4,
+    ranges: [[0, 6]]
+  },
+  {
+    name: 'unicode: a ß in the query matches ss',
+    query: 'straße',
+    text: 'Strasse',
+    score: 6 + 4 * 6,
+    ranges: [[0, 7]]
+  },
+  { name: 'unicode: one s does not match ß', query: 'tras', text: 'Straße', score: null },
+  { name: 'unicode: İ folds to i', query: 'ist', text: 'İstanbul', score: 14, ranges: [[0, 3]] },
+  { name: 'unicode: i matches İ in the query', query: 'İst', text: 'istanbul', score: 14 },
+  {
+    name: 'unicode: NFC matches a decomposed é, covering its combining mark',
+    query: 'éc',
+    text: 'e\u0301cole',
+    score: 10,
+    ranges: [[0, 3]]
+  },
+  { name: 'every char present but out of order', query: 'resu', text: 'users', score: null }
 ]
 
 describe('fuzzyMatch', () => {
@@ -109,6 +136,20 @@ describe('fuzzyMatch', () => {
     const strong = fuzzyMatch('gu', 'GET user')?.score ?? 0
     expect(strong).toBeGreaterThan(fuzzyMatch('gu', 'debug')?.score ?? 0)
     expect(strong).toBeGreaterThan(fuzzyMatch('gu', 'debug user')?.score ?? 0)
+  })
+
+  it('exits early on a long non-match', () => {
+    // Without the pre-check this fills a 1000 × 100k table (~0.5 s); the scan takes a few ms.
+    const text = 'ab'.repeat(50_000)
+    const query = `${'a'.repeat(999)}z`
+    const started = performance.now()
+    expect(fuzzyMatch(query, text)).toBeNull()
+    expect(performance.now() - started).toBeLessThan(100)
+  })
+
+  it('is deterministic', () => {
+    const a = fuzzyMatch('sse', 'Straße strasse')
+    expect(fuzzyMatch('sse', 'Straße strasse')).toEqual(a)
   })
 
   it('scores a word-start match above a mid-word one', () => {

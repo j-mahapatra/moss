@@ -66,5 +66,37 @@ describe('applyParams', () => {
     it('drops a disabled row', () => {
       expect(applyParams('x?a=1+2&b=3', [row('a', '1+2', false), row('b', '3')])).toBe('x?b=3')
     })
+    describe('with the previous rows', () => {
+      it('encodes a row typed to equal a later raw part, and that part keeps its text', () => {
+        const prev = [row('b', '2'), row('b', '2+3')]
+        expect(applyParams('x?b=2&b=2+3', [row('b', '2+3'), row('b', '2+3')], prev)).toBe(
+          'x?b=2%2B3&b=2+3'
+        )
+      })
+      it('keeps unedited rows verbatim and re-encodes only the edited one', () => {
+        const prev = [row('q', 'a+b'), row('c', ','), row('v', '{{v}}')]
+        expect(
+          applyParams(
+            'x?q=a+b&c=%2C&v={{v}}',
+            [row('q', 'a+b'), row('c', 'd'), row('v', '{{v}}')],
+            prev
+          )
+        ).toBe('x?q=a+b&c=d&v={{v}}')
+      })
+      it('encodes an appended row that equals an earlier raw part', () => {
+        const prev = [row('q', 'a+b')]
+        expect(applyParams('x?q=a+b', [row('q', 'a+b'), row('q', 'a+b')], prev)).toBe(
+          'x?q=a+b&q=a%2Bb'
+        )
+      })
+      it('keeps the remaining raw text when a row is removed', () => {
+        const prev = [row('q', 'a+b'), row('c', ',')]
+        expect(applyParams('x?q=a+b&c=%2C', [row('c', ',')], prev)).toBe('x?c=%2C')
+      })
+      it('re-encodes a row whose enabled flag changed back on', () => {
+        const prev = [row('a', '1+2', false)]
+        expect(applyParams('x', [row('a', '1+2')], prev)).toBe('x?a=1%2B2')
+      })
+    })
   })
 })

@@ -7,7 +7,7 @@ import { defaultViewMode, mediaType, pickBodyView, type ViewMode } from '../../.
 import { formatBytes } from '../../../shared/format'
 import type { HttpResponse } from '../../../shared/types'
 import { Button } from '../../ui'
-import { errorMessage } from '../../state/slices/ctx'
+import { errorMessage } from '../../state/errors'
 import { useWorkspaceStore } from '../../state/workspace-hooks'
 import { CodeEditor } from '../requests/CodeEditor'
 
@@ -83,11 +83,19 @@ export function BodyView({ response }: { response: HttpResponse }): React.JSX.El
     clearTimeout(flashTimer.current)
     flashTimer.current = setTimeout(() => setFlash(null), 1500)
   }
+  const failed = (message: string): void => {
+    clearTimeout(flashTimer.current)
+    setFlash(null)
+    store.getState().reportError(message)
+  }
   const copy = (): void => {
-    navigator.clipboard.writeText(shown).then(
-      () => showFlash('copied'),
-      () => store.getState().reportError("Couldn't copy the response")
-    )
+    // Through a promise, so a clipboard that throws synchronously is reported like a rejection.
+    Promise.resolve()
+      .then(() => navigator.clipboard.writeText(shown))
+      .then(
+        () => showFlash('copied'),
+        () => failed("Couldn't copy the response")
+      )
   }
   const save = (): void => {
     window.api['response:save']({
@@ -97,8 +105,7 @@ export function BodyView({ response }: { response: HttpResponse }): React.JSX.El
       (saved) => {
         if (saved) showFlash('saved')
       },
-      (err: unknown) =>
-        store.getState().reportError(`Couldn't save the response: ${errorMessage(err)}`)
+      (err: unknown) => failed(`Couldn't save the response: ${errorMessage(err)}`)
     )
   }
 

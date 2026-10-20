@@ -1,7 +1,8 @@
 import { findItem, newCollection } from '../../../shared/collection-tree'
 import type { Collection, RequestSpec } from '../../../shared/types'
 import type { WorkspaceState } from '../workspace'
-import { afterInit, errorMessage, type SliceCtx } from './ctx'
+import { errorMessage } from '../errors'
+import { afterInit, type SliceCtx } from './ctx'
 import { createDocQueue } from './doc-queue'
 import type { AddNotice } from './notices'
 

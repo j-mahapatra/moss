@@ -11,12 +11,13 @@ import { createWorkspaceStore } from './state/workspace'
 import { applyTheme } from './ui/theme'
 
 const store = createWorkspaceStore(window.api)
-// The store's default 'system' applies until settings load, so system users see no flash.
+// First paint uses the theme mirrored in localStorage (else the store's default 'system'), so a
+// saved theme doesn't flash. Once settings load, or the theme changes, the store's value wins.
 const theme = applyTheme(() => store.getState().theme)
-let lastTheme = store.getState().theme
+let last = { theme: store.getState().theme, loaded: store.getState().loaded }
 store.subscribe((s) => {
-  if (s.theme === lastTheme) return
-  lastTheme = s.theme
+  if (s.theme === last.theme && s.loaded === last.loaded) return
+  last = { theme: s.theme, loaded: s.loaded }
   theme.refresh()
 })
 

@@ -29,17 +29,13 @@ function stubMatchMedia(): void {
   )
 }
 
-async function setup() {
+async function setup(names = ['Alpha', 'Beta', 'Gamma']) {
   stubMatchMedia()
   const col = newCollection('API')
-  const names = ['Alpha', 'Beta', 'Gamma']
   const specs = names.map((name) => ({ ...newRequestSpec(), name, url: `http://api/${name}` }))
   col.items.push(...specs.map(toItem))
-  const [a, b, c] = specs.map((s) => ({ collectionId: col.id, requestId: s.id })) as [
-    RequestRef,
-    RequestRef,
-    RequestRef
-  ]
+  const refs = specs.map((s) => ({ collectionId: col.id, requestId: s.id }))
+  const [a, b, c] = refs as [RequestRef, RequestRef, RequestRef]
   const api = {
     'request:send': vi.fn(() => new Promise<never>(() => {})),
     'request:cancel': vi.fn(async () => undefined),
@@ -54,7 +50,7 @@ async function setup() {
     </WorkspaceProvider>
   )
   const urlEditor = document.querySelector<HTMLElement>('[data-url-input]') as HTMLElement
-  return { store, col, a, b, c, urlEditor }
+  return { store, col, a, b, c, refs, urlEditor }
 }
 
 const switcher = () => screen.queryByRole('dialog', { name: 'Recent requests' })
@@ -181,6 +177,36 @@ describe('RecentsSwitcher', () => {
       ).toEqual(['Beta', 'Gamma'])
     )
     expect(selectedName()).toBe('Beta')
+  })
+
+  it('re-anchors on the row that takes the place of a vanished selection', async () => {
+    const { store, col, refs } = await setup(['Alpha', 'Beta', 'Gamma', 'Delta'])
+    const [a, b, c, d] = refs as [RequestRef, RequestRef, RequestRef, RequestRef]
+    act(() => {
+      for (const ref of [d, c, b, a]) store.getState().openRequest(ref)
+    })
+    pressCtrlTab()
+    expect(selectedName()).toBe('Beta')
+    const drop = async (ref: RequestRef): Promise<void> => {
+      await act(async () => {
+        await store.getState().updateCollection(col.id, (x) => ({
+          ...x,
+          items: x.items.filter((i) => i.id !== ref.requestId)
+        }))
+      })
+    }
+    await drop(b)
+    await waitFor(() => expect(selectedName()).toBe('Gamma'))
+    // Gamma is now the selection, so a row vanishing above it doesn't move it.
+    await drop(a)
+    await waitFor(() =>
+      expect(
+        within(switcher() as HTMLElement)
+          .getAllByRole('option')
+          .map((o) => o.getAttribute('data-name'))
+      ).toEqual(['Gamma', 'Delta'])
+    )
+    expect(selectedName()).toBe('Gamma')
   })
 
   it('Enter and clicking a row open it', async () => {

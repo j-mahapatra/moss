@@ -121,20 +121,26 @@ export function CollectionTree({ renamingId, onRenamingChange }: Props): React.J
     rows[0]?.key ??
     null
 
-  const rowEl = (key: string): HTMLElement | null =>
-    treeRef.current?.querySelector<HTMLElement>(`[data-row-key="${key}"]`) ?? null
+  const rowEl = useCallback(
+    (key: string): HTMLElement | null =>
+      treeRef.current?.querySelector<HTMLElement>(`[data-row-key="${key}"]`) ?? null,
+    []
+  )
 
-  const focusRow = useCallback((key: string): void => {
-    setFocusKey(key)
-    treeRef.current?.querySelector<HTMLElement>(`[data-row-key="${key}"]`)?.focus()
-  }, [])
+  const focusRow = useCallback(
+    (key: string): void => {
+      setFocusKey(key)
+      rowEl(key)?.focus()
+    },
+    [rowEl]
+  )
 
   // Return focus to a row after an inline rename ends (its input unmounts).
   useEffect(() => {
     if (renamingId === null && refocus.current) {
       const key = refocus.current
       refocus.current = null
-      treeRef.current?.querySelector<HTMLElement>(`[data-row-key="${key}"]`)?.focus()
+      rowEl(key)?.focus()
     }
   })
 

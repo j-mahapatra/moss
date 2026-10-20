@@ -1,7 +1,8 @@
 import { duplicateEnvironment, newEnvironment } from '../../../shared/environments'
 import type { Environment } from '../../../shared/types'
 import type { WorkspaceState } from '../workspace'
-import { afterInit, errorMessage, type SliceCtx } from './ctx'
+import { errorMessage } from '../errors'
+import { afterInit, type SliceCtx } from './ctx'
 import { createDocQueue } from './doc-queue'
 import type { AddNotice } from './notices'
 

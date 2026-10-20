@@ -1,7 +1,8 @@
 import { HISTORY_CAP } from '../../../shared/history'
 import type { HistoryEntry } from '../../../shared/types'
 import type { WorkspaceState } from '../workspace'
-import { afterInit, errorMessage, type SliceCtx } from './ctx'
+import { errorMessage } from '../errors'
+import { afterInit, type SliceCtx } from './ctx'
 import type { AddNotice } from './notices'
 
 /**

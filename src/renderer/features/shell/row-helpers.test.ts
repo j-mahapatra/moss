@@ -88,10 +88,14 @@ describe('rowKeyHandler', () => {
     const row = document.createElement('div')
     const a = actions()
     const onKey = rowKeyHandler(a)
-    onKey(keyEvent(row, { key: 'Delete', metaKey: true }).event)
-    onKey(keyEvent(row, { key: 'Enter', ctrlKey: true }).event)
+    const meta = keyEvent(row, { key: 'Delete', metaKey: true })
+    const ctrl = keyEvent(row, { key: 'Enter', ctrlKey: true })
+    onKey(meta.event)
+    onKey(ctrl.event)
     expect(a.remove).not.toHaveBeenCalled()
     expect(a.open).not.toHaveBeenCalled()
+    expect(meta.preventDefault).not.toHaveBeenCalled()
+    expect(ctrl.preventDefault).not.toHaveBeenCalled()
   })
 
   it('leaves keys without an action, and unbound keys, unhandled', () => {

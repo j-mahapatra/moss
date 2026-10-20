@@ -270,7 +270,7 @@ describe('history: openHistoryEntry', () => {
     store.getState().updateDraft({ url: 'http://typed' })
     expect(store.getState().openHistoryEntry(e.id)).toBe('confirm-discard')
     expect(store.getState().draft.url).toBe('http://typed')
-    store.getState().setConfirmDiscard({ then: 'history', id: e.id })
+    expect(store.getState().ui.confirmDiscard).toEqual({ then: 'history', id: e.id })
     store.getState().confirmDiscard()
     expect(store.getState().ui.confirmDiscard).toBeNull()
     expect(store.getState().draft.url).toBe('http://hist')

@@ -9,12 +9,12 @@ export function ParamsTab(): React.JSX.Element {
     <KeyValueGrid
       rows={params}
       keyPlaceholder="Parameter"
-      onChange={(next) =>
-        store.getState().updateDraft({
-          params: next,
-          url: applyParams(store.getState().draft.url, next)
-        })
-      }
+      onChange={(next) => {
+        const { draft } = store.getState()
+        store
+          .getState()
+          .updateDraft({ params: next, url: applyParams(draft.url, next, draft.params) })
+      }}
     />
   )
 }

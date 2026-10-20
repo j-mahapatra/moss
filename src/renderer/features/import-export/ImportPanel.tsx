@@ -4,7 +4,7 @@ import {
   IMPORT_TOO_LARGE,
   type ImportReport
 } from '../../../shared/import-export/report'
-import { errorMessage } from '../../state/slices/ctx'
+import { errorMessage } from '../../state/errors'
 import type { ImportOutcome } from '../../state/workspace'
 import { useWorkspace } from '../../state/workspace-hooks'
 import { Button } from '../../ui'

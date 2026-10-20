@@ -209,6 +209,14 @@ describe('exportCollection', () => {
     ])
   })
 
+  it('waits for init, so a collection that is still loading can be exported', async () => {
+    const col = newCollection('Late')
+    const { api, store } = setup({ cols: [col] })
+    expect(await store.getState().exportCollection(col.id)).toBe('saved')
+    expect(store.getState().loaded).toBe(true)
+    expect(api['export:save-file']).toHaveBeenCalledTimes(1)
+  })
+
   it('an unknown id gives failed without calling the api', async () => {
     const { api, store } = setup()
     await store.getState().init()

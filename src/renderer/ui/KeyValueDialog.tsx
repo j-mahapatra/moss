@@ -60,12 +60,9 @@ function KeyValueForm({
 
   const save = async (): Promise<void> => {
     setSaving(true)
-    let ok: boolean
-    try {
-      ok = await onSave(rows)
-    } finally {
-      setSaving(false)
-    }
+    // A failed save (false, or a rejection) keeps the dialog open with Save enabled again.
+    const ok = await onSave(rows).catch(() => false)
+    setSaving(false)
     if (ok) onClose()
   }
 

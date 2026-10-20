@@ -74,13 +74,16 @@ function PaletteBody({
   const listboxId = `${baseId}-listbox`
   const optionId = (index: number): string => `${baseId}-option-${index}`
   const listRef = useRef<HTMLDivElement>(null)
+  // Set by an arrow key, so a hover or a new query never scrolls the list under the pointer.
+  const scrollToActive = useRef(false)
 
   const sections = useMemo(() => sectionsFor(query, items), [query, items])
   const flat = useMemo(() => sections.flatMap((s) => s.items), [sections])
   const activeIndex = flat.length === 0 ? -1 : Math.min(active, flat.length - 1)
 
   useEffect(() => {
-    if (activeIndex < 0) return
+    if (!scrollToActive.current || activeIndex < 0) return
+    scrollToActive.current = false
     const el = listRef.current?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`)
     el?.scrollIntoView?.({ block: 'nearest' })
   }, [activeIndex])
@@ -97,7 +100,9 @@ function PaletteBody({
       event.preventDefault()
       if (flat.length === 0) return
       const step = event.key === 'ArrowDown' ? 1 : -1
-      setActive((activeIndex + step + flat.length) % flat.length)
+      const next = (activeIndex + step + flat.length) % flat.length
+      scrollToActive.current = next !== activeIndex
+      setActive(next)
     } else if (event.key === 'Enter') {
       event.preventDefault()
       // A held Enter must not run a second item after the first one closes the palette.
@@ -164,6 +169,7 @@ function PaletteBody({
         onChange={(event) => {
           setQuery(event.target.value)
           setActive(0)
+          if (listRef.current) listRef.current.scrollTop = 0
         }}
         onKeyDown={onKeyDown}
       />

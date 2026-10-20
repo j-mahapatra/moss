@@ -11,10 +11,9 @@ import './HistoryPanel.css'
 export function HistoryPanel(): React.JSX.Element {
   const history = useWorkspace((s) => s.history)
   const loaded = useWorkspace((s) => s.loaded)
-  const openEntry = useWorkspace((s) => s.openHistoryEntry)
+  const open = useWorkspace((s) => s.openHistoryEntry)
   const remove = useWorkspace((s) => s.deleteHistoryEntry)
   const clear = useWorkspace((s) => s.clearHistory)
-  const setConfirmDiscard = useWorkspace((s) => s.setConfirmDiscard)
   const openSaveDialog = useWorkspace((s) => s.openSaveDialog)
 
   const [query, setQuery] = useState('')
@@ -39,12 +38,6 @@ export function HistoryPanel(): React.JSX.Element {
   const rowEl = (id: string): HTMLElement | null =>
     listRef.current?.querySelector<HTMLElement>(`[data-history-id="${id}"]`) ?? null
   const focusRow = (id: string): void => rowEl(id)?.focus()
-
-  const open = (id: string): 'opened' | 'confirm-discard' => {
-    const outcome = openEntry(id)
-    if (outcome === 'confirm-discard') setConfirmDiscard({ then: 'history', id })
-    return outcome
-  }
 
   const removeEntry = (id: string): void => {
     const list = filtered.map((e) => rowEl(e.id)).filter((el) => el !== null)
