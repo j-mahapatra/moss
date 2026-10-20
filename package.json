@@ -4,6 +4,8 @@
   "description": "Moss, a local-first desktop API client",
   "main": "./out/main/index.js",
   "author": "Jagannath Mahapatra",
+  "license": "PolyForm-Strict-1.0.0",
+  "private": true,
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",

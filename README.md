@@ -298,6 +298,45 @@ and the script's credential checks have been run. Smoke-test a signed build
 `build/icon.svg` (it needs macOS for `iconutil`). The README screenshots in
 `assets/` are captures of the running app and are not packaged.
 
+## Design decisions
+
+The choices below shape how Moss behaves, and why.
+
+**Request execution.** Requests run in one Electron utility process supervised
+by main, with a typed message protocol and an explicit cancel message per
+request id. A crash of the runner fails only the in-flight requests, and the
+next send starts a fresh runner.
+
+**Collections and storage.** Main owns all disk I/O. Each collection is one
+JSON file, written atomically (temp file, then rename) through a per-file write
+queue; a file that fails validation is moved aside and reported, never deleted.
+
+**Environments.** Two scopes only, environment then collection, so precedence
+is easy to explain. There are no global variables, which would be hidden shared
+state. Each send names the environment to resolve against, so a selection
+change mid-flight can't race it.
+
+**History.** Requests are kept exactly as authored, with `{{variables}}`
+unresolved, and response bodies and headers are never stored. History lives in
+a single local file capped at the newest 500 entries, and corrupt lines are set
+aside rather than dropped.
+
+**Import and export.** Only Collection v2.1 and curl are accepted. Every id is
+regenerated, form-data file paths are never imported (they would point at files
+on someone else's machine), and everything left out is reported. The test suite
+checks exported collections against the official v2.1 schema.
+
+### Key decisions
+
+- **HTTP in a utility process:** a crash or hang in a request costs one failed
+  send, never the UI or stored data.
+- **Plain JSON files:** atomic writes, a per-file write queue and quarantine of
+  bad files keep data inspectable, easy to back up and safe from torn writes.
+- **Moss's own data model:** Collection v2.1 is converted only at the import
+  and export edge, so storage, IPC and UI stay small and every loss is reported.
+- **An in-house green design system:** generated `--moss-*` tokens and Radix
+  primitives, with contrast and hard-coded-colour checks enforced by tests.
+
 ## Developer notes
 
 `package.json` pins `@radix-ui/react-dismissable-layer` to 1.1.11 and
@@ -307,6 +346,23 @@ inside a modal Dialog can't be clicked. Overriding to 1.2.1 instead broke Esc
 for nested dialogs. Remove the overrides once all four packages depend on the
 same version. `src/renderer/ui/layering.test.tsx` guards this.
 
-## Clean-room statement
+## Acknowledgements
 
-Moss is an independent project. It contains no Postman application code or assets and interoperates only via the public Postman Collection v2.1 format. The only Postman-authored file in the repository is the official Collection v2.1 JSON schema (`src/shared/import-export/__fixtures__/postman-collection-v2.1.0.schema.json`, Apache-2.0, from the postmanlabs/schemas repository; see the `NOTICE.md` beside it). The test suite uses it to validate exports, and it is not bundled into the app.
+Moss is inspired by [Postman](https://www.postman.com/). It is an independent
+project, written from scratch, and is not affiliated with, endorsed by or
+sponsored by Postman, Inc. Postman is a trademark of Postman, Inc.
+
+Moss contains no Postman application code or assets and interoperates only
+through the public Postman Collection v2.1 format. The only Postman-authored
+file in the repository is the official Collection v2.1 JSON schema
+(`src/shared/import-export/__fixtures__/postman-collection-v2.1.0.schema.json`,
+Apache-2.0, from the postmanlabs/schemas repository; see the `NOTICE.md` beside
+it). The test suite uses it to validate exports, and it is not bundled into the
+app.
+
+## License
+
+Moss is licensed under the [PolyForm Strict License 1.0.0](LICENSE). You may
+use it for personal and other noncommercial purposes. You may not distribute
+it, sell it, or distribute modified versions. Any other use, including
+commercial use, needs written permission from the copyright holder.
