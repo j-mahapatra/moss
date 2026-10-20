@@ -1,9 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
-import { launchApp, type LaunchedApp } from './fixtures/app'
+import { launchApp, tearDown, type LaunchedApp } from './fixtures/app'
 import { startServer, type FixtureServer } from './fixtures/server'
 
 let server: FixtureServer
-let launched: LaunchedApp
+let launched: LaunchedApp | null = null
 let page: Page
 
 test.beforeAll(async () => {
@@ -20,8 +20,10 @@ test.beforeEach(async () => {
 })
 
 test.afterEach(async () => {
-  await launched.close()
-  expect(launched.errors).toEqual([])
+  const app = launched
+  launched = null
+  // The launched app owns its temp user-data dir and removes it on close.
+  await tearDown(app, [])
 })
 
 async function send(url: string): Promise<void> {

@@ -1,4 +1,9 @@
-import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
+import {
+  _electron as electron,
+  expect,
+  type ElectronApplication,
+  type Page
+} from '@playwright/test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -48,8 +53,45 @@ export async function launchApp(opts: { userDataDir?: string } = {}): Promise<La
     userDataDir,
     errors,
     close: async () => {
-      await app.close()
-      if (owned) await rm(userDataDir, { recursive: true, force: true })
+      try {
+        await app.close()
+      } finally {
+        if (owned) await rm(userDataDir, { recursive: true, force: true })
+      }
     }
   }
+}
+
+const describeError = (err: unknown): string => (err instanceof Error ? err.message : String(err))
+
+/**
+ * The shared afterEach: closes `app` (if a test left one open), then asserts that no errors were
+ * collected, its own and those already in `errors`. A failed close is reported as an error. The
+ * `dirs` are removed whatever happens; a failure to remove them is only thrown when everything
+ * else passed, so it never hides the real failure.
+ */
+export async function tearDown(
+  app: LaunchedApp | null,
+  errors: string[],
+  dirs: string[] = []
+): Promise<void> {
+  let failure: { error: unknown } | null = null
+  try {
+    if (app) {
+      await app.close().catch((err: unknown) => {
+        errors.push(`close: ${describeError(err)}`)
+      })
+      // After closing, so errors raised while shutting down are counted too.
+      errors.push(...app.errors)
+    }
+    expect(errors).toEqual([])
+  } catch (error) {
+    failure = { error }
+  }
+  const removed = await Promise.allSettled(
+    dirs.filter((d) => d !== '').map((d) => rm(d, { recursive: true, force: true }))
+  )
+  if (failure) throw failure.error
+  const failedRemove = removed.find((r) => r.status === 'rejected')
+  if (failedRemove) throw failedRemove.reason
 }

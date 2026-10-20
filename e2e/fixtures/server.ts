@@ -10,7 +10,7 @@ export interface ReceivedRequest {
 
 export interface FixtureServer {
   port: number
-  /** Every request that reached /echo, in arrival order. */
+  /** Every request that reached /echo (any query string), in arrival order. */
   received: ReceivedRequest[]
   /** Resolves when a /slow request arrives (the next one after this call). */
   slowReceived(): Promise<void>
@@ -27,7 +27,8 @@ export async function startServer(opts: { greeting?: string } = {}): Promise<Fix
       res.end(JSON.stringify({ greeting: opts.greeting ?? 'hi' }))
       return
     }
-    if (req.url === '/echo') {
+    // Matched on the path, so a query string still reaches /echo (and is kept in `url`).
+    if (new URL(req.url ?? '/', 'http://fixture').pathname === '/echo') {
       const chunks: Buffer[] = []
       req.on('data', (c: Buffer) => chunks.push(c))
       req.on('end', () => {

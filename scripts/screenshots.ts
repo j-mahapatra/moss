@@ -2,11 +2,14 @@
  * Regenerates the README screenshots, assets/moss-light.png and assets/moss-dark.png.
  * Run it with `npm run screenshots`, which builds the app first; it drives the built app in
  * out/ through Playwright. It seeds a throwaway user-data folder with a demo collection and
- * an environment, sends nothing, and removes the folder when done.
+ * an environment, sends nothing, and removes the folder when done. It runs with
+ * MOSS_SECRETS=plain, so it never touches the keychain, and dismisses the notice that mode
+ * shows. The 1440×900 size comes from viewport emulation, not from the window size, so it is
+ * the same on any screen.
  */
 import { _electron as electron, type Page } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import {
@@ -15,6 +18,7 @@ import {
   type Environment,
   type Settings
 } from '../src/shared/types'
+import { seedUserData } from '../e2e/fixtures/seed'
 
 const root = resolve(import.meta.dirname, '..')
 const WIDTH = 1440
@@ -69,14 +73,6 @@ const settings: Settings = {
   theme: 'light'
 }
 
-async function seed(dir: string): Promise<void> {
-  await mkdir(join(dir, 'collections'), { recursive: true })
-  await mkdir(join(dir, 'environments'), { recursive: true })
-  await writeFile(join(dir, 'collections', `${collection.id}.json`), JSON.stringify(collection))
-  await writeFile(join(dir, 'environments', `${environment.id}.json`), JSON.stringify(environment))
-  await writeFile(join(dir, 'settings.json'), JSON.stringify(settings))
-}
-
 const paletteKey = process.platform === 'darwin' ? 'Meta+k' : 'Control+k'
 
 async function capture(page: Page, name: string): Promise<void> {
@@ -91,12 +87,19 @@ async function capture(page: Page, name: string): Promise<void> {
 async function main(): Promise<void> {
   const userDataDir = await mkdtemp(join(tmpdir(), 'moss-screenshots-'))
   try {
-    await seed(userDataDir)
+    await seedUserData(userDataDir, {
+      collections: [collection],
+      environments: [environment],
+      settings
+    })
     await mkdir(join(root, 'assets'), { recursive: true })
-    const env = { ...process.env, NODE_ENV: 'production', MOSS_USER_DATA: userDataDir } as Record<
-      string,
-      string
-    >
+    const env = {
+      ...process.env,
+      NODE_ENV: 'production',
+      MOSS_USER_DATA: userDataDir,
+      // Tooling never touches the real keychain.
+      MOSS_SECRETS: 'plain'
+    } as Record<string, string>
     delete env['ELECTRON_RENDERER_URL']
     const app = await electron.launch({ args: [join(root, 'out/main/index.js')], cwd: root, env })
     try {
@@ -104,6 +107,12 @@ async function main(): Promise<void> {
       // Emulated, so the capture is exactly 1440×900 even on a screen too short for that window.
       await page.setViewportSize({ width: WIDTH, height: HEIGHT })
       await page.waitForSelector('[data-url-input]')
+      // Plain mode warns that secrets are unencrypted; keep that out of the pictures.
+      const notice = page.getByRole('status').filter({
+        hasText: 'Secrets are stored unencrypted on this system.'
+      })
+      await notice.getByRole('button', { name: 'Dismiss' }).click()
+      await notice.waitFor({ state: 'detached' })
       await page
         .getByRole('tree', { name: 'Collections' })
         .getByRole('treeitem', { name: 'Create user' })

@@ -1,10 +1,11 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { newRequestSpec, type Collection } from '../src/shared/types'
-import { launchApp, type LaunchedApp } from './fixtures/app'
+import { launchApp, tearDown, type LaunchedApp } from './fixtures/app'
+import { seedUserData } from './fixtures/seed'
 
 let dir: string
 let current: LaunchedApp | null = null
@@ -27,18 +28,13 @@ test.beforeEach(async () => {
     variables: [],
     schemaVersion: 1
   }
-  await mkdir(join(dir, 'collections'), { recursive: true })
-  await writeFile(join(dir, 'collections', `${collection.id}.json`), JSON.stringify(collection))
+  await seedUserData(dir, { collections: [collection] })
 })
 
 test.afterEach(async () => {
-  if (current) {
-    allErrors.push(...current.errors)
-    await current.close().catch(() => undefined)
-    current = null
-  }
-  await rm(dir, { recursive: true, force: true })
-  expect(allErrors).toEqual([])
+  const app = current
+  current = null
+  await tearDown(app, allErrors, [dir])
 })
 
 async function launch(): Promise<Page> {

@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
-import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { launchApp, type LaunchedApp } from './fixtures/app'
+import { launchApp, tearDown, type LaunchedApp } from './fixtures/app'
 import { startServer, type FixtureServer } from './fixtures/server'
 
 let serverA: FixtureServer
@@ -27,13 +27,9 @@ test.beforeEach(async () => {
 })
 
 test.afterEach(async () => {
-  if (current) {
-    allErrors.push(...current.errors)
-    await current.close().catch(() => undefined)
-    current = null
-  }
-  await rm(dir, { recursive: true, force: true })
-  expect(allErrors).toEqual([])
+  const app = current
+  current = null
+  await tearDown(app, allErrors, [dir])
 })
 
 async function launch(): Promise<Page> {

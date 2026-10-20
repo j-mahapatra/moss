@@ -355,13 +355,13 @@ describe('parseCurl', () => {
       ['--data ignored with --head']
     ],
     [
-      '-u and a Bearer header: the header wins',
+      'a Bearer header then -u: the header still wins',
       `curl -H 'Authorization: Bearer abc' -u user:pw https://x`,
       shape({ url: 'https://x', auth: { type: 'bearer', token: 'abc' } }),
       ['Both -u and a Bearer header were given; using the Bearer header']
     ],
     [
-      'a Bearer header then -u: the header still wins',
+      '-u and a Bearer header: the header wins',
       `curl -u user:pw -H 'Authorization: Bearer abc' https://x`,
       shape({ url: 'https://x', auth: { type: 'bearer', token: 'abc' } }),
       ['Both -u and a Bearer header were given; using the Bearer header']
