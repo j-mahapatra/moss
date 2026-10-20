@@ -188,7 +188,8 @@ export const HistoryEntrySchema = HistoryEntryBaseSchema.superRefine((e, ctx) =>
 
 export const SendOutcomeSchema = z.object({
   result: SendResultSchema,
-  history: HistoryEntrySchema.nullable()
+  history: HistoryEntrySchema.nullable(),
+  historyWarning: z.string().optional()
 })
 
 // Compile-time guards: each schema must stay in lockstep with its type.

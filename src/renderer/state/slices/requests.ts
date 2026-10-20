@@ -92,7 +92,7 @@ export function createRequests(
       // Read from state, not saved settings: a switch made ms ago counts (RF2).
       const environmentId = get().activeEnvironmentId ?? undefined
       try {
-        const { result, history } = await api['request:send']({
+        const { result, history, historyWarning } = await api['request:send']({
           requestId,
           request: get().draft,
           ...(collectionId ? { collectionId } : {}),
@@ -100,6 +100,7 @@ export function createRequests(
         })
         // Recorded even when stale: the request really was sent.
         if (history) recordHistory(history)
+        if (historyWarning) addNotice('warning', historyWarning)
         if (isCurrent()) set({ result, inFlight: null })
       } catch (err) {
         if (isCurrent()) {

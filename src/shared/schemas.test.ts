@@ -204,6 +204,13 @@ describe('HistoryEntrySchema', () => {
     )
   })
 
+  it('SendOutcomeSchema accepts an optional history warning', () => {
+    const result: SendResult = { ok: false, error: { kind: 'dns', message: 'x' } }
+    const out = { result, history: null, historyWarning: "Couldn't save this request to history." }
+    expect(SendOutcomeSchema.parse(out)).toEqual(out)
+    expect(SendOutcomeSchema.safeParse({ ...out, historyWarning: 1 }).success).toBe(false)
+  })
+
   it('SendOutcomeSchema accepts a null history', () => {
     const result: SendResult = { ok: false, error: { kind: 'dns', message: 'x' } }
     expect(SendOutcomeSchema.safeParse({ result, history: null }).success).toBe(true)

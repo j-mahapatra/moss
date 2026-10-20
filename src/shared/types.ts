@@ -75,7 +75,12 @@ export type HistoryEntry = {
   /** The stored request's body text was cut to HISTORY_BODY_MAX. */
   bodyTruncated?: boolean
 }
-export type SendOutcome = { result: SendResult; history: HistoryEntry | null }
+export type SendOutcome = {
+  result: SendResult
+  history: HistoryEntry | null
+  /** Set once per session, on the first send whose history entry couldn't be saved. */
+  historyWarning?: string
+}
 export type RunOptions = { timeoutMs: number; maxRedirects: number; maxBodyBytes: number }
 export const DEFAULT_RUN_OPTIONS: RunOptions = {
   timeoutMs: 30_000,

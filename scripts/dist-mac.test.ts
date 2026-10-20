@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planBuild } from './dist-mac.mjs'
+import { builtApps, planBuild, planVerify, verifyFailure } from './dist-mac.mjs'
 
 const APPLE_ID = {
   APPLE_ID: 'dev@example.com',
@@ -65,5 +65,54 @@ describe('planBuild', () => {
       kind: 'signed',
       builderArgs: ['-c.mac.identity=', '-c.mac.notarize=true']
     })
+  })
+})
+
+describe('builtApps', () => {
+  it('finds Moss.app in each dist/mac* folder that has one', () => {
+    const has = new Set(['/r/dist/mac/Moss.app', '/r/dist/mac-arm64/Moss.app'])
+    expect(
+      builtApps(
+        '/r/dist',
+        ['mac', 'mac-arm64', 'mac-universal', 'linux-unpacked', 'Moss-1.0.0-x64.dmg'],
+        (p: string) => has.has(p)
+      )
+    ).toEqual(['/r/dist/mac/Moss.app', '/r/dist/mac-arm64/Moss.app'])
+  })
+})
+
+describe('planVerify', () => {
+  const apps = ['/r/dist/mac/Moss.app', '/r/dist/mac-arm64/Moss.app']
+
+  it('checks nothing for an unsigned build', () => {
+    expect(planVerify({ kind: 'unsigned' }, apps)).toEqual({ kind: 'skip' })
+  })
+
+  it('runs codesign and then spctl on every built app of a signed build', () => {
+    expect(planVerify({ kind: 'signed', builderArgs: [] }, apps)).toEqual({
+      kind: 'verify',
+      checks: apps.flatMap((app) => [
+        { bin: 'codesign', args: ['--verify', '--deep', '--strict', '--verbose=2', app] },
+        { bin: 'spctl', args: ['-a', '-t', 'exec', '-vv', app] }
+      ])
+    })
+  })
+
+  it('fails a signed build that produced no app to verify', () => {
+    const plan = planVerify({ kind: 'signed', builderArgs: [] }, [])
+    expect(plan.kind).toBe('error')
+    expect(plan.message).toMatch(/no Moss\.app/i)
+  })
+})
+
+describe('verifyFailure', () => {
+  it('names the check and the app, and says not to ship it', () => {
+    const msg = verifyFailure(
+      { bin: 'spctl', args: ['-a', '-t', 'exec', '-vv', '/r/dist/mac/Moss.app'] },
+      3
+    )
+    expect(msg).toContain('spctl -a -t exec -vv /r/dist/mac/Moss.app')
+    expect(msg).toContain('exit 3')
+    expect(msg).toMatch(/not signed or notarized as expected; do not ship it/)
   })
 })

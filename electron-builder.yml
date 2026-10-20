@@ -23,6 +23,8 @@ nsis:
   createDesktopShortcut: always
 afterPack: build/after-pack.cjs
 mac:
+  # Hardened runtime needs only allow-jit and allow-unsigned-executable-memory for Electron.
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   hardenedRuntime: true
   # Unsigned by default; `npm run dist:mac` overrides both when signing env vars are set.

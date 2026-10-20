@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { registerIpc, type IpcDeps } from './ipc'
+import { HISTORY_WARNING, registerIpc, type IpcDeps } from './ipc'
 import { newRequestSpec } from '../shared/types'
 import { DEFAULT_SETTINGS } from '../shared/types'
 import type { HistoryEntry, SendResult, SendOutcome } from '../shared/types'
@@ -247,6 +247,30 @@ describe('registerIpc', () => {
       })) as SendOutcome
       expect(out.result.ok).toBe(true)
       expect(out.history).toBeNull()
+    })
+
+    it('warns once per session when appending to history fails', async () => {
+      const t = setup()
+      const send = async (): Promise<SendOutcome> =>
+        (await t.invoke('request:send', {
+          requestId: ID,
+          request: { ...newRequestSpec(), url: 'http://x.io/a' }
+        })) as SendOutcome
+      t.supervisor.send.mockResolvedValue(okRes)
+      t.history.append.mockRejectedValue(new Error('keychain locked'))
+      const first = await send()
+      expect(first).toEqual({
+        result: okRes,
+        history: null,
+        historyWarning: HISTORY_WARNING
+      })
+      expect(HISTORY_WARNING).toBe("Couldn't save this request to history.")
+      const second = await send()
+      expect(second).toEqual({ result: okRes, history: null })
+      t.history.append.mockResolvedValue(undefined)
+      const third = await send()
+      expect('historyWarning' in third).toBe(false)
+      expect(third.history).not.toBeNull()
     })
 
     it('lists, deletes and clears history', async () => {

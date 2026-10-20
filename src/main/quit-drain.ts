@@ -6,6 +6,11 @@ let quitRequested = false
  * True once a quit has started (⌘Q, a signal, or `app.quit()`). The drain's own `app.quit()`
  * can close the windows without Electron's quitting state, so `window-all-closed` uses this to
  * finish the quit on macOS instead of idling.
+ *
+ * It is never reset, which is only safe because no current path cancels a quit once it has
+ * started: every hold below ends in `app.quit()`. If a cancellable path is ever added (say a
+ * renderer `beforeunload` that keeps the window open), it must reset this flag when it cancels,
+ * or closing the last window later would quit the app on macOS.
  */
 export function isQuitting(): boolean {
   return quitRequested

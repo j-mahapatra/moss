@@ -30,10 +30,13 @@ export interface IpcDeps {
   now?: () => number
 }
 
+export const HISTORY_WARNING = "Couldn't save this request to history."
+
 // Invalid input throws a ZodError (a programming error); Electron rejects the renderer promise.
 export function registerIpc(ipcMain: Pick<IpcMain, 'handle'>, deps: IpcDeps): void {
   const now = deps.now ?? Date.now
   let startupWarnings = deps.startupWarnings ?? []
+  let historyWarned = false
   ipcMain.handle('request:send', async (_event, raw): Promise<SendOutcome> => {
     const { requestId, request, collectionId, environmentId } =
       ipcContract['request:send'].input.parse(raw)
@@ -67,7 +70,10 @@ export function registerIpc(ipcMain: Pick<IpcMain, 'handle'>, deps: IpcDeps): vo
     try {
       await deps.history.append(entry)
     } catch {
-      return { result, history: null }
+      // A failed append (a full disk, a locked or denied keychain) never fails the send.
+      if (historyWarned) return { result, history: null }
+      historyWarned = true
+      return { result, history: null, historyWarning: HISTORY_WARNING }
     }
     return { result, history: entry }
   })

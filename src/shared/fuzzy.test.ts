@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { fuzzyMatch, rankItems, type PaletteItem } from './fuzzy'
 
 type Row = {
@@ -138,13 +138,18 @@ describe('fuzzyMatch', () => {
     expect(strong).toBeGreaterThan(fuzzyMatch('gu', 'debug user')?.score ?? 0)
   })
 
-  it('exits early on a long non-match', () => {
-    // Without the pre-check this fills a 1000 × 100k table (~0.5 s); the scan takes a few ms.
-    const text = 'ab'.repeat(50_000)
-    const query = `${'a'.repeat(999)}z`
-    const started = performance.now()
-    expect(fuzzyMatch(query, text)).toBeNull()
-    expect(performance.now() - started).toBeLessThan(100)
+  it('exits early on a long non-match, before building any score table', () => {
+    // Each DP row is allocated with Array#fill; the subsequence pre-check allocates none.
+    const fill = vi.spyOn(Array.prototype, 'fill')
+    try {
+      expect(fuzzyMatch(`${'a'.repeat(999)}z`, 'ab'.repeat(50_000))).toBeNull()
+      expect(fill).not.toHaveBeenCalled()
+      // Control: a query that passes the pre-check does build the table.
+      expect(fuzzyMatch('ab', 'xab')).not.toBeNull()
+      expect(fill).toHaveBeenCalled()
+    } finally {
+      fill.mockRestore()
+    }
   })
 
   it('is deterministic', () => {

@@ -117,6 +117,30 @@ describe('installQuitDrain', () => {
   })
 })
 
+describe('a started quit is never cancelled', () => {
+  it('every held before-quit and will-quit ends in app.quit(), and later events pass through', async () => {
+    const queue = new WriteQueue()
+    const { app, fire, fireWill, quit } = fakeApp()
+    installQuitDrain(app, queue, {
+      timeoutMs: 20,
+      onDrained: () => {
+        throw new Error('cleanup failed')
+      }
+    })
+    // A write that never lands: the quit must still go ahead on the timeout.
+    void queue.run('k', () => new Promise<void>(() => undefined))
+    expect(fire()).toBe(true)
+    expect(fire()).toBe(true) // a second ⌘Q mid-drain is held, not a cancel
+    await vi.waitFor(() => expect(quit).toHaveBeenCalledTimes(1))
+    expect(fire()).toBe(false)
+    expect(fireWill()).toBe(true)
+    await vi.waitFor(() => expect(quit).toHaveBeenCalledTimes(2))
+    expect(fireWill()).toBe(false)
+    expect(fire()).toBe(false)
+    expect(quit).toHaveBeenCalledTimes(2)
+  })
+})
+
 describe('isQuitting', () => {
   it('is false until before-quit fires, then stays true', async () => {
     vi.resetModules()

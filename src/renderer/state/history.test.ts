@@ -179,6 +179,26 @@ describe('history: send', () => {
     expect(store.getState().history[0]?.status).toBe(404)
   })
 
+  it('raises the history warning of an outcome as a warning notice, and keeps the result', async () => {
+    const { store, sends } = setup()
+    await store.getState().init()
+    const a = store.getState().send()
+    sends[0]?.d.resolve({
+      result: okResult,
+      history: null,
+      historyWarning: "Couldn't save this request to history."
+    })
+    await a
+    expect(store.getState().result).toBe(okResult)
+    expect(messages(store.getState())).toEqual([
+      ['warning', "Couldn't save this request to history."]
+    ])
+    const b = store.getState().send()
+    sends[1]?.d.resolve({ result: okResult, history: null })
+    await b
+    expect(messages(store.getState())).toHaveLength(1)
+  })
+
   it('adds nothing for a null outcome history or a rejected send', async () => {
     const { store, sends } = setup()
     await store.getState().init()

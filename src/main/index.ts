@@ -1,10 +1,17 @@
 import { app, BrowserWindow, dialog, ipcMain, session } from 'electron'
+import type {
+  OpenDialogOptions,
+  OpenDialogReturnValue,
+  SaveDialogOptions,
+  SaveDialogReturnValue
+} from 'electron'
 import { writeFile } from 'fs/promises'
 import { isAbsolute, join } from 'path'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { createWindowOptions } from './window-options'
+import { withParent } from './dialog-parent'
 import { isAllowedNavigation } from './navigation'
 import { registerIpc } from './ipc'
 import { IMPORT_FILTERS, readImportFile, type ImportFileResult } from './import-files'
@@ -26,33 +33,32 @@ if (!app.isPackaged && process.env.MOSS_USER_DATA && isAbsolute(process.env.MOSS
 
 const supervisor = new RunnerSupervisor(forkUtilityRunner)
 
+// Dialogs attach to the focused window when there is one. The dialog functions are looked up at
+// each call (e2e replaces them on the `dialog` object).
+const showOpenDialog = (options: OpenDialogOptions): Promise<OpenDialogReturnValue> =>
+  withParent(BrowserWindow.getFocusedWindow(), dialog.showOpenDialog.bind(dialog), options)
+const showSaveDialog = (options: SaveDialogOptions): Promise<SaveDialogReturnValue> =>
+  withParent(BrowserWindow.getFocusedWindow(), dialog.showSaveDialog.bind(dialog), options)
+
 async function pickFile(): Promise<string | null> {
-  const parent = BrowserWindow.getFocusedWindow()
-  const opts = { properties: ['openFile' as const] }
-  const r = parent ? await dialog.showOpenDialog(parent, opts) : await dialog.showOpenDialog(opts)
+  const r = await showOpenDialog({ properties: ['openFile'] })
   return r.canceled || !r.filePaths[0] ? null : r.filePaths[0]
 }
 
 async function saveFile(base64: string, name: string): Promise<boolean> {
-  const parent = BrowserWindow.getFocusedWindow()
-  const opts = { defaultPath: name }
-  const r = parent ? await dialog.showSaveDialog(parent, opts) : await dialog.showSaveDialog(opts)
+  const r = await showSaveDialog({ defaultPath: name })
   if (r.canceled || !r.filePath) return false
   await writeFile(r.filePath, Buffer.from(base64, 'base64'))
   return true
 }
 
 async function openImportFile(): Promise<ImportFileResult | null> {
-  const parent = BrowserWindow.getFocusedWindow()
-  const opts = { properties: ['openFile' as const], filters: IMPORT_FILTERS }
-  const r = parent ? await dialog.showOpenDialog(parent, opts) : await dialog.showOpenDialog(opts)
+  const r = await showOpenDialog({ properties: ['openFile'], filters: IMPORT_FILTERS })
   return r.canceled || !r.filePaths[0] ? null : readImportFile(r.filePaths[0])
 }
 
 async function saveExportFile(name: string, text: string): Promise<boolean> {
-  const parent = BrowserWindow.getFocusedWindow()
-  const opts = { defaultPath: name }
-  const r = parent ? await dialog.showSaveDialog(parent, opts) : await dialog.showSaveDialog(opts)
+  const r = await showSaveDialog({ defaultPath: name })
   if (r.canceled || !r.filePath) return false
   await writeFile(r.filePath, text, 'utf8')
   return true
